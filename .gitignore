@@ -41,5 +41,13 @@ _site/
 \#*\#
 .\#*
 
+# Generated test artifacts
+star-lang-*.json
+star-lang-*.ndjson
+star_lang_*.py
+star_lang_*.ts
+star_protocol.py
+star_protocol.ts
+
 # OS
 .DS_Store

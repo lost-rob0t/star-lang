@@ -46,12 +46,18 @@ boundaries but do not implement StarLang.
 ## Layout
 
 ```
-<system>/                 one directory per ASDF system
-  <system>.asd            ASDF system definition
-  src/                    implementation sources
-  tests/                  FiveAM-style tests
-.github/workflows/ci.yml  SBCL-first CI matrix
-flake.nix                 Nix flake entry point
+prototype/               65 Common Lisp source files (~15K LOC) — the real StarLang implementation
+  *.lisp                 parser, compiler, dispatcher, runtime, remoting, journal, etc.
+  tests.lisp             baseline test + benchmark entry point
+  *-tests.lisp           individual test suites (run via sbcl --script)
+fixtures/                .star and .sexp fixture files for tests
+<system>/                placeholder ASDF system directories (to be filled from prototype/)
+  <system>.asd           ASDF system definition
+  src/                   implementation sources
+  tests/                 FiveAM-style tests
+starlang-prototype.asd   transitional ASDF system that loads the full prototype
+.github/workflows/ci.yml SBCL-first CI running all 24 test suites
+flake.nix                Nix flake entry point
 ```
 
 ## Tooling entry points
@@ -70,5 +76,8 @@ flake.nix                 Nix flake entry point
 
 ## Status
 
-This repository is provisioned but **not yet released**. Systems are scaffolded
-placeholders pending implementation work tracked in the research repository.
+The real StarLang prototype implementation (65 Common Lisp files, ~15K LOC) now
+lives in `prototype/`. All 24 test suites pass under SBCL. The code is organized
+as a transitional `starlang-prototype` ASDF system; the 15 target `star-*` and
+`starlang-*` systems are scaffolded placeholders that will be filled
+incrementally by splitting the prototype code along its natural boundaries.

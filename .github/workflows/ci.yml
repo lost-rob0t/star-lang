@@ -3,6 +3,8 @@ name: star-lang CI
 on:
   pull_request:
     paths:
+      - "prototype/**"
+      - "fixtures/**"
       - "**/*.asd"
       - "**/*.lisp"
       - "flake.nix"
@@ -15,6 +17,8 @@ on:
     branches:
       - main
     paths:
+      - "prototype/**"
+      - "fixtures/**"
       - "**/*.asd"
       - "**/*.lisp"
       - "flake.nix"
@@ -26,14 +30,9 @@ permissions:
 
 jobs:
   test:
-    name: SBCL-first build and load
+    name: SBCL prototype test suite
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        implementation:
-          - sbcl
     env:
       CL_SOURCE_REGISTRY: ${{ github.workspace }}//
     steps:
@@ -52,32 +51,169 @@ jobs:
             exit 1
           fi
 
-      - name: Install Roswell
+      - name: Install SBCL
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes sbcl
+
+      - name: Load starlang-prototype ASDF system
         shell: bash
         run: |
           set -euo pipefail
-          curl -L https://raw.githubusercontent.com/roswell/roswell/master/scripts/install-for-ci.sh | bash
-          echo "$HOME/.roswell/bin" >> "$GITHUB_PATH"
+          sbcl --non-interactive \
+            --eval "(require :asdf)" \
+            --eval "(asdf:load-system :starlang-prototype)" \
+            --eval "(format t \"~&starlang-prototype ASDF system loaded OK~%\")" \
+            --eval "(sb-ext:quit)"
 
-      - name: Install implementation
+      - name: Run baseline test suite
         shell: bash
-        run: ros install sbcl-bin
+        run: sbcl --script prototype/tests.lisp 2>&1 | tee star-lang-baseline.log
 
-      - name: Load every scaffolded system
+      - name: Run specification and domain suite
+        shell: bash
+        run: sbcl --script prototype/spec-domain-tests.lisp 2>&1 | tee star-lang-spec-domain.log
+
+      - name: Run normalized IR compiler suite
+        shell: bash
+        run: sbcl --script prototype/compiler-ir-tests.lisp 2>&1 | tee star-lang-compiler-ir.log
+
+      - name: Run core surface and wire protocol suite
+        shell: bash
+        run: sbcl --script prototype/core-surface-tests.lisp 2>&1 | tee star-lang-core-surface.log
+
+      - name: Run core semantic validation suite
+        shell: bash
+        run: sbcl --script prototype/core-semantics-tests.lisp 2>&1 | tee star-lang-core-semantics.log
+
+      - name: Run canonical JSON and binding generator suite
         shell: bash
         run: |
           set -euo pipefail
-          impl="${{ matrix.implementation }}"
-          for asd in ./*/*.asd; do
-            sys="$(basename "$asd" .asd)"
-            echo "::group::Loading $sys"
-            ros --"$impl" run --eval "(ql:quickload :$sys)" --eval "(quit)" || { echo "FAILED to load $sys"; exit 1; }
-            echo "::endgroup::"
+          sbcl --script prototype/canonical-json-binding-tests.lisp 2>&1 | tee star-lang-canonical-json-bindings.log
+          python3 -m json.tool star-lang-fec-manifest.json >/dev/null
+          python3 -m json.tool star-lang-fec-envelope.json >/dev/null
+          python3 -m py_compile star_lang_fec.py
+
+      - name: Run message lifecycle suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          sbcl --script prototype/message-lifecycle-tests.lisp 2>&1 | tee star-lang-message-lifecycle.log
+          for file in star-lang-lifecycle-*.json; do
+            python3 -m json.tool "$file" >/dev/null
           done
+          python3 -m py_compile star_protocol.py
 
-      - name: Offline cache reproducibility gate
+      - name: Run deterministic dispatcher suite
         shell: bash
         run: |
           set -euo pipefail
-          echo "Offline cache strategy documented in docs/roswell.md."
-          echo "Gate: a clean, pinned dist load must succeed without network access."
+          sbcl --script prototype/deterministic-dispatcher-tests.lisp 2>&1 | tee star-lang-deterministic-dispatcher.log
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          files = sorted(Path('.').glob('star-lang-dispatch-*.ndjson'))
+          if not files:
+              raise SystemExit('no deterministic dispatcher traces were produced')
+          for path in files:
+              lines = path.read_text(encoding='utf-8').splitlines()
+              if not lines:
+                  raise SystemExit(f'{path} is empty')
+              for line in lines:
+                  json.loads(line)
+          PY
+
+      - name: Run dispatcher idempotency identity suite
+        shell: bash
+        run: sbcl --script prototype/dispatcher-idempotency-identity-tests.lisp 2>&1 | tee star-lang-dispatcher-idempotency.log
+
+      - name: Run dispatcher idempotency validation order suite
+        shell: bash
+        run: sbcl --script prototype/dispatcher-idempotency-validation-order-tests.lisp 2>&1 | tee star-lang-dispatcher-validation-order.log
+
+      - name: Run standalone execution and runtime directory suite
+        shell: bash
+        run: sbcl --script prototype/execution-mode-tests.lisp 2>&1 | tee star-lang-execution-modes.log
+
+      - name: Run transport port and publication outbox suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          sbcl --script prototype/transport-outbox-tests.lisp 2>&1 | tee star-lang-transport-port.log
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          files = sorted(Path('.').glob('star-lang-transport-*.ndjson'))
+          if not files:
+              raise SystemExit('no transport traces were produced')
+          for path in files:
+              lines = path.read_text(encoding='utf-8').splitlines()
+              if not lines:
+                  raise SystemExit(f'{path} is empty')
+              for line in lines:
+                  json.loads(line)
+          PY
+
+      - name: Run optional cl-gserver runtime adapter suite
+        shell: bash
+        run: sbcl --script prototype/cl-gserver-runtime-tests.lisp 2>&1 | tee star-lang-cl-gserver-runtime.log
+
+      - name: Run BBP run idempotency suite
+        shell: bash
+        run: sbcl --script prototype/bbp-run-idempotency-tests.lisp 2>&1 | tee star-lang-bbp-run-idempotency.log
+
+      - name: Run domain remoting config suite
+        shell: bash
+        run: sbcl --script prototype/domain-remoting-config-tests.lisp 2>&1 | tee star-lang-remoting-config.log
+
+      - name: Run domain remoting runtime port suite
+        shell: bash
+        run: sbcl --script prototype/domain-remoting-runtime-port-tests.lisp 2>&1 | tee star-lang-remoting-runtime-port.log
+
+      - name: Run domain remoting lease suite
+        shell: bash
+        run: sbcl --script prototype/domain-remoting-lease-tests.lisp 2>&1 | tee star-lang-remoting-lease.log
+
+      - name: Run domain remoting journal suite
+        shell: bash
+        run: sbcl --script prototype/domain-remoting-journal-tests.lisp 2>&1 | tee star-lang-remoting-journal.log
+
+      - name: Run domain remoting journal no-node suite
+        shell: bash
+        run: sbcl --script prototype/domain-remoting-journal-no-node-tests.lisp 2>&1 | tee star-lang-remoting-journal-no-node.log
+
+      - name: Run domain remoting journal validation suite
+        shell: bash
+        run: sbcl --script prototype/domain-remoting-journal-validation-tests.lisp 2>&1 | tee star-lang-remoting-journal-validation.log
+
+      - name: Run BBP domain remoting integration suite
+        shell: bash
+        run: sbcl --script prototype/bbp-domain-remoting-tests.lisp 2>&1 | tee star-lang-bbp-domain-remoting.log
+
+      - name: Run star loader suite
+        shell: bash
+        run: sbcl --script prototype/star-loader-tests.lisp 2>&1 | tee star-lang-loader.log
+
+      - name: Run document runtime suite
+        shell: bash
+        run: sbcl --script prototype/document-runtime-tests.lisp 2>&1 | tee star-lang-document-runtime.log
+
+      - name: Run constructor runtime suite
+        shell: bash
+        run: sbcl --script prototype/constructor-runtime-tests.lisp 2>&1 | tee star-lang-constructor-runtime.log
+
+      - name: Upload test logs and generated artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: star-lang-test-logs
+          path: |
+            star-lang-*.log
+            star-lang-*.json
+            star-lang-*.ndjson
+            star_lang_*.py
+            star_lang_*.ts
+            star_protocol.py
+            star_protocol.ts
+          if-no-files-found: warn
