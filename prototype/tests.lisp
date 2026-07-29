@@ -2,7 +2,7 @@
 
 (in-package #:star-lang.prototype)
 
-(let ((fixture (merge-pathnames "fixtures/email-enumeration.sexp" *load-truename*)))
+(let ((fixture (merge-pathnames "../fixtures/email-enumeration.sexp" *load-truename*)))
   (test-reader-rejects-dispatch)
   (multiple-value-bind (runtime outputs loaded-fixture) (run-example fixture)
     (declare (ignore outputs loaded-fixture))
