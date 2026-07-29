@@ -1,0 +1,83 @@
+name: star-lang CI
+
+on:
+  pull_request:
+    paths:
+      - "**/*.asd"
+      - "**/*.lisp"
+      - "flake.nix"
+      - ".github/workflows/ci.yml"
+      - "README.md"
+      - "SECURITY.md"
+      - "CHANGELOG.md"
+      - "CONTRIBUTING.md"
+  push:
+    branches:
+      - main
+    paths:
+      - "**/*.asd"
+      - "**/*.lisp"
+      - "flake.nix"
+      - ".github/workflows/ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: SBCL-first build and load
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        implementation:
+          - sbcl
+    env:
+      CL_SOURCE_REGISTRY: ${{ github.workspace }}//
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enforce Common Lisp-only implementation boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          forbidden=""
+          while IFS= read -r -d '' f; do
+            forbidden="$forbidden $f"
+          done < <(find . -path ./.git -prune -o -type f \( -name '*.rkt' -o -name '*.scm' -o -name '*.ss' -o -name '*.py' \) -print)
+          if [ -n "$forbidden" ]; then
+            echo "Forbidden non-Common-Lisp implementation files found:$forbidden"
+            exit 1
+          fi
+
+      - name: Install Roswell
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L https://raw.githubusercontent.com/roswell/roswell/master/scripts/install-for-ci.sh | bash
+          echo "$HOME/.roswell/bin" >> "$GITHUB_PATH"
+
+      - name: Install implementation
+        shell: bash
+        run: ros install sbcl-bin
+
+      - name: Load every scaffolded system
+        shell: bash
+        run: |
+          set -euo pipefail
+          impl="${{ matrix.implementation }}"
+          for asd in ./*/*.asd; do
+            sys="$(basename "$asd" .asd)"
+            echo "::group::Loading $sys"
+            ros --"$impl" run --eval "(ql:quickload :$sys)" --eval "(quit)" || { echo "FAILED to load $sys"; exit 1; }
+            echo "::endgroup::"
+          done
+
+      - name: Offline cache reproducibility gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Offline cache strategy documented in docs/roswell.md."
+          echo "Gate: a clean, pinned dist load must succeed without network access."

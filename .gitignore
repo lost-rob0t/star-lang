@@ -1,0 +1,45 @@
+# Common Lisp build artifacts
+*.fasl
+*.fas
+*.x86f
+*.dfsl
+*.lx32f
+*.lx64f
+*.l32f
+*.l64f
+*.ax
+*.dx64f
+*.dx32f
+*.lx
+*.abcl
+*.cls
+*~
+*.~*
+__bin/
+bin/
+build/
+
+# Lisp images and cores
+*.core
+core
+sbcl.core
+
+# ASDF / Quicklisp local state
+.quicklisp/
+.quicklisp-dists/
+.bundle/
+
+# Nix
+result
+result-*
+
+# Editor / IDE
+.cache/
+_site/
+.dashdocstream/
+*.elc
+\#*\#
+.\#*
+
+# OS
+.DS_Store
