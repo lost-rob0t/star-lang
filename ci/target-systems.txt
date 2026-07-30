@@ -1,0 +1,15 @@
+star-actor-protocol
+star-sento-compat
+star-mailbox
+star-supervisor
+star-journal
+star-lease
+star-capability
+star-artifact
+star-adapter-sdk
+star-http-port
+star-process-port
+star-canonical-json
+star-xlsx
+starlang-compiler
+starlang-runtime
