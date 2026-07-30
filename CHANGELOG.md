@@ -21,16 +21,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Provisioned the `lost-rob0t/star-lang` repository as the Common Lisp-only
-  StarLang compiler and durable actor runtime home.
-- Scaffolded placeholder ASDF systems for all fifteen `star-*` and
-  `starlang-*` subsystems defined in the provisioning decision.
-- Added SBCL-first CI matrix, Nix flake entry point, Roswell notes, GPL-3.0
-  license, contribution policy, and SBOM inventory.
+- Added a real Nix package that loads and checks `starlang-prototype`, installs
+  the full source tree, and exposes `starlang` and `starlang-test` executables.
+- Added flake apps, a development shell, a formatter, and `nix flake check`.
+- Added a dedicated Nix GitHub Actions workflow.
+
+### Changed
+
+- Relicensed all first-party StarLang systems from GPL-3.0 to
+  GNU Affero General Public License v3.0 only (`AGPL-3.0-only`).
+- Replaced the placeholder Nix derivation that swallowed ASDF failures and
+  installed an empty output.
 
 ### Decisions
 
-- License: GPL-3.0.
+- License: `AGPL-3.0-only`.
 - Visibility: public.
 - ASDF naming: `star-<name>` and `starlang-<name>`, lowercase, hyphen-separated.
 - Primary implementation: SBCL.

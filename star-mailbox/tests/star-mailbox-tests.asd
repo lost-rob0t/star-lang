@@ -1,7 +1,7 @@
 (defsystem "star-mailbox-tests"
   :description "Unit tests for star-mailbox"
   :author "lost-rob0t"
-  :license "GPL-3.0"
+  :license "AGPL-3.0-only"
   :depends-on ("star-mailbox" "fiveam")
   :components
   ((:file "star-mailbox-tests"))

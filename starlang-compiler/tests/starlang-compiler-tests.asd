@@ -1,7 +1,7 @@
 (defsystem "starlang-compiler-tests"
   :description "Unit tests for starlang-compiler"
   :author "lost-rob0t"
-  :license "GPL-3.0"
+  :license "AGPL-3.0-only"
   :depends-on ("starlang-compiler" "fiveam")
   :components
   ((:file "starlang-compiler-tests"))

@@ -1,7 +1,7 @@
 (defsystem "star-process-port-tests"
   :description "Unit tests for star-process-port"
   :author "lost-rob0t"
-  :license "GPL-3.0"
+  :license "AGPL-3.0-only"
   :depends-on ("star-process-port" "fiveam")
   :components
   ((:file "star-process-port-tests"))

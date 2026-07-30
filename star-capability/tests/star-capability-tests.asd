@@ -1,7 +1,7 @@
 (defsystem "star-capability-tests"
   :description "Unit tests for star-capability"
   :author "lost-rob0t"
-  :license "GPL-3.0"
+  :license "AGPL-3.0-only"
   :depends-on ("star-capability" "fiveam")
   :components
   ((:file "star-capability-tests"))
