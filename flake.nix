@@ -66,6 +66,7 @@
               sbcl --script "$test_file"
             done
 
+            cd "$source_root"
             runHook postCheck
           '';
 
@@ -74,7 +75,7 @@
 
             source_root="$out/share/common-lisp/source/star-lang"
             mkdir -p "$source_root" "$out/bin"
-            cp -R . "$source_root/"
+            cp -R "$src"/. "$source_root/"
 
             cat > "$out/bin/starlang" <<EOF
             #!${pkgs.runtimeShell}
