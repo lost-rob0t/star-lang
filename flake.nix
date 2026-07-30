@@ -45,6 +45,15 @@
               --eval '(format t "~&starlang-prototype loaded successfully~%")' \
               --eval '(sb-ext:quit)'
 
+            while IFS= read -r target_system; do
+              [ -n "$target_system" ] || continue
+              echo "Loading $target_system"
+              sbcl --non-interactive \
+                --eval '(require :asdf)' \
+                --eval "(asdf:load-system :$target_system)" \
+                --eval '(sb-ext:quit)'
+            done < ci/target-systems.txt
+
             runHook postBuild
           '';
 
