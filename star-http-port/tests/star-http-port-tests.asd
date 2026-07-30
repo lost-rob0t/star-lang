@@ -1,7 +1,7 @@
 (defsystem "star-http-port-tests"
   :description "Unit tests for star-http-port"
   :author "lost-rob0t"
-  :license "GPL-3.0"
+  :license "AGPL-3.0-only"
   :depends-on ("star-http-port" "fiveam")
   :components
   ((:file "star-http-port-tests"))

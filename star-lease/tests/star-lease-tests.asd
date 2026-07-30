@@ -1,7 +1,7 @@
 (defsystem "star-lease-tests"
   :description "Unit tests for star-lease"
   :author "lost-rob0t"
-  :license "GPL-3.0"
+  :license "AGPL-3.0-only"
   :depends-on ("star-lease" "fiveam")
   :components
   ((:file "star-lease-tests"))

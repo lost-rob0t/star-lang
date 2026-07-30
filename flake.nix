@@ -6,41 +6,158 @@
     flake-utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = { self, nixpkgs, flake-utils }:
-    flake-utils.lib.eachDefaultSystem (system:
+  outputs =
+    {
+      self,
+      nixpkgs,
+      flake-utils,
+    }:
+    flake-utils.lib.eachDefaultSystem (
+      system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
+        lib = pkgs.lib;
         sbcl = pkgs.sbcl;
-        roswell = pkgs.roswell or null;
+
+        starLang = pkgs.stdenvNoCC.mkDerivation {
+          pname = "star-lang";
+          version = "0.1.0";
+          src = lib.cleanSource ./.;
+
+          strictDeps = true;
+          nativeBuildInputs = [
+            sbcl
+            pkgs.python3
+          ];
+
+          dontConfigure = true;
+
+          buildPhase = ''
+            runHook preBuild
+
+            export HOME="$TMPDIR/home"
+            mkdir -p "$HOME"
+            export CL_SOURCE_REGISTRY="$PWD//"
+
+            sbcl --non-interactive \
+              --eval '(require :asdf)' \
+              --eval '(asdf:load-system :starlang-prototype)' \
+              --eval '(format t "~&starlang-prototype loaded successfully~%")' \
+              --eval '(sb-ext:quit)'
+
+            runHook postBuild
+          '';
+
+          doCheck = true;
+          checkPhase = ''
+            runHook preCheck
+
+            source_root="$PWD"
+            test_root="$TMPDIR/star-lang-tests"
+            mkdir -p "$test_root"
+            cd "$test_root"
+
+            export HOME="$test_root/home"
+            mkdir -p "$HOME"
+            export CL_SOURCE_REGISTRY="$source_root//"
+
+            sbcl --script "$source_root/prototype/tests.lisp"
+            for test_file in "$source_root"/prototype/*-tests.lisp; do
+              sbcl --script "$test_file"
+            done
+
+            runHook postCheck
+          '';
+
+          installPhase = ''
+            runHook preInstall
+
+            source_root="$out/share/common-lisp/source/star-lang"
+            mkdir -p "$source_root" "$out/bin"
+            cp -R . "$source_root/"
+
+            cat > "$out/bin/starlang" <<EOF
+            #!${pkgs.runtimeShell}
+            set -euo pipefail
+
+            source_root="$out/share/common-lisp/source/star-lang"
+            export CL_SOURCE_REGISTRY="\$source_root//"
+
+            exec ${sbcl}/bin/sbcl \
+              --eval '(require :asdf)' \
+              --eval '(asdf:load-system :starlang-prototype)' \
+              "\$@"
+            EOF
+
+            cat > "$out/bin/starlang-test" <<EOF
+            #!${pkgs.runtimeShell}
+            set -euo pipefail
+
+            source_root="$out/share/common-lisp/source/star-lang"
+            test_root="\$(${pkgs.coreutils}/bin/mktemp -d)"
+            trap '${pkgs.coreutils}/bin/rm -rf "\$test_root"' EXIT
+
+            export HOME="\$test_root/home"
+            ${pkgs.coreutils}/bin/mkdir -p "\$HOME"
+            export CL_SOURCE_REGISTRY="\$source_root//"
+            cd "\$test_root"
+
+            ${sbcl}/bin/sbcl --script "\$source_root/prototype/tests.lisp"
+            for test_file in "\$source_root"/prototype/*-tests.lisp; do
+              ${sbcl}/bin/sbcl --script "\$test_file"
+            done
+            EOF
+
+            chmod +x "$out/bin/starlang" "$out/bin/starlang-test"
+
+            runHook postInstall
+          '';
+
+          meta = {
+            description = "Common Lisp StarLang compiler and durable actor runtime";
+            homepage = "https://github.com/lost-rob0t/star-lang";
+            license = lib.licenses.agpl3Only;
+            mainProgram = "starlang";
+            platforms = lib.platforms.unix;
+          };
+        };
       in
       {
+        packages = {
+          default = starLang;
+          star-lang = starLang;
+        };
+
+        apps = {
+          default = {
+            type = "app";
+            program = "${starLang}/bin/starlang";
+          };
+          tests = {
+            type = "app";
+            program = "${starLang}/bin/starlang-test";
+          };
+        };
+
+        checks.default = starLang;
+
         devShells.default = pkgs.mkShell {
-          buildInputs = [
+          packages = [
             sbcl
             pkgs.git
-          ] ++ (if roswell != null then [ roswell ] else [ ]);
+            pkgs.python3
+          ] ++ lib.optional (pkgs ? roswell) pkgs.roswell;
+
           shellHook = ''
             export CL_SOURCE_REGISTRY="$PWD//"
-            echo "star-lang dev shell: sbcl $(sbcl --version)"
-            echo "Load a system with: sbcl --eval '(require :asdf)' --eval '(asdf:load-system :star-actor-protocol)'"
+            echo "star-lang dev shell: $(sbcl --version)"
+            echo "Build: nix build"
+            echo "Run: nix run"
+            echo "Test: nix run .#tests"
           '';
         };
 
-        packages.default = pkgs.stdenv.mkDerivation {
-          pname = "star-lang";
-          version = "0.0.0";
-          src = ./.;
-          nativeBuildInputs = [ sbcl ];
-          buildPhase = ''
-            export CL_SOURCE_REGISTRY="$src//"
-            for asd in ./*/*.asd; do
-              sbcl --non-interactive \
-                --eval "(require :asdf)" \
-                --eval "(asdf:load-system :$(basename "$asd" .asd))" || true
-            done
-          '';
-          installPhase = "mkdir -p $out";
-          doCheck = false;
-        };
-      });
+        formatter = pkgs.nixfmt-rfc-style;
+      }
+    );
 }

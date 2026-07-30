@@ -1,7 +1,7 @@
 (defsystem "star-xlsx-tests"
   :description "Unit tests for star-xlsx"
   :author "lost-rob0t"
-  :license "GPL-3.0"
+  :license "AGPL-3.0-only"
   :depends-on ("star-xlsx" "fiveam")
   :components
   ((:file "star-xlsx-tests"))

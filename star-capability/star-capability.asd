@@ -1,7 +1,7 @@
 (defsystem "star-capability"
   :description "Capability tokens and authorization surface"
   :author "lost-rob0t"
-  :license "GPL-3.0"
+  :license "AGPL-3.0-only"
   :version "0.0.0"
   :depends-on ()
   :components

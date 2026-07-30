@@ -1,7 +1,7 @@
 (defsystem "star-adapter-sdk-tests"
   :description "Unit tests for star-adapter-sdk"
   :author "lost-rob0t"
-  :license "GPL-3.0"
+  :license "AGPL-3.0-only"
   :depends-on ("star-adapter-sdk" "fiveam")
   :components
   ((:file "star-adapter-sdk-tests"))

@@ -1,7 +1,7 @@
 (defsystem "starlang-prototype"
   :description "Transitional ASDF system for the StarLang Common Lisp prototype. The 65 source files in prototype/ self-load their dependencies via merge-pathnames with find-package guards. CI runs each test suite via sbcl --script. Individual star-* and starlang-* systems will be filled incrementally from this base."
   :author "lost-rob0t"
-  :license "GPL-3.0"
+  :license "AGPL-3.0-only"
   :version "0.1.0"
   :depends-on ()
   :serial t

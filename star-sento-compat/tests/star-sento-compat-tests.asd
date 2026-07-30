@@ -1,7 +1,7 @@
 (defsystem "star-sento-compat-tests"
   :description "Unit tests for star-sento-compat"
   :author "lost-rob0t"
-  :license "GPL-3.0"
+  :license "AGPL-3.0-only"
   :depends-on ("star-sento-compat" "fiveam")
   :components
   ((:file "star-sento-compat-tests"))

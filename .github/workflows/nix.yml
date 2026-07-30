@@ -1,0 +1,39 @@
+name: star-lang Nix
+
+on:
+  pull_request:
+    paths:
+      - "prototype/**"
+      - "fixtures/**"
+      - "**/*.asd"
+      - "**/*.lisp"
+      - "flake.nix"
+      - "flake.lock"
+      - "LICENSE"
+      - ".github/workflows/nix.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "prototype/**"
+      - "fixtures/**"
+      - "**/*.asd"
+      - "**/*.lisp"
+      - "flake.nix"
+      - "flake.lock"
+      - "LICENSE"
+      - ".github/workflows/nix.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  flake:
+    name: Nix flake check
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/determinate-nix-action@v3
+      - run: nix flake check --print-build-logs

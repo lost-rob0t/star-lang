@@ -4,15 +4,15 @@ Common Lisp-only **StarLang** compiler and durable actor runtime.
 
 `star-lang` hosts the reusable Common Lisp systems that power the StarIntel
 actor platform. The research and design evidence lives in
-[`lost-rob0t/starintel-auto-research`][research]; `starintel-server` later
-consumes released runtime systems from this repository.
+[`lost-rob0t/starintel-auto-research`][research]; `starintel-server` consumes
+released runtime systems from this repository.
 
 [research]: https://github.com/lost-rob0t/starintel-auto-research
 
 ## Scope
 
 This repository is the **runtime home** for the following Common Lisp systems.
-It is *not* the design source and contains *no* live Franklin County data
+It is not the design source and contains no live Franklin County data
 acquisition implementation.
 
 | System | Purpose |
@@ -36,48 +36,61 @@ acquisition implementation.
 ## Implementation language
 
 Common Lisp is the **sole** approved implementation language, per
-[STAR-LANG-INDEX-001][impl-index] in the research repository. Every alternate
-parser, compiler, dispatcher, and runtime implementation is denied. Generated
-Python and TypeScript bindings may consume versioned JSON contracts at system
+[STAR-LANG-INDEX-001][impl-index] in the research repository. Alternate parser,
+compiler, dispatcher, and runtime implementations are denied. Generated Python
+and TypeScript bindings may consume versioned JSON contracts at system
 boundaries but do not implement StarLang.
 
 [impl-index]: https://github.com/lost-rob0t/starintel-auto-research/blob/main/roam/indexes/star-lang/STAR-LANG-INDEX-001-implementation.org
 
+## Nix
+
+The flake packages the complete StarLang source tree, validates the
+`starlang-prototype` ASDF system, runs every prototype test script, and exposes
+runnable development commands.
+
+```sh
+nix build
+nix run
+nix run .#tests
+nix develop
+nix flake check
+```
+
+The installed package provides:
+
+- `bin/starlang`: starts SBCL with `starlang-prototype` loaded.
+- `bin/starlang-test`: runs the baseline and all `prototype/*-tests.lisp` suites.
+- `share/common-lisp/source/star-lang`: ASDF-visible StarLang sources.
+
 ## Layout
 
-```
-prototype/               65 Common Lisp source files (~15K LOC) — the real StarLang implementation
-  *.lisp                 parser, compiler, dispatcher, runtime, remoting, journal, etc.
-  tests.lisp             baseline test + benchmark entry point
-  *-tests.lisp           individual test suites (run via sbcl --script)
-fixtures/                .star and .sexp fixture files for tests
-<system>/                placeholder ASDF system directories (to be filled from prototype/)
-  <system>.asd           ASDF system definition
-  src/                   implementation sources
-  tests/                 FiveAM-style tests
-starlang-prototype.asd   transitional ASDF system that loads the full prototype
-.github/workflows/ci.yml SBCL-first CI running all 24 test suites
-flake.nix                Nix flake entry point
+```text
+prototype/               Real StarLang implementation
+fixtures/                .star and .sexp test fixtures
+<system>/                Target ASDF system directories
+starlang-prototype.asd   Transitional full-prototype ASDF system
+flake.nix                Package, apps, checks, and development shell
+.github/workflows/       SBCL and Nix CI
 ```
 
 ## Tooling entry points
 
-- **ASDF** is the build system. Each system is loadable via `(asdf:load-system :star-actor-protocol)`.
-- **SBCL** is the primary implementation. CI runs SBCL first; other conforming
-  implementations (ECL, ABCL) may be added later as a non-blocking matrix.
-- **Roswell** installs SBCL and loads systems reproducibly. See `docs/roswell.md`.
-- **Nix** provides a reproducible offline cache via `flake.nix` (`nix develop`).
+- **ASDF** loads systems such as `(asdf:load-system :starlang-prototype)`.
+- **SBCL** is the primary Common Lisp implementation.
+- **Roswell** is available in the development shell when provided by Nixpkgs.
+- **Nix** builds, runs, and checks StarLang reproducibly.
 
 ## Licensing and SBOM
 
-- Source license: **GPL-3.0** (see `LICENSE`).
+- Source license: **GNU Affero General Public License v3.0 only**
+  (`AGPL-3.0-only`).
 - Upstream contributions and fork policy: see `CONTRIBUTING.md`.
 - Source, license, and SBOM inventory: see `SECURITY.md`.
 
 ## Status
 
-The real StarLang prototype implementation (65 Common Lisp files, ~15K LOC) now
-lives in `prototype/`. All 24 test suites pass under SBCL. The code is organized
-as a transitional `starlang-prototype` ASDF system; the 15 target `star-*` and
-`starlang-*` systems are scaffolded placeholders that will be filled
-incrementally by splitting the prototype code along its natural boundaries.
+The real StarLang prototype implementation lives in `prototype/`. The code is
+organized as a transitional `starlang-prototype` ASDF system while the target
+`star-*` and `starlang-*` systems are filled incrementally. SBCL CI and
+`nix flake check` enforce loadability and test execution.
