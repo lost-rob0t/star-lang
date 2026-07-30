@@ -61,10 +61,10 @@
             mkdir -p "$HOME"
             export CL_SOURCE_REGISTRY="$source_root//"
 
-            sbcl --script "$source_root/prototype/tests.lisp"
-            for test_file in "$source_root"/prototype/*-tests.lisp; do
-              sbcl --script "$test_file"
-            done
+            sbcl --non-interactive \
+              --eval '(require :asdf)' \
+              --eval '(asdf:test-system :starlang-prototype)' \
+              --eval '(sb-ext:quit)'
 
             cd "$source_root"
             runHook postCheck
@@ -103,10 +103,10 @@
             export CL_SOURCE_REGISTRY="\$source_root//"
             cd "\$test_root"
 
-            ${sbcl}/bin/sbcl --script "\$source_root/prototype/tests.lisp"
-            for test_file in "\$source_root"/prototype/*-tests.lisp; do
-              ${sbcl}/bin/sbcl --script "\$test_file"
-            done
+            ${sbcl}/bin/sbcl --non-interactive \
+              --eval '(require :asdf)' \
+              --eval '(asdf:test-system :starlang-prototype)' \
+              --eval '(sb-ext:quit)'
             EOF
 
             chmod +x "$out/bin/starlang" "$out/bin/starlang-test"
