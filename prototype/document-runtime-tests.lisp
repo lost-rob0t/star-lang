@@ -1,4 +1,5 @@
 (load (merge-pathnames "document-runtime.lisp" *load-truename*))
+(load (merge-pathnames "relation-compatibility.lisp" *load-truename*))
 
 (in-package #:star-lang.document-runtime)
 
@@ -19,6 +20,17 @@
       (if (typep caught condition-type)
           t
           (error caught)))))
+
+(defun call-with-captured-target-warning (thunk)
+  (let ((count 0)
+        (value nil))
+    (handler-bind
+        ((star-lang.relation-compatibility:legacy-relation-target-warning
+           (lambda (warning)
+             (incf count)
+             (muffle-warning warning))))
+      (setf value (funcall thunk)))
+    (values value count)))
 
 (defun valid-ulid-p (value)
   (and (stringp value)
@@ -164,9 +176,89 @@
                   "relation source")
     (assert-equal (document-value org "id")
                   (document-value relation "target")
-                  "relation target")
+                  "legacy relation target")
+    (assert-true (null (document-value relation "destination"))
+                 "legacy relation omits destination")
     (assert-equal "member-of" (document-value relation "predicate")
                   "relation predicate")))
+
+(defun test-relation-compatibility (legacy-graph canonical-graph)
+  (multiple-value-bind (relation warning-count)
+      (call-with-captured-target-warning
+       (lambda ()
+         (create-document
+          canonical-graph
+          "relation"
+          '(("source" . "source-1")
+            ("target" . "destination-1")
+            ("predicate" . "related-to"))
+          :dataset "relations")))
+    (assert-equal 1 warning-count "legacy target warning count")
+    (assert-equal "destination-1"
+                  (document-value relation "destination")
+                  "legacy target normalized to destination")
+    (assert-true (null (document-value relation "target"))
+                 "canonical relation drops target")
+    (let ((encoded (encode-document relation :couchdb nil :key-style :kebab)))
+      (assert-true (assoc "destination" encoded :test #'string=)
+                   "canonical relation serializes destination")
+      (assert-true (null (assoc "target" encoded :test #'string=))
+                   "canonical relation does not serialize target")))
+  (multiple-value-bind (decoded warning-count)
+      (call-with-captured-target-warning
+       (lambda ()
+         (decode-document
+          canonical-graph
+          "relation"
+          '(("source" . "source-2")
+            ("target" . "destination-2")
+            ("predicate" . "related-to")
+            ("dataset" . "relations"))
+          :couchdb nil
+          :key-style :kebab)))
+    (assert-equal 1 warning-count "legacy decoded target warning count")
+    (assert-equal "destination-2"
+                  (document-value decoded "destination")
+                  "legacy encoded target normalized"))
+  (multiple-value-bind (relation warning-count)
+      (call-with-captured-target-warning
+       (lambda ()
+         (create-document
+          legacy-graph
+          "relation"
+          '(("source" . "source-3")
+            ("destination" . "destination-3")
+            ("predicate" . "related-to"))
+          :dataset "relations")))
+    (assert-equal 0 warning-count "canonical input against legacy spec is silent")
+    (assert-equal "destination-3"
+                  (document-value relation "target")
+                  "canonical destination bridges to legacy target")
+    (assert-true (null (document-value relation "destination"))
+                 "legacy spec stores target until ported"))
+  (assert-true
+   (condition-signaled-p
+    'invalid-document-error
+    (lambda ()
+      (create-document
+       canonical-graph
+       "relation"
+       '(("source" . "source-4")
+         ("target" . "destination-a")
+         ("destination" . "destination-b")
+         ("predicate" . "related-to"))
+       :dataset "relations")))
+   "conflicting target and destination rejected")
+  (let* ((source (create-document canonical-graph "document" '()
+                                  :dataset "relations"))
+         (destination (create-document canonical-graph "document" '()
+                                       :dataset "relations"))
+         (relation (relate-documents canonical-graph source destination)))
+    (assert-equal (document-value destination "id")
+                  (document-value relation "destination")
+                  "relate-documents emits canonical destination")
+    (assert-true (null (document-value relation "target"))
+                 "relate-documents omits legacy target")))
 
 (defun test-validation (graph)
   (assert-true
@@ -191,22 +283,32 @@
                        :dataset "ports")))
    "typed field rejection"))
 
+(defun test-cache-directory (name)
+  (merge-pathnames
+   (format nil "star-lang-~A-~36R/"
+           name
+           (random most-positive-fixnum))
+   (uiop:temporary-directory)))
+
 (defun run-tests (&optional fixture-path)
   (let* ((fixture
            (or fixture-path
                (merge-pathnames "../fixtures/star-cl.star" *load-truename*)))
+         (canonical-fixture
+           (merge-pathnames "../fixtures/starintel-core.star" *load-truename*))
          (graph
            (star-lang.loader:load-star-file
             fixture
-            :cache-directory
-            (merge-pathnames
-             (format nil "star-lang-document-runtime-tests-~36R/"
-                     (random most-positive-fixnum))
-             (uiop:temporary-directory)))))
+            :cache-directory (test-cache-directory "document-runtime-tests")))
+         (canonical-graph
+           (star-lang.loader:load-star-file
+            canonical-fixture
+            :cache-directory (test-cache-directory "relation-compatibility-tests"))))
     (test-id-api)
     (multiple-value-bind (person org)
         (test-contracts-and-construction graph)
       (test-encoding-and-relations graph person org))
+    (test-relation-compatibility graph canonical-graph)
     (test-validation graph)
     (format t "Star-Lang document runtime and ID API tests passed.~%")
     t))
