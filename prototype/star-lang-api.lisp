@@ -3,6 +3,9 @@
 (unless (find-package "STAR-LANG.CONSTRUCTOR-RUNTIME")
   (load (merge-pathnames "constructor-runtime.lisp" *load-truename*)))
 
+(unless (find-package "STAR-LANG.RELATION-COMPATIBILITY")
+  (load (merge-pathnames "relation-compatibility.lisp" *load-truename*)))
+
 (defpackage #:star-lang.api
   (:use #:cl)
   (:export
@@ -79,10 +82,10 @@
   (apply #'star-lang.document-runtime:decode-document
          graph document-type encoded arguments))
 
-(defun relate-documents (graph source target &rest arguments
+(defun relate-documents (graph source destination &rest arguments
                          &key &allow-other-keys)
   (apply #'star-lang.document-runtime:relate-documents
-         graph source target arguments))
+         graph source destination arguments))
 
 (defun generate-id (kind &rest arguments &key &allow-other-keys)
   (apply #'star-lang.document-runtime:generate-id kind arguments))
