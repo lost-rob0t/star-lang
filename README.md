@@ -11,29 +11,36 @@ released runtime systems from this repository.
 
 ## Research conformance
 
-The implementation must conform to the approved Star-Lang research sequence
-`STAR-LANG-RESEARCH-000` through `STAR-LANG-RESEARCH-009`.
+The implementation is being hardened against the approved Star-Lang research
+sequence `STAR-LANG-RESEARCH-000` through `STAR-LANG-RESEARCH-009`.
 
-The binding rules are:
+**Current status: not yet fully conformant.** The authoritative implementation
+ledger is [`RESEARCH-CONFORMANCE-000-009.md`](RESEARCH-CONFORMANCE-000-009.md),
+and completion is blocked by [issue #6][conformance-issue]. Research approval
+does not imply that the current implementation already satisfies every rule.
+
+[conformance-issue]: https://github.com/lost-rob0t/star-lang/issues/6
+
+The required boundary is:
 
 - Common Lisp is the sole parser, compiler, semantic-engine, dispatcher, and
   runtime implementation language.
-- `.star` source is parsed by the closed Star-Lang parser and never by the
+- `.star` source must be parsed by the closed Star-Lang parser and never by the
   Common Lisp reader.
-- specification imports are exact-versioned, SHA-256 locked, locally compiled,
-  and HTTPS-only when remote resolution is explicitly enabled.
-- normalized IR remains data-only and runtime-neutral; cl-gserver operations
-  appear only in adapter manifests.
-- document, message, manifest, and serialized wire field names use lower
+- specification imports must be exact-versioned, full SHA-256 locked, locally
+  compiled, and HTTPS-only when remote resolution is explicitly enabled.
+- normalized IR must remain data-only and runtime-neutral; cl-gserver operations
+  may appear only in adapter manifests.
+- document, message, manifest, and serialized wire field names must use lower
   camelCase and preserve source spelling.
-- canonical JSON uses lower camelCase keys, deterministic key ordering, finite
-  binary64 JSON numbers for `float`, and canonical strings for exact `decimal`.
+- canonical JSON must use lower camelCase keys, deterministic key ordering,
+  finite binary64 JSON numbers for `float`, and canonical strings for exact
+  `decimal`.
 - generated Python and TypeScript bindings consume the same portable manifest;
   they do not implement StarLang.
 
-`prototype/research-conformance-tests.lisp` and the static checks in CI guard
-these rules. A change that weakens one of them must first amend the authoritative
-research record.
+A permanent conformance suite must guard these rules before this section can be
+changed to claim full compliance.
 
 ## Scope
 
@@ -119,5 +126,5 @@ flake.nix                Package, apps, checks, and development shell
 The canonical Common Lisp implementation lives in `prototype/`. The code is
 organized as a transitional `starlang-prototype` ASDF system while the target
 `star-*` and `starlang-*` systems are filled incrementally. SBCL CI and
-`nix flake check` enforce loadability, test execution, and the approved
-research-conformance boundary.
+`nix flake check` enforce loadability and the existing test matrix; research
+000–009 compliance remains an active hardening gate tracked in the ledger.
