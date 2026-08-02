@@ -22,6 +22,16 @@
              "Relation ~A uses deprecated field target; normalized it to destination."
              (legacy-relation-target-warning-document-type condition)))))
 
+(defparameter *runtime-metadata-fields*
+  '("id"
+    "dataset"
+    "dtype"
+    "schema-version"
+    "created-at"
+    "date-added"
+    "updated-at"
+    "date-updated"))
+
 (defvar *installed-p* nil)
 (defvar *base-create-document* nil)
 (defvar *base-decode-document* nil)
@@ -106,17 +116,36 @@
                       (map-value values alternate)))
             (t values))))))
 
+(defun remove-undeclared-generated-metadata (contract document input-values)
+  (let ((values
+          (star-lang.document-runtime:document-instance-values document)))
+    (dolist (field *runtime-metadata-fields*)
+      (when (and (not (contract-has-field-p contract field))
+                 (not (map-has-key-p input-values field)))
+        (setf values (map-remove values field))))
+    (setf (star-lang.document-runtime:document-instance-values document) values)
+    document))
+
 (defun compatible-create-document (graph document-type values
                                     &key dataset (validate t))
-  (let ((contract
-          (star-lang.document-runtime:compile-document-contract
-           graph document-type)))
-    (funcall *base-create-document*
-             graph
-             document-type
-             (normalize-relation-values contract values)
-             :dataset dataset
-             :validate validate)))
+  (let* ((contract
+           (star-lang.document-runtime:compile-document-contract
+            graph document-type))
+         (normalized-values
+           (normalize-relation-values contract values))
+         (document
+           (funcall *base-create-document*
+                    graph
+                    document-type
+                    normalized-values
+                    :dataset dataset
+                    :validate nil)))
+    (remove-undeclared-generated-metadata
+     contract document normalized-values)
+    (when validate
+      (star-lang.document-runtime:validate-document
+       graph document contract))
+    document))
 
 (defun compatible-decode-document (graph document-type encoded
                                     &key dataset (key-style :camel) (couchdb t))
