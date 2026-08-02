@@ -70,8 +70,7 @@
        (string= prefix value :end2 (length prefix))))
 
 (defun url-p (value)
-  (or (string-prefix-p "https://" value)
-      (string-prefix-p "http://" value)))
+  (string-prefix-p "https://" value))
 
 (defun full-sha256-digest-p (value)
   (and (stringp value)
@@ -244,7 +243,7 @@
                      name))
       (when (and url (not (url-p url)))
         (fail-loader 'import-error
-                     "Import URL ~S must use http:// or https://."
+                     "Import URL ~S must use https://."
                      url))
       (when (and path (not (stringp path)))
         (fail-loader 'import-error "Import path must be a string."))
@@ -335,7 +334,8 @@
                   "--max-redirs" "5"
                   "--connect-timeout" "10"
                   "--max-time" "60"
-                  "--proto" "=http,https"
+                  "--proto" "=https"
+                  "--proto-redir" "=https"
                   "--output" (namestring temporary-path)
                   url)
             :output :string
@@ -487,6 +487,10 @@
   (unless (and name version digest)
     (fail-loader 'import-error
                  "Loading a root URL requires :name, :version, and :digest."))
+  (unless (url-p url)
+    (fail-loader 'import-error
+                 "Root URL ~S must use https://."
+                 url))
   (let* ((cache (ensure-cache-directory cache-directory))
          (normalized (normalize-digest digest))
          (cached (digest-cache-path cache normalized)))
