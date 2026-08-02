@@ -1,0 +1,117 @@
+name: Prepare research 006 HTTPS PR
+
+on:
+  push:
+    branches:
+      - agent/research-006-https-imports
+    paths:
+      - .github/workflows/branch-fix-research-006-https.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/research-006-https-imports
+          fetch-depth: 0
+
+      - name: Enforce HTTPS-only imports
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          loader = Path('prototype/star-loader.lisp')
+          text = loader.read_text(encoding='utf-8')
+
+          old = '''(defun url-p (value)
+  (or (string-prefix-p "https://" value)
+      (string-prefix-p "http://" value)))'''
+          new = '''(defun url-p (value)
+  (string-prefix-p "https://" value))'''
+          if old not in text:
+              raise SystemExit('url-p patch anchor not found')
+          text = text.replace(old, new, 1)
+
+          old = '''      (when (and url (not (url-p url)))
+        (fail-loader 'import-error
+                     "Import URL ~S must use http:// or https://."
+                     url))'''
+          new = '''      (when (and url (not (url-p url)))
+        (fail-loader 'import-error
+                     "Import URL ~S must use https://."
+                     url))'''
+          if old not in text:
+              raise SystemExit('import URL validation anchor not found')
+          text = text.replace(old, new, 1)
+
+          old = '''                  "--location"
+                  "--max-redirs" "5"
+                  "--connect-timeout" "10"
+                  "--max-time" "60"
+                  "--proto" "=http,https"'''
+          new = '''                  "--location"
+                  "--max-redirs" "5"
+                  "--connect-timeout" "10"
+                  "--max-time" "60"
+                  "--proto" "=https"
+                  "--proto-redir" "=https"'''
+          if old not in text:
+              raise SystemExit('curl protocol anchor not found')
+          text = text.replace(old, new, 1)
+          loader.write_text(text, encoding='utf-8')
+
+          tests = Path('prototype/star-loader-tests.lisp')
+          text = tests.read_text(encoding='utf-8')
+          marker = '(defun test-dispatch-reader-rejected ()\n'
+          test = '''(defun test-http-import-rejected ()
+  (assert-true
+   (condition-signaled-p
+    'import-error
+    (lambda ()
+      (parse-import-declaration
+       '(import "test/remote@1"
+          :version "1.0.0"
+          :digest "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+          :url "http://example.test/remote.star"))))
+   "plain HTTP imports rejected"))
+
+'''
+          if marker not in text:
+              raise SystemExit('test insertion anchor not found')
+          text = text.replace(marker, test + marker, 1)
+
+          old = '''  (test-network-disabled-before-fetch)
+  (test-dispatch-reader-rejected)'''
+          new = '''  (test-network-disabled-before-fetch)
+  (test-http-import-rejected)
+  (test-dispatch-reader-rejected)'''
+          if old not in text:
+              raise SystemExit('test runner anchor not found')
+          text = text.replace(old, new, 1)
+          tests.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Run loader tests
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes sbcl
+          sbcl --script prototype/star-loader-tests.lisp
+
+      - name: Commit branch changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/branch-fix-research-006-https.yml
+          rm -f .github/workflows/fix-research-006-https.yml
+          git config user.name "starintel-research-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add prototype/star-loader.lisp prototype/star-loader-tests.lisp .github/workflows
+          git commit -m "fix(loader): require HTTPS for remote specifications"
+          git push origin HEAD:agent/research-006-https-imports
