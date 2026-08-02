@@ -1,0 +1,159 @@
+name: Prepare canonical relation destination PR
+
+on:
+  push:
+    branches:
+      - agent/research-006-relation-destination
+    paths:
+      - .github/workflows/prepare-relation-destination-pr.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/research-006-relation-destination
+          fetch-depth: 0
+
+      - name: Replace relation target with destination
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+          import re
+
+          def replace_required(path, old, new, label, minimum=1):
+              file = Path(path)
+              text = file.read_text(encoding='utf-8')
+              count = text.count(old)
+              if count < minimum:
+                  raise SystemExit(f'{label}: expected at least {minimum}, found {count}')
+              file.write_text(text.replace(old, new), encoding='utf-8')
+              return count
+
+          schema_changes = 0
+          for path in Path('fixtures').glob('*.star'):
+              text = path.read_text(encoding='utf-8')
+              updated = text.replace('(target document-id :required)',
+                                     '(destination document-id :required)')
+              updated = updated.replace(':fields (source target predicate)',
+                                        ':fields (source destination predicate)')
+              if updated != text:
+                  schema_changes += 1
+                  path.write_text(updated, encoding='utf-8')
+          if schema_changes < 2:
+              raise SystemExit(f'expected relation schema changes in at least two fixtures, found {schema_changes}')
+
+          replace_required(
+              'fixtures/star-cl-constructors.star',
+              ':lambda-list (dataset source target &key note (predicate "related-to"))',
+              ':lambda-list (dataset source destination &key note (predicate "related-to"))',
+              'new-relation lambda list')
+          replace_required(
+              'fixtures/star-cl-constructors.star',
+              '(target target)',
+              '(destination destination)',
+              'new-relation destination binding')
+
+          runtime = Path('prototype/document-runtime.lisp')
+          text = runtime.read_text(encoding='utf-8')
+          replacements = {
+              '(defun relate-documents (graph source target':
+                  '(defun relate-documents (graph source destination',
+              "(typep target 'document-instance)":
+                  "(typep destination 'document-instance)",
+              '(cons "target" (document-value target "id"))':
+                  '(cons "destination" (document-value destination "id"))',
+              '(document-value target "dataset")':
+                  '(document-value destination "dataset")',
+          }
+          for old, new in replacements.items():
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'document runtime anchor {old!r}: expected 1, found {count}')
+              text = text.replace(old, new, 1)
+          runtime.write_text(text, encoding='utf-8')
+
+          tests = Path('prototype/document-runtime-tests.lisp')
+          text = tests.read_text(encoding='utf-8')
+          old = '(document-value relation "target")'
+          if text.count(old) != 1:
+              raise SystemExit('document runtime relation target assertion anchor mismatch')
+          text = text.replace(old, '(document-value relation "destination")', 1)
+          text = text.replace('"relation target"', '"relation destination"', 1)
+          tests.write_text(text, encoding='utf-8')
+
+          loader_tests = Path('prototype/star-loader-tests.lisp')
+          text = loader_tests.read_text(encoding='utf-8')
+          marker = '''           (dolist (field
+                    '("id" "dataset" "dtype" "schema-version"'''
+          if marker not in text:
+              raise SystemExit('star loader relation assertion insertion anchor missing')
+          insertion = '''           (let ((relation (find-document library "relation")))
+             (assert-true (find-field relation "destination")
+                          "relation destination field")
+             (assert-true (not (find-field relation "target"))
+                          "legacy relation target field removed"))
+'''
+          text = text.replace(marker, insertion + marker, 1)
+          loader_tests.write_text(text, encoding='utf-8')
+
+          # Recompute locked local import digests after changing fixtures.
+          import_pattern = re.compile(
+              r'(\(import\s+"[^"]+".*?:digest\s+")sha256:[0-9a-fA-F]{64}(".*?:path\s+")([^"]+)(".*?\))',
+              re.S,
+          )
+          for _ in range(10):
+              changed = False
+              for path in sorted(Path('fixtures').glob('*.star')):
+                  text = path.read_text(encoding='utf-8')
+                  def update_digest(match):
+                      target = (path.parent / match.group(3)).resolve()
+                      if not target.exists():
+                          return match.group(0)
+                      digest = hashlib.sha256(target.read_bytes()).hexdigest()
+                      return (match.group(1) + 'sha256:' + digest +
+                              match.group(2) + match.group(3) + match.group(4))
+                  updated = import_pattern.sub(update_digest, text)
+                  if updated != text:
+                      path.write_text(updated, encoding='utf-8')
+                      changed = True
+              if not changed:
+                  break
+
+          # Guard the canonical relation contract without banning unrelated
+          # target documents, target actors, or dataflow targets.
+          for path in Path('fixtures').glob('*.star'):
+              text = path.read_text(encoding='utf-8')
+              if '(target document-id :required)' in text:
+                  raise SystemExit(f'{path}: legacy relation target field remains')
+          runtime_text = runtime.read_text(encoding='utf-8')
+          if '(cons "target" (document-value' in runtime_text:
+              raise SystemExit('document runtime still serializes relation target')
+          PY
+
+      - name: Run focused suites
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes sbcl
+          sbcl --script prototype/star-loader-tests.lisp
+          sbcl --script prototype/document-runtime-tests.lisp
+          sbcl --script prototype/constructor-runtime-tests.lisp
+
+      - name: Commit branch changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm .github/workflows/prepare-relation-destination-pr.yml
+          git config user.name "starintel-research-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add fixtures prototype .github/workflows/prepare-relation-destination-pr.yml
+          git commit -m "fix(relations): use canonical destination field"
+          git push origin HEAD:agent/research-006-relation-destination
