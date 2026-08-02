@@ -1,6 +1,9 @@
 name: Prepare canonical relation destination PR
 
 on:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - agent/research-006-relation-destination
@@ -12,6 +15,7 @@ permissions:
 
 jobs:
   patch:
+    if: github.event_name == 'push' || github.event.pull_request.head.ref == 'agent/research-006-relation-destination'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -105,7 +109,6 @@ jobs:
           text = text.replace(marker, insertion + marker, 1)
           loader_tests.write_text(text, encoding='utf-8')
 
-          # Recompute locked local import digests after changing fixtures.
           import_pattern = re.compile(
               r'(\(import\s+"[^"]+".*?:digest\s+")sha256:[0-9a-fA-F]{64}(".*?:path\s+")([^"]+)(".*?\))',
               re.S,
@@ -128,8 +131,6 @@ jobs:
               if not changed:
                   break
 
-          # Guard the canonical relation contract without banning unrelated
-          # target documents, target actors, or dataflow targets.
           for path in Path('fixtures').glob('*.star'):
               text = path.read_text(encoding='utf-8')
               if '(target document-id :required)' in text:
