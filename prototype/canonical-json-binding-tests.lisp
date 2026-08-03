@@ -58,7 +58,7 @@
   (let ((first (canonical-manifest-json manifest))
         (second (canonical-manifest-json manifest)))
     (wire-assert-equal first second "canonical manifest is deterministic")
-    (wire-assert-true (search "\"wire_version\":1" first)
+    (wire-assert-true (search "\"wireVersion\":1" first)
                       "manifest carries wire version")
     (wire-assert-true (search "\"org.starintel/fec@1/candidate-id\"" first)
                       "manifest carries qualified type names")
@@ -74,10 +74,10 @@
             :payload '(("endpoint" . "/candidates/search/")
                        ("page" . 1)
                        ("results" . ())
-                       ("retrieved-at" . "2026-07-22T20:00:00Z"))))
+                       ("retrievedAt" . "2026-07-22T20:00:00Z"))))
          (json (canonical-envelope-json manifest envelope))
          (expected
-           "{\"actor\":\"fec-importer\",\"dataset\":\"fec-2026\",\"message_id\":\"01JTEST\",\"message_type\":\"org.starintel/fec@1/ingest-page\",\"payload\":{\"endpoint\":\"/candidates/search/\",\"page\":1,\"results\":[],\"retrieved-at\":\"2026-07-22T20:00:00Z\"},\"star_version\":1}"))
+           "{\"actor\":\"fec-importer\",\"dataset\":\"fec-2026\",\"messageId\":\"01JTEST\",\"messageType\":\"org.starintel/fec@1/ingest-page\",\"payload\":{\"endpoint\":\"/candidates/search/\",\"page\":1,\"results\":[],\"retrievedAt\":\"2026-07-22T20:00:00Z\"},\"starVersion\":1}"))
     (wire-assert-equal expected json "canonical envelope ordering and types")
     json))
 
@@ -136,9 +136,9 @@
   (let ((candidate
           '(("name" . "Example Candidate")
             ("raw" . ())
-            ("candidate-id" . "H2OH03116")
+            ("candidateId" . "H2OH03116")
             ("office" . "house")
-            ("election-years" . (2026)))))
+            ("electionYears" . (2026)))))
     (wire-assert-true
      (validate-wire-value manifest "org.starintel/fec@1/candidate" candidate)
      "document validation includes inherited fields")
@@ -149,9 +149,9 @@
         (validate-wire-value
          manifest "org.starintel/fec@1/candidate"
          '(("raw" . ())
-           ("candidate-id" . "H2OH03116")
+           ("candidateId" . "H2OH03116")
            ("office" . "house")
-           ("election-years" . (2026))))))
+           ("electionYears" . (2026))))))
      "missing inherited required field rejected")))
 
 (defun test-python-bindings (manifest)
@@ -160,7 +160,7 @@
                       "Python scalar alias generated")
     (wire-assert-true (search "FecMoney = str" source)
                       "Python decimal maps to precision-safe string")
-    (wire-assert-true (search "\"candidate-id\": Required[CandidateId]" source)
+    (wire-assert-true (search "\"candidateId\": Required[CandidateId]" source)
                       "Python preserves source field names")
     (wire-assert-true (search "\"name\": Required[str]" source)
                       "Python candidate binding includes inherited fields")
@@ -176,7 +176,7 @@
                       "TypeScript decimal maps to precision-safe string")
     (wire-assert-true (search "export interface Candidate extends Entity" source)
                       "TypeScript document inheritance generated")
-    (wire-assert-true (search "\"candidate-id\": CandidateId;" source)
+    (wire-assert-true (search "\"candidateId\": CandidateId;" source)
                       "TypeScript preserves source field names")
     (wire-assert-true (search "export const actorContracts" source)
                       "TypeScript actor contracts generated")

@@ -26,36 +26,36 @@
 
   (document program
     (:persistence persistent)
-    (program-id program-id :required)
+    (programId program-id :required)
     (name string :required)
     (scope (list string) :required)
     (raw map :required))
 
   (document target
     (:persistence persistent)
-    (program-id program-id :required)
+    (programId program-id :required)
     (value string :required)
     (kind symbol :required)
-    (in-scope boolean :required)
+    (inScope boolean :required)
     (raw map :required))
 
   (document tool-run
     (:persistence persistent)
-    (run-id run-id :required)
-    (program-id program-id :required)
+    (runId run-id :required)
+    (programId program-id :required)
     (tool tool-name :required)
     (target string :required)
     (argv (list string) :required)
     (status tool-run-status :required)
-    (exit-code integer :optional)
+    (exitCode integer :optional)
     (stdout string :optional)
     (stderr string :optional)
     (raw map :required))
 
   (document tool-observation
     (:persistence persistent)
-    (run-id run-id :required)
-    (program-id program-id :required)
+    (runId run-id :required)
+    (programId program-id :required)
     (tool tool-name :required)
     (target string :required)
     (value string :required)
@@ -63,40 +63,40 @@
 
   (message register-program
     (:fields
-     ((program-id program-id :required)
+     ((programId program-id :required)
       (name string :required)
       (scope (list string) :required))))
 
   (message program-registered
     (:fields
-     ((program-id program-id :required)
+     ((programId program-id :required)
       (scope (list string) :required))))
 
   (message run-tool
     (:fields
-     ((program-id program-id :required)
-      (run-id run-id :required)
+     ((programId program-id :required)
+      (runId run-id :required)
       (tool tool-name :required)
       (target string :required)
       (options map :optional))))
 
   (message tool-run-completed
     (:fields
-     ((program-id program-id :required)
-      (run-id run-id :required)
+     ((programId program-id :required)
+      (runId run-id :required)
       (tool tool-name :required)
       (target string :required)
       (argv (list string) :required)
-      (exit-code integer :required)
+      (exitCode integer :required)
       (stdout string :required)
       (stderr string :required))))
 
   (message get-program-state
     (:fields
-     ((program-id program-id :required))))
+     ((programId program-id :required))))
 
   (message program-state
     (:fields
-     ((program-id program-id :required)
+     ((programId program-id :required)
       (scope (list string) :required)
       (runs integer :required)))))

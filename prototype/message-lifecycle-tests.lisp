@@ -61,7 +61,7 @@
               ("cycle" . 2026)
               ("page" . 1)
               ("results" . ())
-              ("retrieved-at" . "2026-07-22T23:00:00Z"))))
+              ("retrievedAt" . "2026-07-22T23:00:00Z"))))
 
 (defun test-command-envelope (manifest command)
   (lifecycle-assert-true
@@ -77,7 +77,7 @@
   (let ((json (canonical-lifecycle-envelope-json manifest command)))
     (lifecycle-assert-true (search "\"kind\":\"command\"" json)
                            "command kind serialized")
-    (lifecycle-assert-true (search "\"idempotency_key\"" json)
+    (lifecycle-assert-true (search "\"idempotencyKey\"" json)
                            "idempotency key serialized")
     json))
 
@@ -92,7 +92,7 @@
            :payload '(("document" .
                        (("schema" . "org.starintel/fec@1/candidate")
                         ("id" . "H2OH03116")))
-                      ("source-endpoint" . "/candidates/search/")
+                      ("sourceEndpoint" . "/candidates/search/")
                       ("cycle" . 2026)))))
     (lifecycle-assert-equal "cmd-0001" (getf reply :correlation-id)
                             "reply preserves correlation")
@@ -133,7 +133,7 @@
     (lifecycle-assert-equal :retry (delivery-outcome retry)
                             "retry acknowledgement outcome")
     (lifecycle-assert-true
-     (search "\"retry_after_ms\":5000"
+     (search "\"retryAfterMs\":5000"
              (canonical-lifecycle-envelope-json manifest retry))
      "retry delay serialized")
     (lifecycle-assert-true

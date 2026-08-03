@@ -6,8 +6,12 @@
    #:compile-spec-library
    #:emit-portable-manifest
    #:compile-star-core
+   #:+normalized-ir-schema+
+   #:+normalized-ir-version+
    #:expand-star-syntax
+   #:field-key-string
    #:load-star-form
+   #:lower-camel-field-name-p
    #:make-star-origin-frame
    #:make-star-parser-limits
    #:make-star-syntax
@@ -69,6 +73,9 @@
    #:validate-wire-envelope))
 
 (in-package #:star-lang.core-surface.prototype)
+
+(defconstant +normalized-ir-version+ 2)
+(defparameter +normalized-ir-schema+ "org.star-lang/normalized-ir@2")
 
 (defstruct star-source-span
   source-id
@@ -213,6 +220,58 @@
           (*star-source-column*
             (if span (star-source-span-start-column span) *star-source-column*)))
      ,@body))
+
+(defun lower-camel-field-name-p (value)
+  "Return true when VALUE is an ASCII lower camelCase field name.
+
+Field names start with a lowercase ASCII letter and continue with ASCII
+letters or digits. Hyphens, underscores, leading capitals, and other
+punctuation are intentionally rejected at the language boundary."
+  (and (stringp value)
+       (> (length value) 0)
+       (char<= #\a (char value 0) #\z)
+       (loop for character across value
+             always (or (char<= #\a character #\z)
+                        (char<= #\A character #\Z)
+                        (char<= #\0 character #\9)))))
+
+(defun field-key-string (value)
+  "Normalize a host-language string or keyword to a camelCase field key.
+
+This is a compatibility adapter for trusted Common Lisp APIs. Star source is
+validated separately and is never silently rewritten."
+  (when (stringp value)
+    (return-from field-key-string value))
+  (let ((name (identifier-string value)))
+    (if (lower-camel-field-name-p name)
+        name
+        (with-output-to-string (stream)
+          (loop with uppercase-next = nil
+                for character across name
+                do (cond
+                     ((or (char= character #\-) (char= character #\_))
+                      (setf uppercase-next t))
+                     (uppercase-next
+                      (write-char (char-upcase character) stream)
+                      (setf uppercase-next nil))
+                     (t (write-char character stream))))))))
+
+(defun require-lower-camel-field-name (syntax)
+  (with-star-source-position (syntax)
+    (let ((name (identifier-string syntax)))
+      (unless (lower-camel-field-name-p name)
+        (error 'invalid-field-error
+               :message
+               (format nil
+                       "Field name ~S must use ASCII lower camelCase (for example, messageId)."
+                       name)
+               :code :invalid-field-name
+               :span (and (star-syntax-p syntax) (star-syntax-span syntax))
+               :origin (and (star-syntax-p syntax) (star-syntax-origin syntax))
+               :syntax-kind (and (star-syntax-p syntax)
+                                 (star-syntax-kind syntax))
+               :phase *star-current-phase*))
+      name)))
 
 (defstruct (star-source-parser
              (:constructor make-star-source-parser
@@ -1255,7 +1314,7 @@ the approved declarative hygienic macro language is implemented."
           (fail 'invalid-field-error
                 "Required field ~A cannot declare a default."
                 name))
-        (list :name (identifier-string name)
+        (list :name (require-lower-camel-field-name name)
               :type (normalize-type-expression type library-name local-types)
               :required required-p
               :default-p default-p
@@ -1365,7 +1424,8 @@ the approved declarative hygienic macro language is implemented."
         (when (and digest (not (digest-p digest)))
           (fail 'invalid-library-error
                 "Specification library digest must use sha256:."))
-        (list :ir-version 1
+        (list :ir-version +normalized-ir-version+
+              :ir-schema +normalized-ir-schema+
               :kind :spec-library
               :name (syntax-atom name)
               :version (syntax-atom version)

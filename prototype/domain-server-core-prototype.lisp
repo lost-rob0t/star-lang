@@ -215,7 +215,7 @@
 (defun request-option (request key)
   (cond
     ((and (listp request) (every #'consp request))
-     (cdr (assoc (identifier-string key) request :test #'string=)))
+     (cdr (assoc (field-key-string key) request :test #'string=)))
     ((listp request)
      (getf request key))
     (t nil)))

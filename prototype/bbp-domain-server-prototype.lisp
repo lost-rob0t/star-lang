@@ -119,14 +119,15 @@
     (values library tools domain actor manifest)))
 
 (defun bbp-payload-entry (payload key)
-  (cond
+  (let ((field-name (field-key-string key)))
+   (cond
     ((and (listp payload) (every #'consp payload))
-     (assoc (identifier-string key) payload :test #'string=))
+     (assoc field-name payload :test #'string=))
     ((listp payload)
-     (let ((keyword (intern (string-upcase (identifier-string key)) :keyword)))
-       (and (plist-has-key-p payload keyword)
-            (cons (identifier-string key) (getf payload keyword)))))
-    (t nil)))
+     (loop for (candidate value) on payload by #'cddr
+           when (string= (field-key-string candidate) field-name)
+             return (cons field-name value)))
+    (t nil))))
 
 (defun bbp-payload-value (payload key)
   (cdr (bbp-payload-entry payload key)))
@@ -202,7 +203,7 @@
            :program-id program-id
            :name name
            :scope (mapcar #'normalize-bbp-scope-entry scope)))
-    (list (cons "program-id" program-id)
+    (list (cons "programId" program-id)
           (cons "scope" (bbp-program-state-scope
                           (domain-server-instance-state instance))))))
 
@@ -234,8 +235,8 @@
             "Target ~A is outside BBP program ~A scope."
             target program-id))
     (let* ((request
-             (list (cons "program-id" program-id)
-                   (cons "run-id" run-id)
+             (list (cons "programId" program-id)
+                   (cons "runId" run-id)
                    (cons "target" target)))
            (result
              (run-domain-tool
@@ -243,12 +244,12 @@
               tool
               request))
            (payload-result
-             (list (cons "program-id" program-id)
-                   (cons "run-id" run-id)
+             (list (cons "programId" program-id)
+                   (cons "runId" run-id)
                    (cons "tool" (getf tool :name))
                    (cons "target" target)
                    (cons "argv" (getf result :argv))
-                   (cons "exit-code" (getf result :exit-code))
+                   (cons "exitCode" (getf result :exit-code))
                    (cons "stdout" (getf result :stdout))
                    (cons "stderr" (getf result :stderr)))))
       (push payload-result (bbp-program-state-runs state))
@@ -257,7 +258,7 @@
 (defun bbp-program-state-handler (instance payload engine)
   (declare (ignore payload engine))
   (let ((state (require-bbp-program-state instance)))
-    (list (cons "program-id" (bbp-program-state-program-id state))
+    (list (cons "programId" (bbp-program-state-program-id state))
           (cons "scope" (copy-list (bbp-program-state-scope state)))
           (cons "runs" (length (bbp-program-state-runs state))))))
 
@@ -337,7 +338,7 @@
    (or idempotency-key
        (format nil "bbp:register:~A" program-id))
    :payload
-   (list (cons "program-id" program-id)
+   (list (cons "programId" program-id)
          (cons "name" name)
          (cons "scope" scope))))
 
@@ -354,8 +355,8 @@
    (or idempotency-key
        (format nil "bbp:tool:~A:~A" program-id run-id))
    :payload
-   (list (cons "program-id" program-id)
-         (cons "run-id" run-id)
+   (list (cons "programId" program-id)
+         (cons "runId" run-id)
          (cons "tool" (identifier-string tool))
          (cons "target" target)
          (cons "options" '()))))

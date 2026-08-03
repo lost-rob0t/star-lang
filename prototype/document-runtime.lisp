@@ -131,31 +131,39 @@
     ((hash-table-p value)
      (let ((result '()))
        (maphash (lambda (key item)
-                  (push (cons (identifier-string key) item) result))
+                  (push (cons (star-lang.core-surface.prototype:field-key-string key)
+                              item)
+                        result))
                 value)
        result))
     ((map-like-alist-p value)
      (mapcar (lambda (entry)
-               (cons (identifier-string (car entry)) (cdr entry)))
+               (cons (star-lang.core-surface.prototype:field-key-string
+                      (car entry))
+                     (cdr entry)))
              value))
     ((and (listp value) (evenp (length value)))
      (loop for (key item) on value by #'cddr
-           collect (cons (identifier-string key) item)))
+           collect (cons (star-lang.core-surface.prototype:field-key-string key)
+                         item)))
     (t
      (fail-runtime 'invalid-document-error
                    "Expected an alist, hash table, or property list."))))
 
 (defun map-value (values key &optional default)
-  (let ((entry (assoc (identifier-string key) values :test #'string=)))
+  (let ((entry (assoc (star-lang.core-surface.prototype:field-key-string key)
+                      values :test #'string=)))
     (if entry (cdr entry) default)))
 
 (defun map-has-key-p (values key)
-  (not (null (assoc (identifier-string key) values :test #'string=))))
+  (not (null (assoc (star-lang.core-surface.prototype:field-key-string key)
+                    values :test #'string=))))
 
 (defun map-set (values key value)
-  (acons (identifier-string key)
+  (acons (star-lang.core-surface.prototype:field-key-string key)
          value
-         (remove (identifier-string key) values :key #'car :test #'string=)))
+         (remove (star-lang.core-surface.prototype:field-key-string key)
+                 values :key #'car :test #'string=)))
 
 (defun document-value (document key &optional default)
   (map-value (document-instance-values document) key default))
@@ -491,14 +499,14 @@
     (setf values (map-set values "dataset" resolved-dataset)
           values (map-set values "dtype"
                           (document-contract-qualified-name contract))
-          values (map-set values "schema-version"
+          values (map-set values "schemaVersion"
                           (document-contract-library-version contract)))
-    (unless (map-has-key-p values "created-at")
-      (setf values (map-set values "created-at" now)))
-    (unless (map-has-key-p values "date-added")
-      (setf values (map-set values "date-added" now)))
-    (setf values (map-set values "updated-at" now)
-          values (map-set values "date-updated" now))
+    (unless (map-has-key-p values "createdAt")
+      (setf values (map-set values "createdAt" now)))
+    (unless (map-has-key-p values "dateAdded")
+      (setf values (map-set values "dateAdded" now)))
+    (setf values (map-set values "updatedAt" now)
+          values (map-set values "dateUpdated" now))
     (unless (map-has-key-p values "id")
       (setf values
             (map-set values "id"

@@ -57,12 +57,12 @@
                             dataset reply-to sent-at deadline payload)
   (list :star-version 1
         :kind (normalize-lifecycle-kind kind)
-        :message-id (required-nonempty-string message-id "message-id")
+        :message-id (required-nonempty-string message-id "messageId")
         :message-type (required-nonempty-string message-type "message-type")
         :actor (required-nonempty-string actor "actor")
         :sender sender
         :correlation-id
-        (required-nonempty-string correlation-id "correlation-id")
+        (required-nonempty-string correlation-id "correlationId")
         :causation-id causation-id
         :attempt (positive-integer attempt "attempt")
         :idempotency-key idempotency-key
@@ -242,13 +242,13 @@
     (fail 'invalid-envelope-error "Unsupported lifecycle wire version."))
   (let ((kind (normalize-lifecycle-kind (getf envelope :kind))))
     (setf (getf envelope :kind) kind)
-    (required-nonempty-string (getf envelope :message-id) "message-id")
+    (required-nonempty-string (getf envelope :message-id) "messageId")
     (required-nonempty-string (getf envelope :message-type) "message-type")
     (required-nonempty-string (getf envelope :actor) "actor")
-    (required-nonempty-string (getf envelope :correlation-id) "correlation-id")
+    (required-nonempty-string (getf envelope :correlation-id) "correlationId")
     (positive-integer (getf envelope :attempt) "attempt")
     (when (member kind '(:reply :ack :error :cancel) :test #'eq)
-      (required-nonempty-string (getf envelope :causation-id) "causation-id"))
+      (required-nonempty-string (getf envelope :causation-id) "causationId"))
     (when (eq kind :command)
       (required-nonempty-string
        (getf envelope :idempotency-key) "command idempotency-key"))
@@ -275,19 +275,19 @@
 
 (defun lifecycle-common-json-entries (envelope)
   (let ((entries
-          (list (cons "star_version" 1)
+          (list (cons "starVersion" 1)
                 (cons "kind" (identifier-string (getf envelope :kind)))
-                (cons "message_id" (getf envelope :message-id))
-                (cons "message_type" (getf envelope :message-type))
+                (cons "messageId" (getf envelope :message-id))
+                (cons "messageType" (getf envelope :message-type))
                 (cons "actor" (getf envelope :actor))
-                (cons "correlation_id" (getf envelope :correlation-id))
+                (cons "correlationId" (getf envelope :correlation-id))
                 (cons "attempt" (getf envelope :attempt)))))
     (dolist (mapping '((:sender . "sender")
-                       (:causation-id . "causation_id")
-                       (:idempotency-key . "idempotency_key")
+                       (:causation-id . "causationId")
+                       (:idempotency-key . "idempotencyKey")
                        (:dataset . "dataset")
-                       (:reply-to . "reply_to")
-                       (:sent-at . "sent_at")
+                       (:reply-to . "replyTo")
+                       (:sent-at . "sentAt")
                        (:deadline . "deadline")))
       (let ((value (getf envelope (car mapping))))
         (when value (push (cons (cdr mapping) value) entries))))
@@ -301,16 +301,16 @@
         (remove nil
                 (list
                  (cons "status" (identifier-string (getf payload :status)))
-                 (cons "for_message_id" (getf payload :for-message-id))
+                 (cons "forMessageId" (getf payload :for-message-id))
                  (and (getf payload :reason)
                       (cons "reason" (getf payload :reason)))
                  (and (getf payload :retry-after-ms)
-                      (cons "retry_after_ms" (getf payload :retry-after-ms)))))))
+                      (cons "retryAfterMs" (getf payload :retry-after-ms)))))))
       (:error
        (%make-json-object
         (remove nil
                 (list
-                 (cons "for_message_id" (getf payload :for-message-id))
+                 (cons "forMessageId" (getf payload :for-message-id))
                  (cons "code" (getf payload :code))
                  (cons "message" (getf payload :message))
                  (cons "retryable"
@@ -323,8 +323,8 @@
        (%make-json-object
         (remove nil
                 (list
-                 (cons "target_message_id" (getf payload :target-message-id))
-                 (cons "target_correlation_id"
+                 (cons "targetMessageId" (getf payload :target-message-id))
+                 (cons "targetCorrelationId"
                        (getf payload :target-correlation-id))
                  (and (getf payload :reason)
                       (cons "reason" (getf payload :reason))))))))))

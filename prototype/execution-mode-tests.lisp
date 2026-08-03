@@ -53,7 +53,7 @@
               ("cycle" . 2026)
               ("page" . 1)
               ("results" . ())
-              ("retrieved-at" . "2026-07-23T00:00:00Z"))))
+              ("retrievedAt" . "2026-07-23T00:00:00Z"))))
 
 (defun execution-mode-result ()
   (complete-dispatch
@@ -62,7 +62,7 @@
    '(("document" .
       (("schema" . "org.starintel/fec@1/candidate")
        ("id" . "H2OH03116")))
-     ("source-endpoint" . "/candidates/search/")
+     ("sourceEndpoint" . "/candidates/search/")
      ("cycle" . 2026))))
 
 (defun test-standalone-native-execution ()

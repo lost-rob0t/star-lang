@@ -120,15 +120,15 @@
          (event
            (create-document
             graph "runtime-event"
-            `(("event-type" . "created")
-              ("occurred-at" . ,(unix-now)))
+            `(("eventType" . "created")
+              ("occurredAt" . ,(unix-now)))
             :dataset "runtime"))
          (artifact
            (create-document
             graph "artifact"
             '(("name" . "scan.json")
-              ("content-hash" . "sha256:abc")
-              ("source-url" . "https://example.test/scan.json"))
+              ("contentHash" . "sha256:abc")
+              ("sourceUrl" . "https://example.test/scan.json"))
             :dataset "artifacts")))
     (assert-true (valid-ulid-p (document-value person "id"))
                  "created person ULID")
@@ -146,11 +146,11 @@
     (assert-equal "org.starintel/star-cl@1/person"
                   (document-value person "dtype")
                   "qualified dtype metadata")
-    (assert-equal "1.0.0" (document-value person "schema-version")
+    (assert-equal "1.0.0" (document-value person "schemaVersion")
                   "schema version metadata")
-    (assert-true (integerp (document-value person "created-at"))
+    (assert-true (integerp (document-value person "createdAt"))
                  "created timestamp")
-    (assert-true (integerp (document-value person "updated-at"))
+    (assert-true (integerp (document-value person "updatedAt"))
                  "updated timestamp")
     (values person org-a)))
 

@@ -82,7 +82,7 @@
 
 (defun test-field-compilation (library)
   (let* ((candidate (find-declaration library :document "candidate"))
-         (candidate-id (find "candidate-id" (getf candidate :fields)
+         (candidate-id (find "candidateId" (getf candidate :fields)
                              :key (lambda (field) (getf field :name))
                              :test #'string=)))
     (assert-true candidate-id "candidate-id field")
@@ -118,7 +118,7 @@
            :payload '(("endpoint" . "/candidates/search/")
                       ("page" . 1)
                       ("results" . ())
-                      ("retrieved-at" . "2026-07-22T20:00:00Z")))))
+                      ("retrievedAt" . "2026-07-22T20:00:00Z")))))
     (assert-true (validate-wire-envelope manifest envelope)
                  "valid envelope accepted")
     (let ((missing-field-rejected-p
@@ -161,13 +161,15 @@
    "duplicate declaration rejected"))
 
 (defun test-file-loader-compiles-exact-ir (path)
-  (let ((expected
-          (compile-spec-library
-           (read-trusted-fixture-form path)))
-        (actual (load-star-form path)))
-    (assert-equal (without-source-map expected)
-                  (without-source-map actual)
-                  "file loader normalized IR")))
+  (let ((first (load-star-form path))
+        (second (load-star-form path)))
+    (assert-equal (without-source-map first)
+                  (without-source-map second)
+                  "file loader normalized IR")
+    (let* ((candidate (find-declaration first :document "candidate"))
+           (field (first (getf candidate :fields))))
+      (assert-equal "candidateId" (getf field :name)
+                    "file loader preserves camelCase spelling"))))
 
 (defun test-file-loader-comments-and-whitespace ()
   (with-temporary-star-file

@@ -25,12 +25,21 @@
               value)))
 
 (defun json-key-name (key)
-  (substitute #\_ #\-
-              (string-downcase
+  (let ((name (string-downcase
                (etypecase key
                  (keyword (symbol-name key))
                  (symbol (symbol-name key))
                  (string key)))))
+    (with-output-to-string (stream)
+      (loop with uppercase-next = nil
+            for character across name
+            do (cond
+                 ((or (char= character #\-) (char= character #\_))
+                  (setf uppercase-next t))
+                 (uppercase-next
+                  (write-char (char-upcase character) stream)
+                  (setf uppercase-next nil))
+                 (t (write-char character stream)))))))
 
 (defun json-symbol-value (value)
   (substitute #\- #\_ (string-downcase (symbol-name value))))
@@ -137,9 +146,9 @@
   (cond
     ((string-alist-p payload) (assoc field-name payload :test #'string=))
     ((keyword-plist-p payload)
-     (let ((key (intern (string-upcase field-name) :keyword)))
-       (when (plist-has-key-p payload key)
-         (cons field-name (getf payload key)))))
+     (loop for (key value) on payload by #'cddr
+           when (string= (field-key-string key) field-name)
+             return (cons field-name value)))
     (t nil)))
 
 (defun payload-field-names (payload)
@@ -147,7 +156,7 @@
     ((string-alist-p payload) (mapcar #'car payload))
     ((keyword-plist-p payload)
      (loop for tail on payload by #'cddr
-           collect (identifier-string (first tail))))
+           collect (field-key-string (first tail))))
     ((null payload) '())
     (t nil)))
 
@@ -339,9 +348,9 @@
     (unless contract
       (fail 'invalid-envelope-error "Unknown message type ~A." message-type))
     (let ((entries
-            (list (cons "star_version" 1)
-                  (cons "message_type" message-type)
-                  (cons "message_id" (getf envelope :message-id))
+            (list (cons "starVersion" 1)
+                  (cons "messageType" message-type)
+                  (cons "messageId" (getf envelope :message-id))
                   (cons "actor" (getf envelope :actor))
                   (cons "payload"
                         (wire-fields-object
@@ -350,7 +359,7 @@
       (when (getf envelope :dataset)
         (push (cons "dataset" (getf envelope :dataset)) entries))
       (when (getf envelope :reply-to)
-        (push (cons "reply_to" (getf envelope :reply-to)) entries))
+        (push (cons "replyTo" (getf envelope :reply-to)) entries))
       (%make-json-object entries))))
 
 (defun canonical-envelope-json (manifest envelope)
