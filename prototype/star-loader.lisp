@@ -3,6 +3,10 @@
 (unless (find-package "STAR-LANG.CORE-SURFACE.PROTOTYPE")
   (load (merge-pathnames "core-surface-prototype.lisp" *load-truename*)))
 
+(unless (boundp
+         'star-lang.core-surface.prototype::*declarative-macro-expander-loaded*)
+  (load (merge-pathnames "macro-expander-prototype.lisp" *load-truename*)))
+
 (defpackage #:star-lang.loader
   (:use #:cl)
   (:export
@@ -388,11 +392,24 @@
 (defun library-key (name version)
   (format nil "~A@~A" name version))
 
-(defun compile-library-form (form)
+(defun compile-library-form (form &optional macro-environment)
   (let ((expanded
-          (star-lang.core-surface.prototype:expand-star-syntax form)))
+          (star-lang.core-surface.prototype:expand-star-syntax
+           form :environment macro-environment)))
     (star-lang.core-surface.prototype:validate-star-core expanded)
     (star-lang.core-surface.prototype:compile-star-core expanded)))
+
+(defun library-macro-environment (node)
+  (apply
+   #'star-lang.core-surface.prototype:merge-star-macro-environments
+   (append
+    (mapcar #'library-macro-environment (library-node-imports node))
+    (list
+     (star-lang.core-surface.prototype:collect-star-macro-environment
+      (library-node-form node)
+      :library-name (library-node-name node)
+      :library-version (library-node-version node)
+      :library-digest (library-node-digest node))))))
 
 (defvar *loader-active-chain* nil)
 
@@ -494,7 +511,11 @@
                                 (star-lang.core-surface.prototype:star-syntax-origin
                                  form))))
                            (raw-import-declarations form)))
-                        (compiled (compile-library-form form))
+                        (macro-environment
+                          (apply
+                           #'star-lang.core-surface.prototype:merge-star-macro-environments
+                           (mapcar #'library-macro-environment imports)))
+                        (compiled (compile-library-form form macro-environment))
                         (node (make-library-node
                                :name name
                                :version version

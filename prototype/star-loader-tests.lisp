@@ -380,6 +380,45 @@
        :source-id "reader-test")))
    "dispatch reader syntax rejected"))
 
+(defun test-locked-imported-macro-expansion ()
+  (let* ((directory (temporary-test-directory))
+         (macro-library (merge-pathnames #P"macro-library.star" directory))
+         (root (merge-pathnames #P"root.star" directory)))
+    (unwind-protect
+         (progn
+           (write-text-file
+            macro-library
+            "(spec-library \"test/macros@1\" (:version \"1.0.0\")
+               (macro make-ping
+                 (:context declaration
+                  :rules (((make-ping ?name)
+                           (message ?name (:fields ())))))))")
+           (let ((digest (sha256-file macro-library)))
+             (write-text-file
+              root
+              (format nil
+                      "(spec-library \"test/root@1\" (:version \"1.0.0\")
+                         (import \"test/macros@1\"
+                           :version \"1.0.0\"
+                           :digest ~S
+                           :path \"macro-library.star\")
+                         (make-ping ping))"
+                      digest))
+             (let* ((graph
+                      (load-star-file
+                       root :cache-directory
+                       (merge-pathnames #P"cache/" directory)))
+                    (compiled
+                      (library-node-compiled (loaded-graph-root graph)))
+                    (message
+                      (first (declarations-of-kind compiled :message))))
+               (assert-equal "ping" (getf message :name)
+                             "locked imported macro expands through loader")
+               (assert-equal 2 (length (loaded-graph-libraries graph))
+                             "macro library participates in locked graph"))))
+      (uiop:delete-directory-tree
+       directory :validate t :if-does-not-exist :ignore))))
+
 (defun run-tests ()
   (test-starintel-schema)
   (test-local-import-and-cache)
@@ -390,6 +429,7 @@
   (test-http-import-rejected)
   (test-http-root-url-rejected)
   (test-dispatch-reader-rejected)
+  (test-locked-imported-macro-expansion)
   (format t "Star-Lang .star loader tests passed.~%")
   t)
 

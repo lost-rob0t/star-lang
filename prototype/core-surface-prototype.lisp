@@ -26,6 +26,12 @@
    #:star-origin-frame-library-version
    #:star-origin-frame-parent
    #:star-origin-frame-source-id
+   #:star-origin-frame-definition-span
+   #:star-origin-frame-expansion-ordinal
+   #:star-origin-frame-invocation-span
+   #:star-origin-frame-macro-name
+   #:star-origin-frame-output-context
+   #:star-origin-frame-rule-id
    #:star-parser-limits
    #:star-parser-limits-collection-length
    #:star-parser-limits-nesting-depth
@@ -55,6 +61,8 @@
    #:star-syntax-scopes
    #:star-syntax-span
    #:star-syntax-source-map
+   #:star-syntax-expansion-trace
+   #:star-syntax-macro-dependencies
    #:star-syntax-to-datum
    #:trusted-form-to-star-syntax
    #:validate-star-core
@@ -94,6 +102,12 @@
   library-version
   library-digest
   import-site-span
+  macro-name
+  rule-id
+  definition-span
+  invocation-span
+  expansion-ordinal
+  output-context
   parent)
 
 (defstruct star-syntax
@@ -103,7 +117,9 @@
   span
   (scopes nil)
   origin
-  introduced-by)
+  introduced-by
+  expansion-trace
+  macro-dependencies)
 
 (defstruct (star-parser-limits
              (:constructor make-star-parser-limits
@@ -292,6 +308,7 @@ validated separately and is never silently rewritten."
     ("bbp-domain-v1-research-fixture" . :bbp-domain-v1-research-fixture)
     ("bindings" . :bindings)
     ("constructors" . :constructors)
+    ("context" . :context)
     ("core-v1-research-fixture" . :core-v1-research-fixture)
     ("dataset" . :dataset)
     ("default" . :default)
@@ -308,6 +325,7 @@ validated separately and is never silently rewritten."
     ("id-policy" . :id-policy)
     ("kind" . :kind)
     ("lambda-list" . :lambda-list)
+    ("literals" . :literals)
     ("maximum" . :maximum)
     ("minimum" . :minimum)
     ("optional" . :optional)
@@ -316,6 +334,7 @@ validated separately and is never silently rewritten."
     ("pattern" . :pattern)
     ("persistence" . :persistence)
     ("required" . :required)
+    ("rules" . :rules)
     ("rest-keywords" . :rest-keywords)
     ("scale" . :scale)
     ("source" . :source)
@@ -856,7 +875,19 @@ StarLang source. The resulting nodes have no source span."
                               :library-digest (star-origin-frame-library-digest frame)
                               :import-site
                               (star-source-span-map
-                               (star-origin-frame-import-site-span frame))))))))
+                               (star-origin-frame-import-site-span frame))
+                              :macro-name (star-origin-frame-macro-name frame)
+                              :rule-id (star-origin-frame-rule-id frame)
+                              :definition-span
+                              (star-source-span-map
+                               (star-origin-frame-definition-span frame))
+                              :invocation-span
+                              (star-source-span-map
+                               (star-origin-frame-invocation-span frame))
+                              :expansion-ordinal
+                              (star-origin-frame-expansion-ordinal frame)
+                              :output-context
+                              (star-origin-frame-output-context frame)))))))
     (collect origin)))
 
 (defun star-syntax-source-map (syntax)
@@ -872,7 +903,9 @@ ordinals, never process-local object identities."
                              :span (star-source-span-map
                                     (star-syntax-span node))
                              :origin (star-origin-chain
-                                      (star-syntax-origin node)))
+                                      (star-syntax-origin node))
+                             :scopes (copy-list (star-syntax-scopes node))
+                             :introduced-by (star-syntax-introduced-by node))
                        entries)
                  (when (syntax-list-p node)
                    (dolist (child (star-syntax-children node))

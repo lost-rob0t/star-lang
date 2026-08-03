@@ -21,6 +21,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added bounded declarative format-1 macros with deterministic pattern matching,
+  tail repetition, fresh introduction scopes, cycle/ambiguity detection, and
+  resource limits.
+- Added macro expansion traces, definition/use-site origin spans, stable expanded
+  source rendering, and digest-qualified dependencies for locked imported macros.
+- Added macro conformance tests covering hygiene, use-site identity, imported
+  expansion, repetition, deterministic output, validation, and failure limits.
 - Added an ASCII lower camelCase field grammar with structured
   `invalid-field-name` diagnostics and exact offending-token spans.
 - Added a permanent camelCase conformance suite covering source spelling,
@@ -42,6 +49,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Replaced the macro-rejecting expansion boundary with an explicit
+  read → collect locked macro environment → bounded expand → validate → compile
+  pipeline. Version 1 macros are declaration-context only and cannot perform
+  intentional capture or execute host Common Lisp code.
 - Migrated document and message fields, portable manifests, canonical JSON,
   lifecycle envelopes, generated Python/TypeScript bindings, fixtures, and
   runtime field lookups to lower camelCase. Kebab-case declaration and type
