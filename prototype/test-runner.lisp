@@ -17,10 +17,11 @@
     (cons baseline suites)))
 
 (defun lisp-executable ()
-  #+sbcl
-  (namestring sb-ext:*runtime-pathname*)
-  #-sbcl
-  (or (uiop:getenv "LISP") "sbcl"))
+  (or (uiop:getenv "LISP")
+      #+sbcl
+      (namestring sb-ext:*runtime-pathname*)
+      #-sbcl
+      "sbcl"))
 
 (defun run-test-file (path)
   (format t "~&[starlang-prototype] running ~A~%" (file-namestring path))
