@@ -239,6 +239,30 @@
        :validate t
        :if-does-not-exist :ignore))))
 
+(defun test-http-import-rejected ()
+  (assert-true
+   (condition-signaled-p
+    'import-error
+    (lambda ()
+      (parse-import-declaration
+       '(import "test/remote@1"
+          :version "1.0.0"
+          :digest "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+          :url "http://example.test/remote.star"))))
+   "plain HTTP imports rejected"))
+
+(defun test-http-root-url-rejected ()
+  (assert-true
+   (condition-signaled-p
+    'import-error
+    (lambda ()
+      (load-star-url
+       "http://example.test/root.star"
+       :name "test/root@1"
+       :version "1.0.0"
+       :digest "sha256:0000000000000000000000000000000000000000000000000000000000000000")))
+   "plain HTTP root URLs rejected"))
+
 (defun test-dispatch-reader-rejected ()
   (assert-true
    (condition-signaled-p
@@ -254,6 +278,8 @@
   (test-local-import-and-cache)
   (test-bad-digest-rejected)
   (test-network-disabled-before-fetch)
+  (test-http-import-rejected)
+  (test-http-root-url-rejected)
   (test-dispatch-reader-rejected)
   (format t "Star-Lang .star loader tests passed.~%")
   t)

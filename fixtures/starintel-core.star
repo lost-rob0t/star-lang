@@ -211,7 +211,7 @@
     (:extends document
      :persistence persistent)
     (source reference :required)
-    (target reference :required)
+    (destination reference :required)
     (predicate string :required)
     (direction relation-direction :optional)
     (inverse-predicate string :optional)
