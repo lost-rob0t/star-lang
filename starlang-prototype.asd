@@ -40,6 +40,7 @@
      ;; Loader / document / constructor / api chain
      (:file "star-loader")
      (:file "document-runtime")
+     (:file "relation-compatibility")
      (:file "constructor-runtime")
      (:file "star-lang-api"))))
   :in-order-to ((test-op (test-op "starlang-prototype/tests"))))
