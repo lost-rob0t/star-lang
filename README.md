@@ -51,11 +51,13 @@ UTF-8 source bytes
   → normalized runtime-neutral IR
 ```
 
-The current expansion phase is deliberately an identity boundary and rejects
-macro declarations and macro-only syntax. Parsed identifiers remain exact,
-uninterned strings. `star-syntax-to-datum` is an explicit lossy compatibility
-operation: it discards occurrence identity, spans, scopes, origins, and
-introduction metadata.
+The expansion phase supports bounded, declarative format-1 macros in declaration
+context. Macro definitions are collected before expansion, imported macros retain
+their locked library identity, generated identifiers receive deterministic fresh
+scopes, and expansion records definition/use-site provenance without invoking the
+Common Lisp reader or evaluator. Parsed identifiers remain exact, uninterned
+strings. `star-syntax-to-datum` is an explicit lossy compatibility operation: it
+discards occurrence identity, spans, scopes, origins, and introduction metadata.
 
 A permanent conformance suite must guard these rules before this section can be
 changed to claim full compliance.

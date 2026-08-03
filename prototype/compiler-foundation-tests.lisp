@@ -1,4 +1,5 @@
 (load (merge-pathnames "core-surface-prototype.lisp" *load-truename*))
+(load (merge-pathnames "macro-expander-prototype.lisp" *load-truename*))
 
 (in-package #:star-lang.core-surface.prototype)
 
@@ -211,15 +212,26 @@
        "normalized IR contains no syntax objects"))))
 
 (defun test-macro-boundary ()
-  (dolist (source '("(macro example)" "(?pattern value)"))
-    (let* ((syntax (read-star-syntax source :source-id "macro-boundary"))
-           (condition
-             (foundation-condition
-              'unsupported-macro-error
-              (lambda () (expand-star-syntax syntax)))))
-      (foundation-assert condition "macro syntax rejected")
-      (foundation-equal :expand (star-lang-core-error-phase condition)
-                        "macro rejected during expansion"))))
+  (let* ((syntax
+           (read-star-syntax
+            "(spec-library \"test/macro-boundary@1\" (:version \"1\")
+               (macro make-message
+                 (:context declaration
+                  :rules (((make-message ?name)
+                           (message ?name (:fields ()))))))
+               (make-message ping))"
+            :source-id "macro-boundary"))
+         (expanded (expand-star-syntax syntax)))
+    (foundation-equal '("spec-library" "test/macro-boundary@1")
+                      (mapcar #'star-syntax-datum
+                              (subseq (star-syntax-children expanded) 0 2))
+                      "macro boundary preserves library header")
+    (foundation-equal "message"
+                      (syntax-head-name
+                       (fourth (star-syntax-children expanded)))
+                      "macro boundary expands to core declaration")
+    (foundation-equal 1 (length (star-syntax-expansion-trace expanded))
+                      "macro boundary records expansion trace")))
 
 (defun test-semantic-occurrence-span ()
   (let* ((source
