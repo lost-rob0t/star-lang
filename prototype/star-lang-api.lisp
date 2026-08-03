@@ -12,6 +12,10 @@
    #:load-star
    #:load-star-file
    #:load-star-url
+   #:read-star-syntax
+   #:expand-star-syntax
+   #:validate-star-core
+   #:compile-star-core
    #:load-star-runtime
    #:install-constructors
    #:generate-constructor-source
@@ -25,6 +29,18 @@
    #:make-digest-id))
 
 (in-package #:star-lang.api)
+
+(defun read-star-syntax (source &rest arguments &key &allow-other-keys)
+  (apply #'star-lang.core-surface.prototype:read-star-syntax source arguments))
+
+(defun expand-star-syntax (syntax &rest arguments &key &allow-other-keys)
+  (apply #'star-lang.core-surface.prototype:expand-star-syntax syntax arguments))
+
+(defun validate-star-core (syntax &rest arguments &key &allow-other-keys)
+  (apply #'star-lang.core-surface.prototype:validate-star-core syntax arguments))
+
+(defun compile-star-core (syntax &rest arguments &key &allow-other-keys)
+  (apply #'star-lang.core-surface.prototype:compile-star-core syntax arguments))
 
 (defun remove-options (plist keys)
   (loop for (key value) on plist by #'cddr

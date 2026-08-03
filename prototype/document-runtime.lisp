@@ -276,15 +276,19 @@
 
 (defun declaration-kind (declaration)
   (and (consp declaration)
-       (symbolp (first declaration))
+       (or (symbolp (first declaration))
+           (stringp (first declaration)))
        (identifier-string (first declaration))))
 
 (defun raw-document-declaration (node local-name)
-  (find-if
-   (lambda (declaration)
-     (and (string= (or (declaration-kind declaration) "") "document")
-          (string= (identifier-string (second declaration)) local-name)))
-   (cdddr (star-lang.loader:library-node-form node))))
+  (let ((form
+          (star-lang.core-surface.prototype:star-syntax-to-datum
+           (star-lang.loader:library-node-form node))))
+    (find-if
+     (lambda (declaration)
+       (and (string= (or (declaration-kind declaration) "") "document")
+            (string= (identifier-string (second declaration)) local-name)))
+     (cdddr form))))
 
 (defun find-compiled-declaration (graph qualified-name &optional kind)
   (dolist (node (star-lang.loader:loaded-graph-libraries graph))

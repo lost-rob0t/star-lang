@@ -21,6 +21,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added first-class syntax objects for every parsed occurrence, complete UTF-8
+  byte/character source spans, persistent import-origin chains treated as
+  immutable, and stable source maps.
+- Added explicit configurable parser resource limits and structured diagnostics
+  across read, expand, validate, and compile phases.
+- Added a compiler-foundation conformance suite covering closed-reader syntax,
+  UTF-8 offsets, limits, provenance, deterministic IR, and the no-`READ` loader
+  regression gate.
 - Added a real Nix package that loads and checks `starlang-prototype`, installs
   the full source tree, and exposes `starlang` and `starlang-test` executables.
 - Added flake apps, a development shell, a formatter, and `nix flake check`.
@@ -28,6 +36,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Consolidated all `.star` loading on the closed octet parser and the explicit
+  read → locked imports → expand → validate → compile pipeline; removed the
+  loader's Common Lisp reader implementation.
+- Preserved source identifier spelling and kept source-controlled identifiers
+  out of Common Lisp packages.
 - Relicensed all first-party StarLang systems from GPL-3.0 to
   GNU Affero General Public License v3.0 only (`AGPL-3.0-only`).
 - Replaced the placeholder Nix derivation that swallowed ASDF failures and
