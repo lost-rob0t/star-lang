@@ -162,5 +162,5 @@
 
   (import "org.starintel/star-cl@1"
     :version "1.0.0"
-    :digest "sha256:078ba09687c8ccbba8fa10e40cd96438d2ad3ade0c1f0e3813902e85e812113d"
+    :digest "sha256:73d9f719fb1d6f09b192ac2a77facf61b32d42f5b027f80cb75a76210e4ce2f2"
     :path "star-cl.star"))

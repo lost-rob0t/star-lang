@@ -26,11 +26,11 @@
   '("id"
     "dataset"
     "dtype"
-    "schema-version"
-    "created-at"
-    "date-added"
-    "updated-at"
-    "date-updated"))
+    "schemaVersion"
+    "createdAt"
+    "dateAdded"
+    "updatedAt"
+    "dateUpdated"))
 
 (defvar *installed-p* nil)
 (defvar *base-create-document* nil)

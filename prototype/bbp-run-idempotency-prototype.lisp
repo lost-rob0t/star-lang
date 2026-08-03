@@ -63,7 +63,7 @@
        (funcall *bbp-register-program-handler-without-idempotency*
                 instance payload engine))
       ((bbp-registration-matches-state-p identity state)
-       (list (cons "program-id" program-id)
+       (list (cons "programId" program-id)
              (cons "scope"
                    (copy-list (bbp-program-state-scope state)))))
       (t

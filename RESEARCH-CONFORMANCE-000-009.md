@@ -20,8 +20,8 @@ below is implemented, tested, and enforced by CI.
 | 002–005 | Alternate implementations denied; Common Lisp selected | Conformant: no Racket, Scheme, or Guile implementation is retained. |
 | 006 | Exact locked specification libraries, HTTPS-only remote resolution, additive schema extension, `source/predicate/destination` relations, keyed domain servers | **Blocked**: the canonical `.star` loader now requires HTTPS and full SHA-256 locks, but retained specification-domain/compiler compatibility checks still accept prefix-only digests, and the Star-CL relation schema/runtime still uses `target`. |
 | 007 | Deterministic runtime-neutral normalized IR; cl-gserver names only in adapter manifests | Compiler boundary implemented as read → locked import resolution → expand → validate → compile, with deterministic IR/source-map tests and adapter binding kept after lowering. |
-| 008 | Closed core surface, semantic validation, camelCase fields, portable camelCase wire envelope | **Blocked**: parsing now preserves exact source spelling, but kebab-case fields are still accepted, fixtures remain kebab-case, and wire keys use snake_case. |
-| 009 | Deterministic canonical JSON, generated Python/TypeScript bindings, finite binary64 `float`, exact string `decimal` | **Blocked**: no `float` type exists in compiler/JSON/bindings; geo remains `decimal`; canonical JSON emits snake_case envelope and manifest keys. |
+| 008 | Closed core surface, semantic validation, camelCase fields, portable camelCase wire envelope | CamelCase portion implemented: source fields are validated as ASCII lower camelCase, migrated fixtures preserve exact field spelling, and portable envelope/manifest keys are lower camelCase. **Blocked** on the remaining canonical relation-position migration. |
+| 009 | Deterministic canonical JSON, generated Python/TypeScript bindings, finite binary64 `float`, exact string `decimal` | Canonical JSON and generated bindings now preserve lower camelCase field/wire keys. **Blocked**: no `float` type exists in compiler/JSON/bindings and geo remains `decimal`. |
 
 ## Blocking implementation work
 
@@ -42,9 +42,9 @@ below is implemented, tested, and enforced by CI.
 
 ### Field and relation contracts
 
-- [ ] Enforce lower camelCase for every document field, message field, manifest field, and serialized wire key.
-- [ ] Reject hyphenated and snake_case field declarations with a structured compiler condition.
-- [ ] Migrate all `.star` fixtures, tests, constructor overlays, and runtime field lookups.
+- [x] Enforce lower camelCase for every document field, message field, manifest field, and serialized wire key.
+- [x] Reject hyphenated and snake_case field declarations with a structured compiler condition.
+- [x] Migrate all `.star` fixtures, tests, constructor overlays, and runtime field lookups.
 - [ ] Use canonical relation positions `source`, `predicate`, and `destination`; remove the generic relation `target` field.
 
 ### Numeric and serialization model
@@ -54,7 +54,7 @@ below is implemented, tested, and enforced by CI.
 - [ ] Reject NaN and infinities; canonicalize negative zero to JSON `0`.
 - [ ] Keep exact `decimal` values as canonical strings.
 - [ ] Migrate latitude, longitude, altitude, and accuracy to `float`.
-- [ ] Emit lower camelCase canonical JSON keys.
+- [x] Emit lower camelCase canonical JSON keys.
 - [ ] Map `float` to Python `float` and TypeScript `number`; keep `decimal` mapped to strings.
 
 ### Compiler architecture and CI

@@ -38,8 +38,8 @@
              (make-bbp-domain-engine
               domain tools (run-id-test-runner calls)))
            (payload
-             '(("program-id" . "program:replay")
-               ("run-id" . "run:replay:1")
+             '(("programId" . "program:replay")
+               ("runId" . "run:replay:1")
                ("tool" . "subfinder")
                ("target" . "api.example.com")
                ("options" . ()))))
@@ -47,7 +47,7 @@
        engine
        "program:replay"
        +bbp-register-program-message+
-       '(("program-id" . "program:replay")
+       '(("programId" . "program:replay")
          ("name" . "Replay Test")
          ("scope" . ("example.com"))))
       (let ((first
@@ -96,7 +96,7 @@
        engine
        "program:conflict"
        +bbp-register-program-message+
-       '(("program-id" . "program:conflict")
+       '(("programId" . "program:conflict")
          ("name" . "Conflict Test")
          ("scope" . ("example.com"))))
       (bbp-invoke-command

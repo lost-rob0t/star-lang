@@ -100,7 +100,9 @@
   (validate-library-semantics
    (if (and (listp source)
             (eq (first source) :ir-version)
-            (eql (getf source :ir-version) 1)
+            (eql (getf source :ir-version) +normalized-ir-version+)
+            (string= (or (getf source :ir-schema) "")
+                     +normalized-ir-schema+)
             (eq (getf source :kind) :spec-library))
        source
        (compile-spec-library source))))

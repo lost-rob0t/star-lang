@@ -108,11 +108,11 @@
               (find-document library name)
               (format nil "ported document ~A" name)))
            (dolist (field
-                    '("id" "dataset" "dtype" "schema-version"
-                      "sources" "source-urls" "collected-at"
-                      "observed-at" "confidence" "provenance"
-                      "chain-of-custody" "labels" "tags"
-                      "sensitivity" "visibility" "content-hash"
+                    '("id" "dataset" "dtype" "schemaVersion"
+                      "sources" "sourceUrls" "collectedAt"
+                      "observedAt" "confidence" "provenance"
+                      "chainOfCustody" "labels" "tags"
+                      "sensitivity" "visibility" "contentHash"
                       "raw" "extensions"))
              (assert-true
               (find-field document field)

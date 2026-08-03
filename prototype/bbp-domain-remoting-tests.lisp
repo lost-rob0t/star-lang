@@ -230,14 +230,14 @@
               domain tools (make-bbp-fake-tool-runner calls))))
       (invoke-domain-operation
        engine "program:acme" +bbp-register-program-message+
-       '(("program-id" . "program:acme")
+       '(("programId" . "program:acme")
          ("name" . "Acme BBP")
          ("scope" . ("example.com"))))
       (let ((result
               (invoke-domain-operation
                engine "program:acme" +bbp-run-tool-message+
-               '(("program-id" . "program:acme")
-                 ("run-id" . "run:standalone:1")
+               '(("programId" . "program:acme")
+                 ("runId" . "run:standalone:1")
                  ("tool" . "subfinder")
                  ("target" . "api.example.com")
                  ("options" . ())))))

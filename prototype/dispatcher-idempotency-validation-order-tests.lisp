@@ -28,12 +28,12 @@
   (complete-dispatch
    :message-type +bbp-tool-run-completed-message+
    :payload
-   '(("program-id" . "program:validation-order")
-     ("run-id" . "run:validation-order:1")
+   '(("programId" . "program:validation-order")
+     ("runId" . "run:validation-order:1")
      ("tool" . "subfinder")
      ("target" . "api.example.com")
      ("argv" . ("subfinder" "-silent" "-d" "api.example.com"))
-     ("exit-code" . 0)
+     ("exitCode" . 0)
      ("stdout" . "ok")
      ("stderr" . ""))))
 

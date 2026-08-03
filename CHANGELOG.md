@@ -21,6 +21,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added an ASCII lower camelCase field grammar with structured
+  `invalid-field-name` diagnostics and exact offending-token spans.
+- Added a permanent camelCase conformance suite covering source spelling,
+  negative field forms, normalized IR versioning, and canonical manifest keys.
+- Added an explicit `org.star-lang/normalized-ir@2` schema discriminator and
+  adapter rejection of legacy IR after the field-contract migration.
 - Added first-class syntax objects for every parsed occurrence, complete UTF-8
   byte/character source spans, persistent import-origin chains treated as
   immutable, and stable source maps.
@@ -36,6 +42,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Migrated document and message fields, portable manifests, canonical JSON,
+  lifecycle envelopes, generated Python/TypeScript bindings, fixtures, and
+  runtime field lookups to lower camelCase. Kebab-case declaration and type
+  names remain unchanged.
+- Bumped runtime-neutral normalized IR to version 2 so the camelCase field
+  contract is not silently introduced under the version 1 contract.
 - Consolidated all `.star` loading on the closed octet parser and the explicit
   read → locked imports → expand → validate → compile pipeline; removed the
   loader's Common Lisp reader implementation.

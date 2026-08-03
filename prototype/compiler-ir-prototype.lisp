@@ -4,6 +4,8 @@
 (defpackage #:star-lang.compiler-ir.prototype
   (:use #:cl)
   (:export
+   #:+normalized-ir-schema+
+   #:+normalized-ir-version+
    #:bind-cl-gserver
    #:compile-program
    #:define-star-program
@@ -12,6 +14,9 @@
    #:run-tests))
 
 (in-package #:star-lang.compiler-ir.prototype)
+
+(defconstant +normalized-ir-version+ 2)
+(defparameter +normalized-ir-schema+ "org.star-lang/normalized-ir@2")
 
 (define-condition star-lang-compiler-error (error)
   ((message :initarg :message :reader compiler-error-message)
@@ -404,7 +409,9 @@ This adapter is not a .star source reader."
                              (compile-declaration declaration target-names))
                            declaration-syntax))
          (spec-graph (find :spec-graph compiled :key (lambda (item) (getf item :kind)))))
-        (list :ir-version 1
+        (list :ir-version +normalized-ir-version+
+              :ir-schema +normalized-ir-schema+
+              :kind :program
               :spec-lock-digest (getf spec-graph :lock-digest)
               :declarations compiled
               :source-map
@@ -460,10 +467,17 @@ This adapter is not a .star source reader."
         :nodes (mapcar #'bind-node (getf dataflow :nodes))))
 
 (defun bind-cl-gserver (program)
-  (unless (and (listp program) (= (getf program :ir-version) 1))
-    (fail 'adapter-binding-error "cl-gserver binder requires Star-Lang IR version 1."))
+  (unless (and (listp program)
+               (= (getf program :ir-version) +normalized-ir-version+)
+               (string= (or (getf program :ir-schema) "")
+                        +normalized-ir-schema+)
+               (eq (getf program :kind) :program))
+    (fail 'adapter-binding-error
+          "cl-gserver binder requires Star-Lang normalized IR schema ~A."
+          +normalized-ir-schema+))
   (list :runtime :cl-gserver
-        :ir-version 1
+        :ir-version +normalized-ir-version+
+        :ir-schema +normalized-ir-schema+
         :spec-lock-digest (getf program :spec-lock-digest)
         :actors (mapcar #'bind-actor-manifest (declaration-by-kind program :actor))
         :domain-servers
@@ -557,7 +571,20 @@ This adapter is not a .star source reader."
          (dataflow (first (declaration-by-kind program :dataflow)))
          (send (find-node dataflow :send)))
     (assert-true send "core IR contains send")
+    (assert-equal +normalized-ir-version+ (getf program :ir-version)
+                  "normalized IR version")
+    (assert-equal +normalized-ir-schema+ (getf program :ir-schema)
+                  "normalized IR schema")
+    (assert-equal :program (getf program :kind) "normalized IR root kind")
     (assert-equal "combine-names-into-emails" (getf send :target) "core send target")))
+
+(defun test-adapter-rejects-legacy-ir ()
+  (let ((legacy (copy-list (example-program))))
+    (setf (getf legacy :ir-version) 1)
+    (assert-true
+     (condition-signaled-p 'adapter-binding-error
+                           (lambda () (bind-cl-gserver legacy)))
+     "adapter rejects legacy normalized IR")))
 
 (defun test-cl-gserver-binding-lowers-send-to-tell ()
   (let* ((bound (bind-cl-gserver (example-program)))
@@ -633,6 +660,7 @@ This adapter is not a .star source reader."
   (mapc #'funcall
         (list #'test-macro-expands-to-compiler-call
               #'test-core-ir-preserves-runtime-neutral-send
+              #'test-adapter-rejects-legacy-ir
               #'test-cl-gserver-binding-lowers-send-to-tell
               #'test-domain-server-is-keyed-authority
               #'test-remote-spec-path-is-rejected

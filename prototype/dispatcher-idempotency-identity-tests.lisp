@@ -35,12 +35,12 @@
   (complete-dispatch
    :message-type +bbp-tool-run-completed-message+
    :payload
-   '(("program-id" . "program:identity")
-     ("run-id" . "run:identity:1")
+   '(("programId" . "program:identity")
+     ("runId" . "run:identity:1")
      ("tool" . "subfinder")
      ("target" . "api.example.com")
      ("argv" . ("subfinder" "-silent" "-d" "api.example.com"))
-     ("exit-code" . 0)
+     ("exitCode" . 0)
      ("stdout" . "ok")
      ("stderr" . ""))))
 
