@@ -76,40 +76,97 @@ boundaries but do not implement StarLang.
 
 [impl-index]: https://github.com/lost-rob0t/starintel-auto-research/blob/main/roam/indexes/star-lang/STAR-LANG-INDEX-001-implementation.org
 
+## Transitional architecture
+
+`prototype/` is the authoritative working implementation. The
+`starlang-prototype` ASDF system owns that implementation while final `star-*`
+and `starlang-*` systems are extracted incrementally.
+
+The target systems must not duplicate or shadow prototype source files. A file
+moves only when its package ownership and dependencies can be represented by an
+acyclic final-system boundary. Until then, the working code remains owned by
+`starlang-prototype`.
+
+`ci/target-systems.txt` is the checked list of final systems. SBCL CI and Nix
+load each entry in a fresh process so incomplete package definitions and ASDF
+dependency errors cannot hide behind the prototype system.
+
+### Migration map
+
+| Prototype components | Intended final boundary |
+| --- | --- |
+| `core-surface-prototype`, `actor-wire-prototype`, message lifecycle files | `star-actor-protocol` and runtime-facing protocol packages |
+| `canonical-json-prototype` | `star-canonical-json` |
+| `compiler-ir-prototype`, `spec-domain-prototype`, `binding-generator-prototype` | `starlang-compiler` |
+| dispatcher, runtime directory, loader, document, constructor, and API files | `starlang-runtime` |
+| transport and dispatcher transport adapter files | `star-adapter-sdk`, then concrete port systems |
+| `cl-gserver-runtime-facade-prototype` | `star-sento-compat` |
+| runtime and remoting journal files | `star-journal` |
+| remoting lease file | `star-lease` |
+| domain server and remoting files | `starlang-runtime` plus the relevant adapter-port systems |
+
+Mailbox, supervision, capability, artifact, HTTP, process, and XLSX ownership is
+filled as those APIs are extracted. Their target systems are load-checked now;
+that does not make placeholder packages authoritative over `prototype/`.
+
+## Validation
+
+ASDF owns the complete prototype test contract. The secondary
+`starlang-prototype/tests` system runs the baseline and every
+`prototype/*-tests.lisp` script in deterministic filename order, using a fresh
+SBCL process for each script.
+
+```sh
+sbcl --non-interactive \
+  --eval '(require :asdf)' \
+  --eval '(asdf:load-system :starlang-prototype)' \
+  --eval '(asdf:test-system :starlang-prototype)' \
+  --eval '(sb-ext:quit)'
+```
+
+```sh
+nix flake check -L
+```
+
+A failing child test process causes `asdf:test-system`, SBCL CI, and the Nix
+check to fail.
+
 ## Nix
 
-The flake packages the complete StarLang source tree, validates the
-`starlang-prototype` ASDF system, runs every prototype test script, and exposes
-runnable development commands.
+The flake packages the complete StarLang source tree, loads the authoritative
+prototype and declared target systems, runs the prototype ASDF test operation,
+and exposes runnable development commands.
 
 ```sh
 nix build
 nix run
 nix run .#tests
 nix develop
-nix flake check
+nix flake check -L
 ```
 
 The installed package provides:
 
 - `bin/starlang`: starts SBCL with `starlang-prototype` loaded.
-- `bin/starlang-test`: runs the baseline and all `prototype/*-tests.lisp` suites.
+- `bin/starlang-test`: runs `(asdf:test-system :starlang-prototype)`.
 - `share/common-lisp/source/star-lang`: ASDF-visible StarLang sources.
 
 ## Layout
 
 ```text
-prototype/               Canonical Common Lisp implementation under hardening
+prototype/               Authoritative StarLang implementation and test scripts
 fixtures/                .star and .sexp test fixtures
-<system>/                Target ASDF system directories
-starlang-prototype.asd   Transitional full-implementation ASDF system
+ci/target-systems.txt    Final systems loaded independently by CI and Nix
+<system>/                Incrementally populated target ASDF system directories
+starlang-prototype.asd   Transitional implementation and test ASDF systems
 flake.nix                Package, apps, checks, and development shell
 .github/workflows/       SBCL and Nix CI
 ```
 
 ## Tooling entry points
 
-- **ASDF** loads systems such as `(asdf:load-system :starlang-prototype)`.
+- **ASDF** loads `(asdf:load-system :starlang-prototype)` and tests
+  `(asdf:test-system :starlang-prototype)`.
 - **SBCL** is the primary Common Lisp implementation.
 - **Roswell** is available in the development shell when provided by Nixpkgs.
 - **Nix** builds, runs, and checks StarLang reproducibly.
@@ -123,8 +180,9 @@ flake.nix                Package, apps, checks, and development shell
 
 ## Status
 
-The canonical Common Lisp implementation lives in `prototype/`. The code is
-organized as a transitional `starlang-prototype` ASDF system while the target
-`star-*` and `starlang-*` systems are filled incrementally. SBCL CI and
-`nix flake check` enforce loadability and the existing test matrix; research
-000–009 compliance remains an active hardening gate tracked in the ledger.
+The real StarLang implementation remains in `prototype/`. The transitional
+`starlang-prototype` system is authoritative until source ownership is moved
+into final systems without duplication, circular dependencies, or lost test
+coverage. SBCL CI and `nix flake check -L` enforce the same ASDF load and test
+contract. Research 000–009 compliance remains an active hardening gate tracked
+in the implementation ledger.

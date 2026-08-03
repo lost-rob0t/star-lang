@@ -45,6 +45,15 @@
               --eval '(format t "~&starlang-prototype loaded successfully~%")' \
               --eval '(sb-ext:quit)'
 
+            while IFS= read -r target_system; do
+              [ -n "$target_system" ] || continue
+              echo "Loading $target_system"
+              sbcl --non-interactive \
+                --eval '(require :asdf)' \
+                --eval "(asdf:load-system :$target_system)" \
+                --eval '(sb-ext:quit)'
+            done < ci/target-systems.txt
+
             runHook postBuild
           '';
 
@@ -61,10 +70,10 @@
             mkdir -p "$HOME"
             export CL_SOURCE_REGISTRY="$source_root//"
 
-            sbcl --script "$source_root/prototype/tests.lisp"
-            for test_file in "$source_root"/prototype/*-tests.lisp; do
-              sbcl --script "$test_file"
-            done
+            sbcl --non-interactive \
+              --eval '(require :asdf)' \
+              --eval '(asdf:test-system :starlang-prototype)' \
+              --eval '(sb-ext:quit)'
 
             cd "$source_root"
             runHook postCheck
@@ -103,10 +112,10 @@
             export CL_SOURCE_REGISTRY="\$source_root//"
             cd "\$test_root"
 
-            ${sbcl}/bin/sbcl --script "\$source_root/prototype/tests.lisp"
-            for test_file in "\$source_root"/prototype/*-tests.lisp; do
-              ${sbcl}/bin/sbcl --script "\$test_file"
-            done
+            ${sbcl}/bin/sbcl --non-interactive \
+              --eval '(require :asdf)' \
+              --eval '(asdf:test-system :starlang-prototype)' \
+              --eval '(sb-ext:quit)'
             EOF
 
             chmod +x "$out/bin/starlang" "$out/bin/starlang-test"

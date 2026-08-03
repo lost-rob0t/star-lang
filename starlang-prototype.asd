@@ -1,5 +1,5 @@
 (defsystem "starlang-prototype"
-  :description "Transitional ASDF system for the StarLang Common Lisp prototype. The 66 source files in prototype/ self-load their dependencies via merge-pathnames with find-package guards. CI runs each test suite via sbcl --script. Individual star-* and starlang-* systems will be filled incrementally from this base."
+  :description "Transitional ASDF system for the authoritative StarLang Common Lisp implementation in prototype/. Final star-* and starlang-* systems are populated incrementally from this base."
   :author "lost-rob0t"
   :license "AGPL-3.0-only"
   :version "0.1.0"
@@ -42,4 +42,20 @@
      (:file "document-runtime")
      (:file "relation-compatibility")
      (:file "constructor-runtime")
-     (:file "star-lang-api")))))
+     (:file "star-lang-api"))))
+  :in-order-to ((test-op (test-op "starlang-prototype/tests"))))
+
+(defsystem "starlang-prototype/tests"
+  :description "Deterministic test entry point for the transitional StarLang prototype system."
+  :author "lost-rob0t"
+  :license "AGPL-3.0-only"
+  :depends-on ("starlang-prototype")
+  :serial t
+  :components
+  ((:module "prototype"
+    :components
+    ((:file "test-runner"))))
+  :perform
+  (test-op (operation component)
+    (declare (ignore operation component))
+    (uiop:symbol-call :starlang-prototype.test-runner :run-tests)))
