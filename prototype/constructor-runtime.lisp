@@ -94,8 +94,26 @@
         (fail-constructor "Constructor ~A is not installed for package ~A."
                           constructor-name package-name))))
 
+(defun constructor-syntax-to-host-data (syntax)
+  "Compatibility conversion that keeps identifier atoms distinct from strings.
+Identifiers become fresh, uninterned symbols, so source text never populates a
+host package while the legacy constructor generator can retain its old shape."
+  (if (star-lang.core-surface.prototype:star-syntax-p syntax)
+      (case (star-lang.core-surface.prototype:star-syntax-kind syntax)
+        (:list
+         (mapcar #'constructor-syntax-to-host-data
+                 (star-lang.core-surface.prototype:star-syntax-children syntax)))
+        (:identifier
+         (make-symbol
+          (star-lang.core-surface.prototype:star-syntax-datum syntax)))
+        (otherwise
+         (star-lang.core-surface.prototype:star-syntax-datum syntax)))
+      syntax))
+
 (defun library-options (node)
-  (third (star-lang.loader:library-node-form node)))
+  (third
+   (constructor-syntax-to-host-data
+    (star-lang.loader:library-node-form node))))
 
 (defun raw-constructor-entries (node)
   (let ((options (library-options node)))
@@ -107,16 +125,20 @@
 (defparameter +lambda-list-keywords+
   '(&optional &rest &key &allow-other-keys &aux &body &whole &environment))
 
-(defun lambda-list-keyword-p (symbol)
-  (and (symbolp symbol)
-       (member symbol +lambda-list-keywords+ :test #'eq)))
+(defun lambda-list-keyword-p (value)
+  (and (or (symbolp value) (stringp value))
+       (find (identifier-string value)
+             +lambda-list-keywords+
+             :key #'identifier-string
+             :test #'string=)))
 
 (defun parameter-variable (parameter)
   (cond
-    ((symbolp parameter)
+    ((or (symbolp parameter) (stringp parameter))
      (unless (lambda-list-keyword-p parameter)
        parameter))
-    ((and (consp parameter) (symbolp (first parameter)))
+    ((and (consp parameter)
+          (or (symbolp (first parameter)) (stringp (first parameter))))
      (first parameter))
     (t nil)))
 
@@ -281,7 +303,10 @@
     ((or (null item) (eq item t)) item)
     ((symbolp item)
      (if (lambda-list-keyword-p item)
-         item
+         (find (identifier-string item)
+               +lambda-list-keywords+
+               :key #'identifier-string
+               :test #'string=)
          (target-symbol item package)))
     ((consp item)
      (mapcar (lambda (part)

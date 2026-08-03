@@ -69,6 +69,11 @@
         :key (lambda (item) (getf item :name))
         :test #'string=))
 
+(defun without-source-map (library)
+  (let ((copy (copy-list library)))
+    (remf copy :source-map)
+    copy))
+
 (defun test-library-surface (library)
   (assert-equal :spec-library (getf library :kind) "library kind")
   (assert-equal "org.starintel/fec@1" (getf library :name) "library name")
@@ -160,7 +165,9 @@
           (compile-spec-library
            (read-trusted-fixture-form path)))
         (actual (load-star-form path)))
-    (assert-equal expected actual "file loader normalized IR")))
+    (assert-equal (without-source-map expected)
+                  (without-source-map actual)
+                  "file loader normalized IR")))
 
 (defun test-file-loader-comments-and-whitespace ()
   (with-temporary-star-file
@@ -173,11 +180,12 @@
          ; trailing comment
        ")
     (assert-equal
-     (compile-spec-library
-      '(spec-library "comments@1"
-        (:version "1")
-        (enum state (one two))))
-     (load-star-form path)
+     (without-source-map
+      (compile-spec-library
+       '(spec-library "comments@1"
+         (:version "1")
+         (enum state (one two)))))
+     (without-source-map (load-star-form path))
      "comments and whitespace")))
 
 (defun test-file-loader-source-errors ()

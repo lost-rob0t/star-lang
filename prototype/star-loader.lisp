@@ -13,6 +13,7 @@
    #:library-node-source
    #:library-node-cache-path
    #:library-node-form
+   #:library-node-source-map
    #:library-node-compiled
    #:library-node-imports
    #:loaded-graph
@@ -30,7 +31,16 @@
 (in-package #:star-lang.loader)
 
 (define-condition loader-error (error)
-  ((message :initarg :message :reader loader-error-message))
+  ((message :initarg :message :reader loader-error-message)
+   (code :initarg :code :initform :loader-error :reader loader-error-code)
+   (primary-span :initarg :primary-span :initform nil
+                 :reader loader-error-primary-span)
+   (origin-chain :initarg :origin-chain :initform nil
+                 :reader loader-error-origin-chain)
+   (related-spans :initarg :related-spans :initform nil
+                  :reader loader-error-related-spans)
+   (phase :initarg :phase :initform :resolve :reader loader-error-phase)
+   (details :initarg :details :initform nil :reader loader-error-details))
   (:report (lambda (condition stream)
              (write-string (loader-error-message condition) stream))))
 
@@ -48,7 +58,8 @@
   cache-path
   form
   compiled
-  imports)
+  imports
+  source-map)
 
 (defstruct loaded-graph
   root
@@ -56,13 +67,26 @@
   cache-directory)
 
 (defparameter *maximum-source-bytes* (* 16 1024 1024))
-(defparameter *maximum-form-depth* 128)
-(defparameter *maximum-form-nodes* 100000)
 (defparameter *curl-program* "curl")
 (defparameter *sha256-program* "sha256sum")
 
+(defvar *loader-current-syntax* nil)
+
 (defun fail-loader (condition-type control &rest arguments)
-  (error condition-type :message (apply #'format nil control arguments)))
+  (let ((syntax *loader-current-syntax*))
+    (error condition-type
+           :message (apply #'format nil control arguments)
+           :primary-span (and syntax
+                              (star-lang.core-surface.prototype:star-syntax-span
+                               syntax))
+           :origin-chain
+           (and syntax
+                (star-lang.core-surface.prototype:star-origin-chain
+                 (star-lang.core-surface.prototype:star-syntax-origin syntax)))
+           :phase :resolve)))
+
+(defmacro with-loader-syntax ((syntax) &body body)
+  `(let ((*loader-current-syntax* ,syntax)) ,@body))
 
 (defun string-prefix-p (prefix value)
   (and (stringp value)
@@ -109,70 +133,51 @@
                    pathname size maximum-source-bytes))
     size))
 
-(defun slurp-source-file (pathname maximum-source-bytes)
-  (ensure-source-size pathname maximum-source-bytes)
-  (uiop:read-file-string pathname))
+(defun parser-limits-with-source-limit (limits maximum-source-bytes)
+  (let ((base (or limits
+                  (star-lang.core-surface.prototype:make-star-parser-limits))))
+    (star-lang.core-surface.prototype:make-star-parser-limits
+     :source-bytes maximum-source-bytes
+     :nesting-depth
+     (star-lang.core-surface.prototype:star-parser-limits-nesting-depth base)
+     :node-count
+     (star-lang.core-surface.prototype:star-parser-limits-node-count base)
+     :token-bytes
+     (star-lang.core-surface.prototype:star-parser-limits-token-bytes base)
+     :string-bytes
+     (star-lang.core-surface.prototype:star-parser-limits-string-bytes base)
+     :collection-length
+     (star-lang.core-surface.prototype:star-parser-limits-collection-length base)
+     :numeric-literal-bytes
+     (star-lang.core-surface.prototype:star-parser-limits-numeric-literal-bytes base)
+     :numeric-magnitude
+     (star-lang.core-surface.prototype:star-parser-limits-numeric-magnitude base))))
 
-(defun rejecting-sharp-reader (stream character)
-  (declare (ignore stream character))
-  (fail-loader 'source-error
-               "Dispatch reader syntax beginning with # is not part of Star-Lang source."))
-
-(defun validate-source-tree (form)
-  (let ((nodes 0)
-        (active (make-hash-table :test #'eq)))
-    (labels ((walk (value depth)
-               (incf nodes)
-               (when (> nodes *maximum-form-nodes*)
+(defun read-star-file (pathname limits origin)
+  (let* ((path (truename pathname))
+         (octets
+           (with-open-file (stream path
+                                   :direction :input
+                                   :element-type '(unsigned-byte 8))
+             (let* ((length (file-length stream))
+                    (buffer (make-array length
+                                        :element-type '(unsigned-byte 8))))
+               (when (> length
+                        (star-lang.core-surface.prototype:star-parser-limits-source-bytes
+                         limits))
                  (fail-loader 'source-error
-                              "Star source exceeds the ~D-node form limit."
-                              *maximum-form-nodes*))
-               (when (> depth *maximum-form-depth*)
+                              "Star source ~A exceeds the configured byte limit."
+                              path))
+               (unless (= (read-sequence buffer stream) length)
                  (fail-loader 'source-error
-                              "Star source exceeds the ~D-level nesting limit."
-                              *maximum-form-depth*))
-               (cond
-                 ((consp value)
-                  (when (gethash value active)
-                    (fail-loader 'source-error
-                                 "Circular reader structures are not valid Star-Lang source."))
-                  (setf (gethash value active) t)
-                  (walk (car value) (1+ depth))
-                  (walk (cdr value) (1+ depth))
-                  (remhash value active))
-                 ((or (null value)
-                      (symbolp value)
-                      (stringp value)
-                      (numberp value)
-                      (characterp value))
-                  t)
-                 (t
-                  (fail-loader 'source-error
-                               "Reader object ~S is not valid Star-Lang source."
-                               value)))))
-      (walk form 0))
-    form))
-
-(defun read-star-source (source source-name)
-  (let ((*read-eval* nil)
-        (*package* (find-package "STAR-LANG.LOADER"))
-        (*readtable* (copy-readtable nil)))
-    (set-macro-character #\# #'rejecting-sharp-reader nil *readtable*)
-    (with-input-from-string (stream source)
-      (let ((form (read stream nil :eof)))
-        (when (eq form :eof)
-          (fail-loader 'source-error "Star source ~A is empty." source-name))
-        (unless (eq (read stream nil :eof) :eof)
-          (fail-loader 'source-error
-                       "Star source ~A must contain exactly one top-level form."
-                       source-name))
-        (validate-source-tree form)))))
-
-(defun read-star-file (pathname maximum-source-bytes)
-  (let ((path (truename pathname)))
-    (read-star-source
-     (slurp-source-file path maximum-source-bytes)
-     (namestring path))))
+                              "Star source ~A changed while being read." path))
+               buffer))))
+    (star-lang.core-surface.prototype:read-star-syntax
+     octets
+     :source-id (namestring path)
+     :pathname path
+     :origin origin
+     :limits limits)))
 
 (defun plist-key-present-p (plist key)
   (loop for tail on plist by #'cddr
@@ -184,51 +189,69 @@
   (getf options key))
 
 (defun identifier-string (value)
-  (string-downcase
-   (etypecase value
-     (string value)
-     (symbol (symbol-name value)))))
+  (etypecase value
+    (string value)
+    (symbol (string-downcase (symbol-name value)))
+    (star-lang.core-surface.prototype:star-syntax
+     (identifier-string
+      (star-lang.core-surface.prototype:star-syntax-datum value)))))
+
+(defun loader-elements (syntax)
+  (unless (and (star-lang.core-surface.prototype:star-syntax-p syntax)
+               (eq (star-lang.core-surface.prototype:star-syntax-kind syntax)
+                   :list))
+    (fail-loader 'source-error "Expected a StarLang list."))
+  (star-lang.core-surface.prototype:star-syntax-children syntax))
 
 (defun declaration-kind (form)
-  (unless (and (consp form) (symbolp (first form)))
-    (fail-loader 'source-error "Invalid Star declaration ~S." form))
-  (identifier-string (first form)))
+  (let ((elements (loader-elements form)))
+    (unless elements
+      (fail-loader 'source-error "Invalid empty Star declaration."))
+    (string-downcase (identifier-string (first elements)))))
 
 (defun parse-library-header (form)
-  (unless (and (listp form)
-               (>= (length form) 3)
+  (unless (and (star-lang.core-surface.prototype:star-syntax-p form)
+               (>= (length (loader-elements form)) 3)
                (string= (declaration-kind form) "spec-library"))
     (fail-loader 'source-error "Expected one spec-library form."))
-  (destructuring-bind (operator name options &rest declarations) form
+  (destructuring-bind (operator name options &rest declarations) (loader-elements form)
     (declare (ignore operator declarations))
-    (unless (and (stringp name)
-                 (listp options)
-                 (evenp (length options)))
-      (fail-loader 'source-error "Invalid spec-library header in ~S." form))
-    (let ((version (require-option options :version "spec-library")))
+    (let ((name-datum
+            (star-lang.core-surface.prototype:star-syntax-datum name))
+          (option-data
+            (star-lang.core-surface.prototype:star-syntax-to-datum options)))
+      (unless (and (stringp name-datum)
+                   (listp option-data)
+                   (evenp (length option-data)))
+        (fail-loader 'source-error "Invalid spec-library header."))
+      (let ((version (require-option option-data :version "spec-library")))
       (unless (stringp version)
         (fail-loader 'source-error
                      "Specification library version must be a string."))
-      (values name version))))
+        (values name-datum version)))))
 
 (defun raw-import-declarations (form)
   (remove-if-not
    (lambda (declaration)
      (string= (declaration-kind declaration) "import"))
-   (cdddr form)))
+   (cdddr (loader-elements form))))
 
 (defun parse-import-declaration (declaration)
-  (destructuring-bind (operator name &rest options) declaration
+  (with-loader-syntax (declaration)
+  (destructuring-bind (operator name &rest options) (loader-elements declaration)
     (declare (ignore operator))
-    (unless (and (stringp name)
-                 (listp options)
-                 (evenp (length options)))
-      (fail-loader 'import-error "Invalid import declaration ~S." declaration))
-    (let* ((version (require-option options :version "import"))
+    (let* ((name-datum
+             (star-lang.core-surface.prototype:star-syntax-datum name))
+           (option-data
+             (mapcar #'star-lang.core-surface.prototype:star-syntax-to-datum
+                     options)))
+      (unless (and (stringp name-datum) (evenp (length option-data)))
+        (fail-loader 'import-error "Invalid import declaration."))
+    (let* ((version (require-option option-data :version "import"))
            (digest (normalize-digest
-                    (require-option options :digest "import")))
-           (url (getf options :url))
-           (path (getf options :path)))
+                    (require-option option-data :digest "import")))
+           (url (getf option-data :url))
+           (path (getf option-data :path)))
       (unless (stringp version)
         (fail-loader 'import-error
                      "Import ~A requires a string version."
@@ -247,11 +270,12 @@
                      url))
       (when (and path (not (stringp path)))
         (fail-loader 'import-error "Import path must be a string."))
-      (list :name name
+      (list :name name-datum
             :version version
             :digest digest
             :url url
-            :path path))))
+            :path path
+            :syntax declaration))))))
 
 (defun command-output (program arguments context)
   (handler-case
@@ -365,26 +389,68 @@
   (format nil "~A@~A" name version))
 
 (defun compile-library-form (form)
-  (star-lang.core-surface.prototype:compile-spec-library form))
+  (let ((expanded
+          (star-lang.core-surface.prototype:expand-star-syntax form)))
+    (star-lang.core-surface.prototype:validate-star-core expanded)
+    (star-lang.core-surface.prototype:compile-star-core expanded)))
+
+(defvar *loader-active-chain* nil)
+
+(defun fail-import-cycle (key origin)
+  (let* ((chain (append (mapcar #'car *loader-active-chain*) (list key)))
+         (primary
+           (or (and *loader-current-syntax*
+                    (star-lang.core-surface.prototype:star-syntax-span
+                     *loader-current-syntax*))
+               (and origin
+                    (star-lang.core-surface.prototype:star-origin-frame-import-site-span
+                     origin))))
+         (spans
+           (remove nil
+                   (append (mapcar #'cdr *loader-active-chain*)
+                           (list primary)))))
+    (error 'import-error
+           :message (format nil "Specification import cycle: ~{~A~^ -> ~}."
+                            chain)
+           :code :import-cycle
+           :primary-span primary
+           :origin-chain
+           (star-lang.core-surface.prototype:star-origin-chain origin)
+           :related-spans spans
+           :details (list :ordered-chain chain)
+           :phase :resolve)))
+
+(defun import-origin (import parent-name parent-version parent-digest parent-origin)
+  (let* ((syntax (getf import :syntax))
+         (span (star-lang.core-surface.prototype:star-syntax-span syntax)))
+    (star-lang.core-surface.prototype:make-star-origin-frame
+     :kind :import
+     :source-id (and span
+                     (star-lang.core-surface.prototype:star-source-span-source-id
+                      span))
+     :library-name parent-name
+     :library-version parent-version
+     :library-digest parent-digest
+     :import-site-span span
+     :parent parent-origin)))
 
 (defun load-star-file (pathname
                        &key
                          (allow-network nil)
                          (cache-directory (default-cache-directory))
-                         (maximum-source-bytes *maximum-source-bytes*))
+                         (maximum-source-bytes *maximum-source-bytes*)
+                         limits)
   (let ((seen (make-hash-table :test #'equal))
         (active (make-hash-table :test #'equal))
         (ordered '())
-        (cache (ensure-cache-directory cache-directory)))
+        (cache (ensure-cache-directory cache-directory))
+        (effective-limits
+          (parser-limits-with-source-limit limits maximum-source-bytes)))
     (labels
-        ((load-library (path source expected-name expected-version expected-digest)
-           (let* ((form (read-star-file path maximum-source-bytes))
+        ((load-library (path source expected-name expected-version expected-digest
+                            origin)
+           (let* ((form (read-star-file path effective-limits origin))
                   (actual-digest (sha256-file path)))
-             (when expected-digest
-               (unless (string= actual-digest (normalize-digest expected-digest))
-                 (fail-loader 'digest-error
-                              "Digest mismatch for imported library ~A."
-                              source)))
              (multiple-value-bind (name version)
                  (parse-library-header form)
                (when (and expected-name (not (string= name expected-name)))
@@ -397,23 +463,36 @@
                               name expected-version version))
                (let* ((key (library-key name version))
                       (existing (gethash key seen)))
+                 (when (gethash key active)
+                   (fail-import-cycle key origin))
+                 (when expected-digest
+                   (unless (string= actual-digest
+                                    (normalize-digest expected-digest))
+                     (fail-loader 'digest-error
+                                  "Digest mismatch for imported library ~A."
+                                  source)))
                  (when existing
                    (unless (string= (library-node-digest existing) actual-digest)
                      (fail-loader 'import-error
                                   "Library ~A was resolved with conflicting digests."
                                   key))
                    (return-from load-library existing))
-                 (when (gethash key active)
-                   (fail-loader 'import-error
-                                "Specification import cycle detected at ~A."
-                                key))
                  (setf (gethash key active) t)
-                 (let* ((imports
+                 (let* ((*loader-active-chain*
+                          (append *loader-active-chain*
+                                  (list (cons key
+                                              (and origin
+                                                   (star-lang.core-surface.prototype:star-origin-frame-import-site-span
+                                                    origin))))))
+                        (imports
                           (mapcar
                            (lambda (declaration)
-                             (resolve-import
-                              (parse-import-declaration declaration)
-                              path))
+                             (with-loader-syntax (declaration)
+                               (resolve-import
+                                (parse-import-declaration declaration)
+                                path name version actual-digest
+                                (star-lang.core-surface.prototype:star-syntax-origin
+                                 form))))
                            (raw-import-declarations form)))
                         (compiled (compile-library-form form))
                         (node (make-library-node
@@ -424,15 +503,21 @@
                                :cache-path path
                                :form form
                                :compiled compiled
-                               :imports imports)))
+                               :imports imports
+                               :source-map
+                               (star-lang.core-surface.prototype:star-syntax-source-map
+                                form))))
                    (remhash key active)
                    (setf (gethash key seen) node)
                    (push node ordered)
                    node)))))
-         (resolve-import (import parent-path)
+         (resolve-import (import parent-path parent-name parent-version
+                                 parent-digest parent-origin)
            (let ((url (getf import :url))
                  (path (getf import :path))
-                 (digest (getf import :digest)))
+                 (digest (getf import :digest))
+                 (origin (import-origin import parent-name parent-version
+                                        parent-digest parent-origin)))
              (cond
                (url
                 (unless allow-network
@@ -457,20 +542,22 @@
                                 url
                                 (getf import :name)
                                 (getf import :version)
-                                digest)))
+                                digest
+                                origin)))
                (path
                 (let ((resolved (resolve-local-import-path path parent-path)))
                   (load-library resolved
                                 (namestring resolved)
                                 (getf import :name)
                                 (getf import :version)
-                                digest)))
+                                digest
+                                origin)))
                (t
                 (fail-loader 'import-error "Unreachable import state."))))))
       (let* ((root-path (truename pathname))
              (root (load-library root-path
                                  (namestring root-path)
-                                 nil nil nil)))
+                                 nil nil nil nil)))
         (make-loaded-graph
          :root root
          :libraries (nreverse ordered)
@@ -483,7 +570,8 @@
                         digest
                         (allow-network nil)
                         (cache-directory (default-cache-directory))
-                        (maximum-source-bytes *maximum-source-bytes*))
+                        (maximum-source-bytes *maximum-source-bytes*)
+                        limits)
   (unless (and name version digest)
     (fail-loader 'import-error
                  "Loading a root URL requires :name, :version, and :digest."))
@@ -509,7 +597,8 @@
                   cached
                   :allow-network allow-network
                   :cache-directory cache
-                  :maximum-source-bytes maximum-source-bytes)))
+                  :maximum-source-bytes maximum-source-bytes
+                  :limits limits)))
       (let ((root (loaded-graph-root graph)))
         (unless (and (string= name (library-node-name root))
                      (string= version (library-node-version root))

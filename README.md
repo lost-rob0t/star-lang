@@ -39,6 +39,24 @@ The required boundary is:
 - generated Python and TypeScript bindings consume the same portable manifest;
   they do not implement StarLang.
 
+The compiler front end is one explicit pipeline:
+
+```text
+UTF-8 source bytes
+  → read-star-syntax
+  → locked import resolution
+  → expand-star-syntax
+  → validate-star-core
+  → compile-star-core
+  → normalized runtime-neutral IR
+```
+
+The current expansion phase is deliberately an identity boundary and rejects
+macro declarations and macro-only syntax. Parsed identifiers remain exact,
+uninterned strings. `star-syntax-to-datum` is an explicit lossy compatibility
+operation: it discards occurrence identity, spans, scopes, origins, and
+introduction metadata.
+
 A permanent conformance suite must guard these rules before this section can be
 changed to claim full compliance.
 

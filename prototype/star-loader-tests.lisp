@@ -30,6 +30,14 @@
           t
           (error caught)))))
 
+(defun captured-loader-condition (condition-type thunk)
+  (handler-case
+      (progn (funcall thunk) nil)
+    (condition (caught)
+      (if (typep caught condition-type)
+          caught
+          (error caught)))))
+
 (defun temporary-test-directory ()
   (let ((directory
           (merge-pathnames
@@ -208,6 +216,104 @@
        :validate t
        :if-does-not-exist :ignore))))
 
+(defun test-nested-import-origin-chain ()
+  (let* ((directory (temporary-test-directory))
+         (cache (merge-pathnames #P"cache/" directory))
+         (leaf (merge-pathnames #P"leaf.star" directory))
+         (middle (merge-pathnames #P"middle.star" directory))
+         (root (merge-pathnames #P"root.star" directory)))
+    (unwind-protect
+         (progn
+           (write-text-file
+            leaf
+            "(spec-library \"test/leaf@1\" (:version \"1.0.0\") (enum State (Ready)))")
+           (let ((leaf-digest (sha256-file leaf)))
+             (write-text-file
+              middle
+              (format nil
+                      "(spec-library \"test/middle@1\" (:version \"1.0.0\") (import \"test/leaf@1\" :version \"1.0.0\" :digest ~S :path \"leaf.star\"))"
+                      leaf-digest)))
+           (let ((middle-digest (sha256-file middle)))
+             (write-text-file
+              root
+              (format nil
+                      "(spec-library \"test/root@1\" (:version \"1.0.0\") (import \"test/middle@1\" :version \"1.0.0\" :digest ~S :path \"middle.star\"))"
+                      middle-digest))
+             (let* ((root-digest (sha256-file root))
+                    (graph (load-star-file root :cache-directory cache))
+                    (leaf-node
+                      (find "test/leaf@1"
+                            (loaded-graph-libraries graph)
+                            :key #'library-node-name
+                            :test #'string=))
+                    (leaf-syntax (library-node-form leaf-node))
+                    (span
+                      (star-lang.core-surface.prototype:star-syntax-span
+                       leaf-syntax))
+                    (chain
+                      (star-lang.core-surface.prototype:star-origin-chain
+                       (star-lang.core-surface.prototype:star-syntax-origin
+                        leaf-syntax))))
+               (assert-true leaf-node "nested leaf loaded")
+               (assert-equal (namestring (truename leaf))
+                             (star-lang.core-surface.prototype:star-source-span-source-id
+                              span)
+                             "leaf retains own source span")
+               (assert-equal '(nil "test/root@1" "test/middle@1")
+                             (mapcar (lambda (frame)
+                                       (getf frame :library-name))
+                                     chain)
+                             "ordered import-origin libraries")
+               (assert-equal root-digest
+                             (getf (second chain) :library-digest)
+                             "root import frame digest")
+               (assert-equal middle-digest
+                             (getf (third chain) :library-digest)
+                             "middle import frame digest")
+               (assert-true (getf (second chain) :import-site)
+                            "root import site retained")
+               (assert-true (getf (third chain) :import-site)
+                            "middle import site retained"))))
+      (uiop:delete-directory-tree
+       directory
+       :validate t
+       :if-does-not-exist :ignore))))
+
+(defun test-import-cycle-diagnostic-chain ()
+  (let* ((syntax
+           (star-lang.core-surface.prototype:read-star-syntax
+            "(import \"test/a@1\" :version \"1\" :digest \"sha256:0000000000000000000000000000000000000000000000000000000000000000\" :path \"a.star\")"
+            :source-id "cycle"))
+         (span
+           (star-lang.core-surface.prototype:star-syntax-span syntax))
+         (source-origin
+           (star-lang.core-surface.prototype:star-syntax-origin syntax))
+         (origin
+           (star-lang.core-surface.prototype:make-star-origin-frame
+            :kind :import
+            :source-id "cycle"
+            :library-name "test/b@1"
+            :library-version "1"
+            :library-digest
+            "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+            :import-site-span span
+            :parent source-origin))
+         (*loader-active-chain*
+           (list (cons "test/a@1@1" span)
+                 (cons "test/b@1@1" span)))
+         (*loader-current-syntax* syntax)
+         (condition
+           (captured-loader-condition
+            'import-error
+            (lambda () (fail-import-cycle "test/a@1@1" origin)))))
+    (assert-equal :import-cycle (loader-error-code condition)
+                  "cycle diagnostic code")
+    (assert-equal '("test/a@1@1" "test/b@1@1" "test/a@1@1")
+                  (getf (loader-error-details condition) :ordered-chain)
+                  "ordered cycle chain")
+    (assert-equal 3 (length (loader-error-related-spans condition))
+                  "cycle import-site spans")))
+
 (defun test-network-disabled-before-fetch ()
   (let* ((directory (temporary-test-directory))
          (root (merge-pathnames #P"root.star" directory)))
@@ -245,10 +351,11 @@
     'import-error
     (lambda ()
       (parse-import-declaration
-       '(import "test/remote@1"
-          :version "1.0.0"
-          :digest "sha256:0000000000000000000000000000000000000000000000000000000000000000"
-          :url "http://example.test/remote.star"))))
+       (star-lang.core-surface.prototype:read-star-syntax
+        "(import \"test/remote@1\"
+           :version \"1.0.0\"
+           :digest \"sha256:0000000000000000000000000000000000000000000000000000000000000000\"
+           :url \"http://example.test/remote.star\")"))))
    "plain HTTP imports rejected"))
 
 (defun test-http-root-url-rejected ()
@@ -266,16 +373,18 @@
 (defun test-dispatch-reader-rejected ()
   (assert-true
    (condition-signaled-p
-    'source-error
+    'star-lang.core-surface.prototype:star-lang-source-error
     (lambda ()
-      (read-star-source
+      (star-lang.core-surface.prototype:read-star-syntax
        "(spec-library \"bad@1\" (:version \"1\") #.(error \"boom\"))"
-       "reader-test")))
+       :source-id "reader-test")))
    "dispatch reader syntax rejected"))
 
 (defun run-tests ()
   (test-starintel-schema)
   (test-local-import-and-cache)
+  (test-nested-import-origin-chain)
+  (test-import-cycle-diagnostic-chain)
   (test-bad-digest-rejected)
   (test-network-disabled-before-fetch)
   (test-http-import-rejected)

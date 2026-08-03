@@ -1,3 +1,6 @@
+(unless (find-package "STAR-LANG.CORE-SURFACE.PROTOTYPE")
+  (load (merge-pathnames "core-surface-prototype.lisp" *load-truename*)))
+
 (defpackage #:star-lang.compiler-ir.prototype
   (:use #:cl)
   (:export
@@ -11,7 +14,16 @@
 (in-package #:star-lang.compiler-ir.prototype)
 
 (define-condition star-lang-compiler-error (error)
-  ((message :initarg :message :reader compiler-error-message))
+  ((message :initarg :message :reader compiler-error-message)
+   (code :initarg :code :initform :compiler-error :reader compiler-error-code)
+   (span :initarg :span :initform nil :reader compiler-error-span)
+   (origin :initarg :origin :initform nil :reader compiler-error-origin)
+   (syntax-kind :initarg :syntax-kind :initform nil
+                :reader compiler-error-syntax-kind)
+   (related-spans :initarg :related-spans :initform nil
+                  :reader compiler-error-related-spans)
+   (phase :initarg :phase :initform :compile :reader compiler-error-phase)
+   (details :initarg :details :initform nil :reader compiler-error-details))
   (:report (lambda (condition stream)
              (write-string (compiler-error-message condition) stream))))
 
@@ -21,14 +33,49 @@
 (define-condition adapter-binding-error (star-lang-compiler-error) ())
 (define-condition test-error (star-lang-compiler-error) ())
 
+(defvar *compiler-current-syntax* nil)
+
 (defun fail (condition-type control &rest arguments)
-  (error condition-type :message (apply #'format nil control arguments)))
+  (let ((syntax *compiler-current-syntax*))
+    (error condition-type
+           :message (apply #'format nil control arguments)
+           :span (and syntax
+                      (star-lang.core-surface.prototype:star-syntax-span syntax))
+           :origin (and syntax
+                        (star-lang.core-surface.prototype:star-syntax-origin syntax))
+           :syntax-kind
+           (and syntax
+                (star-lang.core-surface.prototype:star-syntax-kind syntax))
+           :phase :compile)))
+
+(defmacro with-compiler-syntax ((syntax) &body body)
+  `(let ((*compiler-current-syntax* ,syntax)) ,@body))
+
+(defun ir-list-p (value)
+  (and (star-lang.core-surface.prototype:star-syntax-p value)
+       (eq (star-lang.core-surface.prototype:star-syntax-kind value) :list)))
+
+(defun ir-elements (value)
+  (if (ir-list-p value)
+      (star-lang.core-surface.prototype:star-syntax-children value)
+      (fail 'invalid-declaration-error "Expected a StarLang list occurrence.")))
+
+(defun ir-atom (value)
+  (if (and (star-lang.core-surface.prototype:star-syntax-p value)
+           (not (ir-list-p value)))
+      (star-lang.core-surface.prototype:star-syntax-datum value)
+      (fail 'invalid-declaration-error "Expected a StarLang atomic occurrence.")))
 
 (defun identifier-string (value)
-  (string-downcase
-   (etypecase value
-     (string value)
-     (symbol (symbol-name value)))))
+  (let ((datum (if (star-lang.core-surface.prototype:star-syntax-p value)
+                   (ir-atom value)
+                   value)))
+    (etypecase datum
+      (string datum)
+      (symbol (string-downcase (symbol-name datum))))))
+
+(defun identifier-key (value)
+  (string-downcase (identifier-string value)))
 
 (defun string-prefix-p (prefix string)
   (and (stringp string)
@@ -36,116 +83,143 @@
        (string= prefix string :end2 (length prefix))))
 
 (defun digest-p (value)
+  (when (star-lang.core-surface.prototype:star-syntax-p value)
+    (setf value (ir-atom value)))
   (and (stringp value)
        (> (length value) 7)
        (string-prefix-p "sha256:" value)))
 
 (defun local-spec-path-p (value)
+  (when (star-lang.core-surface.prototype:star-syntax-p value)
+    (setf value (ir-atom value)))
   (and (stringp value)
        (not (string-prefix-p "http://" value))
        (not (string-prefix-p "https://" value))))
 
 (defun plist-has-key-p (plist key)
-  (loop for tail on plist by #'cddr
-        thereis (eq (first tail) key)))
+  (loop for tail on (ir-elements plist) by #'cddr
+        thereis (eq (ir-atom (first tail)) key)))
 
 (defun required-option (options key context &optional condition-type)
   (unless (plist-has-key-p options key)
     (fail (or condition-type 'invalid-declaration-error)
           "~A requires option ~S."
           context key))
-  (getf options key))
+  (loop for (candidate value) on (ir-elements options) by #'cddr
+        when (eq (ir-atom candidate) key)
+          return value))
 
 (defun ensure-proper-plist (options context)
-  (unless (and (listp options) (evenp (length options)))
+  (unless (and (ir-list-p options)
+               (evenp (length (ir-elements options))))
     (fail 'invalid-declaration-error "~A requires a property list." context))
   options)
 
 (defun normalize-type (value)
   (cond
-    ((keywordp value) value)
-    ((stringp value) value)
-    ((symbolp value) (identifier-string value))
-    ((consp value) (mapcar #'normalize-type value))
-    (t value)))
+    ((ir-list-p value) (mapcar #'normalize-type (ir-elements value)))
+    ((star-lang.core-surface.prototype:star-syntax-p value)
+     (let ((datum (ir-atom value)))
+       (cond
+         ((keywordp datum) datum)
+         ((stringp datum) datum)
+         ((symbolp datum) (identifier-string datum))
+         (t datum))))
+    (t
+     (fail 'invalid-declaration-error "Expected a StarLang syntax occurrence."))))
 
 (defun normalize-capabilities (value)
-  (unless (listp value)
+  (unless (ir-list-p value)
     (fail 'invalid-declaration-error "Capabilities must be a list."))
-  (mapcar #'normalize-type value))
+  (mapcar #'normalize-type (ir-elements value)))
 
 (defun compile-spec-import (import)
-  (unless (and (listp import) (evenp (length import)))
+  (unless (and (ir-list-p import) (evenp (length (ir-elements import))))
     (fail 'unresolved-spec-error "Specification imports must be property lists."))
   (let ((name (required-option import :name "Specification import" 'unresolved-spec-error))
         (version (required-option import :version "Specification import" 'unresolved-spec-error))
         (digest (required-option import :digest "Specification import" 'unresolved-spec-error)))
-    (unless (and (stringp name) (stringp version) (digest-p digest))
+    (unless (and (stringp (ir-atom name))
+                 (stringp (ir-atom version))
+                 (digest-p digest))
       (fail 'unresolved-spec-error
             "Specification import requires string name, exact version, and sha256 digest."))
-    (list :name name :version version :digest digest)))
+    (list :name (ir-atom name)
+          :version (ir-atom version)
+          :digest (ir-atom digest))))
 
 (defun compile-spec-library (library)
-  (unless (and (listp library) (evenp (length library)))
+  (unless (and (ir-list-p library) (evenp (length (ir-elements library))))
     (fail 'unresolved-spec-error "Specification library entries must be property lists."))
   (let ((name (required-option library :name "Specification library" 'unresolved-spec-error))
         (version (required-option library :version "Specification library" 'unresolved-spec-error))
         (digest (required-option library :digest "Specification library" 'unresolved-spec-error))
         (path (required-option library :path "Specification library" 'unresolved-spec-error)))
-    (unless (and (stringp name) (stringp version) (digest-p digest))
+    (unless (and (stringp (ir-atom name))
+                 (stringp (ir-atom version))
+                 (digest-p digest))
       (fail 'unresolved-spec-error
             "Specification library requires string name, exact version, and sha256 digest."))
     (unless (local-spec-path-p path)
       (fail 'unresolved-spec-error
             "Compiler received unresolved remote specification path ~S; resolve and lock it first."
             path))
-    (list :name name
-          :version version
-          :digest digest
-          :path path
-          :origin (getf library :origin)
+    (list :name (ir-atom name)
+          :version (ir-atom version)
+          :digest (ir-atom digest)
+          :path (ir-atom path)
+          :origin (and (plist-has-key-p library :origin)
+                       (normalize-type
+                        (required-option library :origin "Specification library")))
           :imports (mapcar #'compile-spec-import
-                           (or (getf library :imports) '())))))
+                           (if (plist-has-key-p library :imports)
+                               (ir-elements
+                                (required-option library :imports
+                                                 "Specification library"))
+                               '())))))
 
 (defun compile-spec-graph (declaration)
-  (destructuring-bind (operator options) declaration
+  (destructuring-bind (operator options) (ir-elements declaration)
     (declare (ignore operator))
     (ensure-proper-plist options "spec-graph")
     (let ((lock-digest (required-option options :lock-digest "spec-graph" 'unresolved-spec-error))
           (libraries (required-option options :libraries "spec-graph" 'unresolved-spec-error)))
       (unless (digest-p lock-digest)
         (fail 'unresolved-spec-error "spec-graph requires a sha256 lock digest."))
-      (unless (and (listp libraries) libraries)
+      (unless (and (ir-list-p libraries) (ir-elements libraries))
         (fail 'unresolved-spec-error "spec-graph requires at least one resolved library."))
       (list :kind :spec-graph
-            :lock-digest lock-digest
-            :libraries (mapcar #'compile-spec-library libraries)))))
+            :lock-digest (ir-atom lock-digest)
+            :libraries (mapcar #'compile-spec-library
+                               (ir-elements libraries))))))
 
 (defun compile-document (declaration)
-  (destructuring-bind (operator name options) declaration
+  (destructuring-bind (operator name options) (ir-elements declaration)
     (declare (ignore operator))
     (ensure-proper-plist options "document")
     (let ((schema (required-option options :schema "document"))
           (persistence (required-option options :persistence "document")))
-      (unless (stringp schema)
+      (unless (stringp (ir-atom schema))
         (fail 'invalid-declaration-error "Document schema must be a locked schema identifier."))
-      (unless (member persistence '(:persistent :transient) :test #'eq)
+      (unless (member (ir-atom persistence) '(:persistent :transient) :test #'eq)
         (fail 'invalid-declaration-error "Document persistence must be :persistent or :transient."))
       (list :kind :document
             :name (identifier-string name)
-            :schema schema
-            :persistence persistence))))
+            :schema (ir-atom schema)
+            :persistence (ir-atom persistence)))))
 
 (defun normalize-mailbox (mailbox)
-  (unless (and (listp mailbox) (= (length mailbox) 2))
+  (unless (and (ir-list-p mailbox) (= (length (ir-elements mailbox)) 2))
     (fail 'invalid-declaration-error "Actor mailbox must be (:bounded capacity)."))
-  (destructuring-bind (kind capacity) mailbox
-    (unless (and (eq kind :bounded) (integerp capacity) (> capacity 0))
+  (destructuring-bind (kind capacity) (ir-elements mailbox)
+    (unless (and (eq (ir-atom kind) :bounded)
+                 (integerp (ir-atom capacity))
+                 (> (ir-atom capacity) 0))
       (fail 'invalid-declaration-error "Actor mailbox must be (:bounded positive-integer)."))
-    (list :kind :bounded :capacity capacity)))
+    (list :kind :bounded :capacity (ir-atom capacity))))
 
 (defun compile-actor (declaration)
-  (destructuring-bind (operator name options) declaration
+  (destructuring-bind (operator name options) (ir-elements declaration)
     (declare (ignore operator))
     (ensure-proper-plist options "actor")
     (let ((accepts (required-option options :accepts "actor"))
@@ -153,7 +227,8 @@
           (handler (required-option options :handler "actor"))
           (mailbox (required-option options :mailbox "actor"))
           (restart (required-option options :restart "actor")))
-      (unless (member restart '(:permanent :transient :temporary) :test #'eq)
+      (unless (member (ir-atom restart)
+                      '(:permanent :transient :temporary) :test #'eq)
         (fail 'invalid-declaration-error "Actor restart policy ~S is invalid." restart))
       (list :kind :actor
             :name (identifier-string name)
@@ -161,22 +236,26 @@
             :produces (normalize-type produces)
             :handler (identifier-string handler)
             :mailbox (normalize-mailbox mailbox)
-            :restart restart
-            :capabilities (normalize-capabilities (or (getf options :capabilities) '()))))))
+            :restart (ir-atom restart)
+            :capabilities
+            (if (plist-has-key-p options :capabilities)
+                (normalize-capabilities
+                 (required-option options :capabilities "actor"))
+                '())))))
 
 (defun normalize-index (index)
-  (unless (and (listp index) (= (length index) 3))
+  (unless (and (ir-list-p index) (= (length (ir-elements index)) 3))
     (fail 'invalid-declaration-error
           "Domain-server indexes must be (name schema field)."))
-  (destructuring-bind (name schema field) index
-    (unless (stringp schema)
+  (destructuring-bind (name schema field) (ir-elements index)
+    (unless (stringp (ir-atom schema))
       (fail 'invalid-declaration-error "Domain-server index schema must be qualified."))
     (list :name (identifier-string name)
-          :schema schema
+          :schema (ir-atom schema)
           :field (identifier-string field))))
 
 (defun compile-domain-server (declaration)
-  (destructuring-bind (operator name options) declaration
+  (destructuring-bind (operator name options) (ir-elements declaration)
     (declare (ignore operator))
     (ensure-proper-plist options "domain-server")
     (let ((key-schema (required-option options :key-schema "domain-server"))
@@ -184,27 +263,39 @@
           (indexes (required-option options :indexes "domain-server"))
           (accepts (required-option options :accepts "domain-server"))
           (restart (required-option options :restart "domain-server")))
-      (unless (and (stringp key-schema)
-                   (listp owns)
-                   (every #'stringp owns)
-                   (listp indexes)
-                   (listp accepts))
+      (unless (and (stringp (ir-atom key-schema))
+                   (ir-list-p owns)
+                   (every (lambda (item) (stringp (ir-atom item)))
+                          (ir-elements owns))
+                   (ir-list-p indexes)
+                   (ir-list-p accepts))
         (fail 'invalid-declaration-error "Domain-server schema and protocol declarations are invalid."))
-      (unless (member restart '(:permanent :transient :temporary) :test #'eq)
+      (unless (member (ir-atom restart)
+                      '(:permanent :transient :temporary) :test #'eq)
         (fail 'invalid-declaration-error "Domain-server restart policy ~S is invalid." restart))
       (list :kind :domain-server
             :name (identifier-string name)
             :authority :keyed-aggregate
             :actor-cardinality :per-key
-            :key-schema key-schema
-            :owns (copy-list owns)
-            :indexes (mapcar #'normalize-index indexes)
-            :accepts (copy-tree accepts)
-            :restart restart
-            :capabilities (normalize-capabilities (or (getf options :capabilities) '()))))))
+            :key-schema (ir-atom key-schema)
+            :owns (mapcar #'ir-atom (ir-elements owns))
+            :indexes (mapcar #'normalize-index (ir-elements indexes))
+            :accepts (normalize-type accepts)
+            :restart (ir-atom restart)
+            :capabilities
+            (if (plist-has-key-p options :capabilities)
+                (normalize-capabilities
+                 (required-option options :capabilities "domain-server"))
+                '())))))
 
 (defun compile-relation-stage (dataflow-name index stage)
-  (let ((options (rest stage)))
+  (let ((options
+          (star-lang.core-surface.prototype:make-star-syntax
+           :kind :list
+           :children (rest (ir-elements stage))
+           :span (star-lang.core-surface.prototype:star-syntax-span stage)
+           :scopes (star-lang.core-surface.prototype:star-syntax-scopes stage)
+           :origin (star-lang.core-surface.prototype:star-syntax-origin stage))))
     (ensure-proper-plist options "relations stage")
     (let ((source (required-option options :source "relations stage" 'invalid-stage-error))
           (predicate (required-option options :predicate "relations stage" 'invalid-stage-error))
@@ -216,36 +307,41 @@
             :destination (normalize-type destination)))))
 
 (defun compile-stage (dataflow-name index stage target-names)
-  (unless (and (listp stage) (symbolp (first stage)))
-    (fail 'invalid-stage-error "Invalid dataflow stage ~S." stage))
+  (unless (and (ir-list-p stage) (ir-elements stage))
+    (fail 'invalid-stage-error "Invalid dataflow stage."))
   (let ((node-id (format nil "~A/~3,'0D" dataflow-name index))
-        (operator (identifier-string (first stage))))
+        (operator (identifier-key (first (ir-elements stage)))))
     (cond
       ((string= operator "from-dataset")
-       (unless (and (= (length stage) 2) (stringp (second stage)))
+       (unless (and (= (length (ir-elements stage)) 2)
+                    (stringp (ir-atom (second (ir-elements stage)))))
          (fail 'invalid-stage-error "from-dataset requires one dataset name string."))
-       (list :node-id node-id :op :from-dataset :dataset (second stage)))
+       (list :node-id node-id :op :from-dataset
+             :dataset (ir-atom (second (ir-elements stage)))))
       ((string= operator "relations")
        (compile-relation-stage dataflow-name index stage))
       ((string= operator "send")
-       (unless (= (length stage) 3)
+       (unless (= (length (ir-elements stage)) 3)
          (fail 'invalid-stage-error "send requires target and message operands."))
-       (let ((target (identifier-string (second stage))))
+       (let ((target (identifier-string (second (ir-elements stage)))))
          (unless (member target target-names :test #'string=)
            (fail 'invalid-stage-error "send targets undefined actor or domain server ~A." target))
          (list :node-id node-id
                :op :send
                :target target
-               :message (normalize-type (third stage)))))
+               :message (normalize-type (third (ir-elements stage))))))
       ((string= operator "collect")
-       (unless (= (length stage) 2)
+       (unless (= (length (ir-elements stage)) 2)
          (fail 'invalid-stage-error "collect requires one binding name."))
-       (list :node-id node-id :op :collect :binding (normalize-type (second stage))))
+       (list :node-id node-id :op :collect
+             :binding (normalize-type (second (ir-elements stage)))))
       (t
-       (fail 'invalid-stage-error "Unknown dataflow stage ~S." (first stage))))))
+       (fail 'invalid-stage-error "Unknown dataflow stage ~S."
+             (star-lang.core-surface.prototype:star-syntax-to-datum
+              (first (ir-elements stage))))))))
 
 (defun compile-dataflow (declaration target-names)
-  (destructuring-bind (operator name &rest stages) declaration
+  (destructuring-bind (operator name &rest stages) (ir-elements declaration)
     (declare (ignore operator))
     (let ((normalized-name (identifier-string name)))
       (unless stages
@@ -257,15 +353,15 @@
                          collect (compile-stage normalized-name index stage target-names))))))
 
 (defun declaration-kind (declaration)
-  (unless (and (listp declaration) (symbolp (first declaration)))
-    (fail 'invalid-declaration-error "Invalid declaration ~S." declaration))
-  (identifier-string (first declaration)))
+  (unless (and (ir-list-p declaration) (ir-elements declaration))
+    (fail 'invalid-declaration-error "Invalid declaration."))
+  (identifier-key (first (ir-elements declaration))))
 
 (defun declared-target-names (declarations)
   (loop for declaration in declarations
         for kind = (declaration-kind declaration)
         when (member kind '("actor" "domain-server") :test #'string=)
-          collect (identifier-string (second declaration))))
+          collect (identifier-string (second (ir-elements declaration)))))
 
 (defun ensure-one-spec-graph (declarations)
   (let ((graphs (remove-if-not (lambda (declaration)
@@ -276,6 +372,7 @@
     (first graphs)))
 
 (defun compile-declaration (declaration target-names)
+  (with-compiler-syntax (declaration)
   (let ((kind (declaration-kind declaration)))
     (cond
       ((string= kind "spec-graph") (compile-spec-graph declaration))
@@ -284,20 +381,35 @@
       ((string= kind "domain-server") (compile-domain-server declaration))
       ((string= kind "dataflow") (compile-dataflow declaration target-names))
       (t
-       (fail 'invalid-declaration-error "Unknown declaration ~S." (first declaration))))))
+       (fail 'invalid-declaration-error "Unknown declaration ~S."
+             (star-lang.core-surface.prototype:star-syntax-to-datum
+              (first (ir-elements declaration)))))))))
 
 (defun compile-program (declarations)
-  (unless (listp declarations)
-    (fail 'invalid-declaration-error "Program declarations must be a list."))
-  (ensure-one-spec-graph declarations)
-  (let* ((target-names (declared-target-names declarations))
+  "Compile trusted host declarations through the syntax-object phase boundary.
+This adapter is not a .star source reader."
+  (let* ((syntax
+           (if (star-lang.core-surface.prototype:star-syntax-p declarations)
+               declarations
+               (star-lang.core-surface.prototype:trusted-form-to-star-syntax
+                declarations)))
+         (expanded
+           (star-lang.core-surface.prototype:expand-star-syntax syntax)))
+    (star-lang.core-surface.prototype:validate-star-core
+     expanded :specification-graph :program)
+    (let ((declaration-syntax (ir-elements expanded)))
+      (ensure-one-spec-graph declaration-syntax)
+      (let* ((target-names (declared-target-names declaration-syntax))
          (compiled (mapcar (lambda (declaration)
                              (compile-declaration declaration target-names))
-                           declarations))
+                           declaration-syntax))
          (spec-graph (find :spec-graph compiled :key (lambda (item) (getf item :kind)))))
-    (list :ir-version 1
-          :spec-lock-digest (getf spec-graph :lock-digest)
-          :declarations compiled)))
+        (list :ir-version 1
+              :spec-lock-digest (getf spec-graph :lock-digest)
+              :declarations compiled
+              :source-map
+              (star-lang.core-surface.prototype:star-syntax-source-map
+               expanded))))))
 
 (defmacro define-star-program (&body declarations)
   `(compile-program ',declarations))
