@@ -3,11 +3,44 @@
 Common Lisp-only **StarLang** compiler and durable actor runtime.
 
 `star-lang` hosts the reusable Common Lisp systems that power the StarIntel
-actor platform. The research and design evidence lives in
+actor platform. The approved research and design evidence lives in
 [`lost-rob0t/starintel-auto-research`][research]; `starintel-server` consumes
 released runtime systems from this repository.
 
 [research]: https://github.com/lost-rob0t/starintel-auto-research
+
+## Research conformance
+
+The implementation is being hardened against the approved Star-Lang research
+sequence `STAR-LANG-RESEARCH-000` through `STAR-LANG-RESEARCH-009`.
+
+**Current status: not yet fully conformant.** The authoritative implementation
+ledger is [`RESEARCH-CONFORMANCE-000-009.md`](RESEARCH-CONFORMANCE-000-009.md),
+and completion is blocked by [issue #6][conformance-issue]. Research approval
+does not imply that the current implementation already satisfies every rule.
+
+[conformance-issue]: https://github.com/lost-rob0t/star-lang/issues/6
+
+The required boundary is:
+
+- Common Lisp is the sole parser, compiler, semantic-engine, dispatcher, and
+  runtime implementation language.
+- `.star` source must be parsed by the closed Star-Lang parser and never by the
+  Common Lisp reader.
+- specification imports must be exact-versioned, full SHA-256 locked, locally
+  compiled, and HTTPS-only when remote resolution is explicitly enabled.
+- normalized IR must remain data-only and runtime-neutral; cl-gserver operations
+  may appear only in adapter manifests.
+- document, message, manifest, and serialized wire field names must use lower
+  camelCase and preserve source spelling.
+- canonical JSON must use lower camelCase keys, deterministic key ordering,
+  finite binary64 JSON numbers for `float`, and canonical strings for exact
+  `decimal`.
+- generated Python and TypeScript bindings consume the same portable manifest;
+  they do not implement StarLang.
+
+A permanent conformance suite must guard these rules before this section can be
+changed to claim full compliance.
 
 ## Scope
 
@@ -151,4 +184,5 @@ The real StarLang implementation remains in `prototype/`. The transitional
 `starlang-prototype` system is authoritative until source ownership is moved
 into final systems without duplication, circular dependencies, or lost test
 coverage. SBCL CI and `nix flake check -L` enforce the same ASDF load and test
-contract.
+contract. Research 000–009 compliance remains an active hardening gate tracked
+in the implementation ledger.
