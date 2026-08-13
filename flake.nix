@@ -74,6 +74,7 @@
 
             sbcl --non-interactive \
               --eval '(require :asdf)' \
+              --eval '(asdf:test-system :star-actor-protocol)' \
               --eval '(asdf:test-system :starlang-prototype)' \
               --eval '(sb-ext:quit)'
 
@@ -116,6 +117,7 @@
 
             ${sbcl}/bin/sbcl --non-interactive \
               --eval '(require :asdf)' \
+              --eval '(asdf:test-system :star-actor-protocol)' \
               --eval '(asdf:test-system :starlang-prototype)' \
               --eval '(sb-ext:quit)'
             EOF

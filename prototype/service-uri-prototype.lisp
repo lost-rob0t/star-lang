@@ -1,3 +1,12 @@
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (unless (find-package "STARACTORPROTOCOL")
+    (require :asdf)
+    ;; Do not reader-reference ASDF:LOAD-SYSTEM here.  This file is also loaded
+    ;; directly by regression scripts started with plain `sbcl --script`, where
+    ;; the ASDF package does not exist until REQUIRE has executed.
+    (funcall (symbol-function (find-symbol "LOAD-SYSTEM" "ASDF"))
+             "star-actor-protocol")))
+
 (in-package #:star-lang.core-surface.prototype)
 
 (export '(invalid-star-service-uri-error
@@ -15,91 +24,59 @@
           ensure-star-service-uri
           canonical-star-service-uri-for-actor))
 
+;; Source-aware compatibility conditions remain compiler-side.  The portable
+;; parser lives in STAR-ACTOR-PROTOCOL and signals its protocol-local condition;
+;; these wrappers translate that failure through FAIL so current syntax/span and
+;; import-origin context remain attached for legacy compiler callers.
 (define-condition invalid-star-service-uri-error (star-lang-core-error) ())
 (define-condition star-service-not-found-error (star-lang-core-error) ())
 (define-condition star-service-unavailable-error (star-lang-core-error) ())
 
-(defstruct (star-service-uri
-            (:constructor %make-star-service-uri
-                (domain address actor-name)))
-  domain
-  address
-  actor-name)
+(deftype star-service-uri ()
+  'staractorprotocol:star-service-uri)
 
-(defun valid-star-service-token-character-p (character)
-  (or (char<= #\a character #\z)
-      (char<= #\0 character #\9)
-      (member character '(#\- #\_ #\.) :test #'char=)))
+(defun call-with-star-service-uri-compatibility (thunk)
+  (handler-case
+      (funcall thunk)
+    (staractorprotocol:invalid-star-service-uri-error (condition)
+      (fail 'invalid-star-service-uri-error "~A" condition))))
 
-(defun valid-star-service-token-p (value)
-  (and (stringp value)
-       (plusp (length value))
-       (every #'valid-star-service-token-character-p value)))
+(defun star-service-uri-p (value)
+  (staractorprotocol:star-service-uri-p value))
 
-(defun validate-star-service-token (value label)
-  (unless (valid-star-service-token-p value)
-    (fail 'invalid-star-service-uri-error
-          "STAR service URI ~A must be non-empty lowercase ASCII using only letters, digits, '.', '_', or '-': ~S."
-          label value))
-  value)
+(defun star-service-uri-domain (uri)
+  (staractorprotocol:star-service-uri-domain uri))
+
+(defun star-service-uri-address (uri)
+  (staractorprotocol:star-service-uri-address uri))
+
+(defun star-service-uri-actor-name (uri)
+  (staractorprotocol:star-service-uri-actor-name uri))
 
 (defun make-star-service-uri (domain address actor-name)
-  (%make-star-service-uri
-   (validate-star-service-token domain "domain")
-   (validate-star-service-token address "address")
-   (validate-star-service-token actor-name "actor name")))
+  (call-with-star-service-uri-compatibility
+   (lambda ()
+     (staractorprotocol:make-star-service-uri domain address actor-name))))
 
 (defun star-service-uri-string (uri)
-  (unless (star-service-uri-p uri)
-    (fail 'invalid-star-service-uri-error
-          "Expected a STAR service URI object, received ~S."
-          uri))
-  (format nil "star://~A:~A:~A"
-          (star-service-uri-domain uri)
-          (star-service-uri-address uri)
-          (star-service-uri-actor-name uri)))
+  (call-with-star-service-uri-compatibility
+   (lambda ()
+     (staractorprotocol:star-service-uri-string uri))))
 
 (defun star-service-uri-target-p (value)
-  (and (stringp value)
-       (<= 7 (length value))
-       (string= "star://" value :end2 7)))
+  (staractorprotocol:star-service-uri-target-p value))
 
 (defun parse-star-service-uri (value)
-  (unless (star-service-uri-target-p value)
-    (fail 'invalid-star-service-uri-error
-          "STAR service URI must begin with star://, received ~S."
-          value))
-  (let* ((body (subseq value 7))
-         (first-separator (position #\: body))
-         (second-separator
-           (and first-separator
-                (position #\: body :start (1+ first-separator))))
-         (third-separator
-           (and second-separator
-                (position #\: body :start (1+ second-separator)))))
-    (unless (and first-separator second-separator (null third-separator))
-      (fail 'invalid-star-service-uri-error
-            "STAR service URI must have exactly domain:address:actor-name after star://, received ~S."
-            value))
-    (make-star-service-uri
-     (subseq body 0 first-separator)
-     (subseq body (1+ first-separator) second-separator)
-     (subseq body (1+ second-separator)))))
+  (call-with-star-service-uri-compatibility
+   (lambda ()
+     (staractorprotocol:parse-star-service-uri value))))
 
 (defun ensure-star-service-uri (value)
-  (cond
-    ((star-service-uri-p value) value)
-    ((stringp value) (parse-star-service-uri value))
-    (t
-     (fail 'invalid-star-service-uri-error
-           "Expected STAR service URI string or object, received ~S."
-           value))))
+  (call-with-star-service-uri-compatibility
+   (lambda ()
+     (staractorprotocol:ensure-star-service-uri value))))
 
 (defun canonical-star-service-uri-for-actor (actor-name value)
-  (let ((uri (ensure-star-service-uri value)))
-    (unless (string= actor-name (star-service-uri-actor-name uri))
-      (fail 'invalid-star-service-uri-error
-            "STAR service URI actor name ~A does not match actor contract ~A."
-            (star-service-uri-actor-name uri)
-            actor-name))
-    (star-service-uri-string uri)))
+  (call-with-star-service-uri-compatibility
+   (lambda ()
+     (staractorprotocol:canonical-star-service-uri-for-actor actor-name value))))
