@@ -17,6 +17,7 @@
    #:validate-star-core
    #:compile-star-core
    #:load-star-runtime
+   #:normalize-runtime-compiler
    #:install-constructors
    #:generate-constructor-source
    #:create-document
@@ -47,6 +48,22 @@
         unless (member key keys :test #'eq)
           append (list key value)))
 
+(defun normalize-runtime-compiler (runtime-compiler)
+  (cond
+    ((eq runtime-compiler :eval) :eval)
+    ((and (symbolp runtime-compiler)
+          (string-equal (symbol-name runtime-compiler) "eval"))
+     :eval)
+    ((and (stringp runtime-compiler)
+          (string-equal runtime-compiler "eval"))
+     :eval)
+    (t
+     (error 'star-lang.constructor-runtime:constructor-runtime-error
+            :message
+            (format nil
+                    "Unsupported runtime compiler ~S. Supported runtime compilers: EVAL."
+                    runtime-compiler)))))
+
 (defun load-star (source &rest arguments &key &allow-other-keys)
   (apply #'star-lang.loader:load-star source arguments))
 
@@ -56,8 +73,17 @@
 (defun load-star-url (url &rest arguments &key &allow-other-keys)
   (apply #'star-lang.loader:load-star-url url arguments))
 
-(defun install-constructors (graph &rest arguments &key &allow-other-keys)
-  (apply #'star-lang.constructor-runtime:install-constructors graph arguments))
+(defun install-constructors (graph &rest arguments
+                             &key
+                               (runtime-compiler :eval)
+                             &allow-other-keys)
+  (let ((compiler (normalize-runtime-compiler runtime-compiler))
+        (constructor-arguments
+          (remove-options arguments '(:runtime-compiler))))
+    (ecase compiler
+      (:eval
+       (apply #'star-lang.constructor-runtime:install-constructors
+              graph constructor-arguments)))))
 
 (defun generate-constructor-source (graph stream &rest arguments
                                     &key &allow-other-keys)
@@ -69,20 +95,24 @@
                             constructor-package
                             (include-default-constructors t)
                             (constructor-if-exists :supersede)
+                            (runtime-compiler :eval)
                           &allow-other-keys)
-  (let* ((loader-arguments
+  (let* ((compiler (normalize-runtime-compiler runtime-compiler))
+         (loader-arguments
            (remove-options
             arguments
             '(:constructor-package
               :include-default-constructors
-              :constructor-if-exists)))
+              :constructor-if-exists
+              :runtime-compiler)))
          (graph (apply #'star-lang.loader:load-star source loader-arguments)))
     (when constructor-package
-      (star-lang.constructor-runtime:install-constructors
+      (install-constructors
        graph
        :package constructor-package
        :include-defaults include-default-constructors
-       :if-exists constructor-if-exists))
+       :if-exists constructor-if-exists
+       :runtime-compiler compiler))
     graph))
 
 (defun create-document (graph document-type values &rest arguments
