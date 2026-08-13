@@ -51,11 +51,27 @@
   (format nil "~A-~6,'0D"
           prefix (deterministic-dispatcher-sequence dispatcher)))
 
-(defun dispatcher-actor-contract (dispatcher actor-name)
-  (find actor-name
-        (getf (deterministic-dispatcher-manifest dispatcher) :actors)
-        :key (lambda (actor) (getf actor :name))
-        :test #'string=))
+(defun dispatcher-star-service-target-p (value)
+  (and (stringp value)
+       (<= 7 (length value))
+       (string= "star://" value :end2 7)))
+
+(defun dispatcher-actor-contract (dispatcher actor-target)
+  (let ((actors (getf (deterministic-dispatcher-manifest dispatcher) :actors)))
+    (if (dispatcher-star-service-target-p actor-target)
+        (let ((canonical
+                (star-service-uri-string
+                 (ensure-star-service-uri actor-target))))
+          (find-if
+           (lambda (actor)
+             (let ((service-uri (getf actor :service-uri)))
+               (and service-uri
+                    (string= canonical service-uri))))
+           actors))
+        (find actor-target
+              actors
+              :key (lambda (actor) (getf actor :name))
+              :test #'string=))))
 
 (defun register-dispatch-actor (dispatcher actor-name handler)
   (required-nonempty-string actor-name "actor name")
@@ -136,20 +152,23 @@
   (member message-type (getf contract :accepts) :test #'string=))
 
 (defun validate-command-route (dispatcher command)
-  (let* ((actor-name (getf command :actor))
-         (contract (dispatcher-actor-contract dispatcher actor-name))
-         (handler (gethash actor-name
-                           (deterministic-dispatcher-actors dispatcher))))
+  (let* ((actor-target (getf command :actor))
+         (contract (dispatcher-actor-contract dispatcher actor-target))
+         (actor-name (and contract (getf contract :name)))
+         (handler (and actor-name
+                       (gethash actor-name
+                                (deterministic-dispatcher-actors dispatcher)))))
     (unless contract
       (fail 'invalid-actor-error
-            "Command targets unknown actor ~A." actor-name))
+            "Command targets unknown actor or STAR service ~A." actor-target))
     (unless (actor-accepts-message-p contract (getf command :message-type))
       (fail 'invalid-actor-error
             "Actor ~A does not accept message type ~A."
-            actor-name (getf command :message-type)))
+            actor-target (getf command :message-type)))
     (unless handler
       (fail 'invalid-actor-error
-            "Actor ~A has no registered deterministic handler." actor-name))
+            "Actor ~A has no registered deterministic handler."
+            actor-name))
     handler))
 
 (defun make-dispatch-ack (dispatcher command status &key reason retry-after-ms)
