@@ -38,6 +38,7 @@
      ;; Standalone prototypes
      (:file "compiler-ir-prototype")
      (:file "spec-domain-prototype")
+     (:file "digest-lock-hardening-prototype")
      (:file "prototype")
      ;; Loader / document / constructor / api chain
      (:file "star-loader")
