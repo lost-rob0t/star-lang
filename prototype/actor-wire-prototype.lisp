@@ -9,6 +9,12 @@
     (declare (ignore operator))
     (ensure-plist options "actor" 'invalid-actor-error)
     (let* ((runtime (normalize-runtime (required-option options :runtime "actor" 'invalid-actor-error)))
+           (actor-name (identifier-string name))
+           (service-uri-value (getf options :service-uri))
+           (service-uri
+             (and service-uri-value
+                  (canonical-star-service-uri-for-actor
+                   actor-name service-uri-value)))
            (library-name (and library (getf library :name)))
            (local-types (and library
                              (loop for item in (getf library :declarations)
@@ -26,8 +32,9 @@
                        types))))
       (let ((actor
               (list :kind :actor
-                    :name (identifier-string name)
+                    :name actor-name
                     :runtime runtime
+                    :service-uri service-uri
                     :accepts (funcall normalize-contract
                                       (required-option options :accepts "actor" 'invalid-actor-error))
                     :produces (funcall normalize-contract
@@ -58,6 +65,7 @@
     (:native
      (list :kind :actor-binding
            :name (getf actor :name)
+           :service-uri (getf actor :service-uri)
            :runtime :cl-gserver
            :constructor :actor-of
            :send-operation :tell
@@ -69,6 +77,7 @@
     (:external
      (list :kind :actor-binding
            :name (getf actor :name)
+           :service-uri (getf actor :service-uri)
            :runtime :external
            :protocol (getf actor :protocol)
            :endpoint (getf actor :endpoint)
@@ -126,6 +135,19 @@
            "Cannot emit portable declaration for ~S."
            (getf declaration :kind)))))
 
+(defun portable-actor (actor)
+  (let ((portable
+          (list :name (getf actor :name)
+                :runtime (getf actor :runtime)
+                :protocol (getf actor :protocol)
+                :endpoint (getf actor :endpoint)
+                :accepts (copy-list (getf actor :accepts))
+                :produces (copy-list (getf actor :produces))
+                :capabilities (copy-list (getf actor :capabilities)))))
+    (if (getf actor :service-uri)
+        (append portable (list :service-uri (getf actor :service-uri)))
+        portable)))
+
 (defun emit-portable-manifest (library actors)
   (unless (and (listp library) (eq (getf library :kind) :spec-library))
     (fail 'invalid-library-error "Portable manifest requires compiled spec library IR."))
@@ -142,14 +164,7 @@
                             (declarations-of-kind library :predicate))
         :messages (mapcar #'portable-declaration
                           (declarations-of-kind library :message))
-        :actors (mapcar (lambda (actor)
-                          (list :name (getf actor :name)
-                                :runtime (getf actor :runtime)
-                                :protocol (getf actor :protocol)
-                                :endpoint (getf actor :endpoint)
-                                :accepts (copy-list (getf actor :accepts))
-                                :produces (copy-list (getf actor :produces))))
-                        actors)))
+        :actors (mapcar #'portable-actor actors)))
 
 (defun make-wire-envelope (&key message-type message-id actor dataset reply-to payload)
   (unless (and (stringp message-type)
