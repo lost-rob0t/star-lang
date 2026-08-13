@@ -100,6 +100,17 @@ jobs:
             --eval '(assert (null (find-package "STAR-LANG.PROTOTYPE")))' \
             --eval '(sb-ext:quit)'
 
+      - name: Test HTTP and scraping systems independently
+        shell: bash
+        run: |
+          set -euo pipefail
+          sbcl --non-interactive \
+            --eval '(require :asdf)' \
+            --eval '(asdf:test-system :star-http-port)' \
+            --eval '(asdf:test-system :star-scrape)' \
+            --eval '(assert (null (find-package "STAR-LANG.PROTOTYPE")))' \
+            --eval '(sb-ext:quit)'
+
       - name: Run starlang-prototype ASDF test system
         shell: bash
         run: |
