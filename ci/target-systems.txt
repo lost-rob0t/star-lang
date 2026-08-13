@@ -8,6 +8,7 @@ star-capability
 star-artifact
 star-adapter-sdk
 star-http-port
+star-scrape
 star-process-port
 star-canonical-json
 star-xlsx
