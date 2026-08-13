@@ -36,7 +36,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      CL_SOURCE_REGISTRY: ${{ github.workspace }}//
+      CL_SOURCE_REGISTRY: "${{ github.workspace }}//:"
     steps:
       - uses: actions/checkout@v4
 
@@ -53,10 +53,10 @@ jobs:
             exit 1
           fi
 
-      - name: Install SBCL
+      - name: Install SBCL and Common Lisp dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes sbcl
+          sudo apt-get install --yes sbcl cl-ironclad
 
       - name: Load starlang-prototype ASDF system
         shell: bash

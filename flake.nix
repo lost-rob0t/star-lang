@@ -17,7 +17,7 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
         lib = pkgs.lib;
-        sbcl = pkgs.sbcl;
+        sbcl = pkgs.sbcl.withPackages (ps: [ ps.ironclad ]);
 
         starLang = pkgs.stdenvNoCC.mkDerivation {
           pname = "star-lang";
@@ -37,6 +37,8 @@
 
             export HOME="$TMPDIR/home"
             mkdir -p "$HOME"
+            # sbcl.withPackages prepends the dependency registry and its own
+            # ASDF inheritance marker; do not add a second trailing colon here.
             export CL_SOURCE_REGISTRY="$PWD//"
 
             sbcl --non-interactive \
