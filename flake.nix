@@ -76,6 +76,8 @@
               --eval '(require :asdf)' \
               --eval '(asdf:test-system :star-actor-protocol)' \
               --eval '(asdf:test-system :starlang-runtime)' \
+              --eval '(asdf:test-system :star-http-port)' \
+              --eval '(asdf:test-system :star-scrape)' \
               --eval '(assert (null (find-package "STAR-LANG.PROTOTYPE")))' \
               --eval '(asdf:test-system :starlang-prototype)' \
               --eval '(sb-ext:quit)'
@@ -121,6 +123,8 @@
               --eval '(require :asdf)' \
               --eval '(asdf:test-system :star-actor-protocol)' \
               --eval '(asdf:test-system :starlang-runtime)' \
+              --eval '(asdf:test-system :star-http-port)' \
+              --eval '(asdf:test-system :star-scrape)' \
               --eval '(assert (null (find-package "STAR-LANG.PROTOTYPE")))' \
               --eval '(asdf:test-system :starlang-prototype)' \
               --eval '(sb-ext:quit)'
