@@ -89,7 +89,7 @@
                           (stream destination
                                   :direction :input
                                   :element-type '(unsigned-byte 8))
-                        (file-length stream)))))))
+                        (file-length stream))))))
 
 (defun make-shell-resolver-effects ()
   (make-resolver-effects
