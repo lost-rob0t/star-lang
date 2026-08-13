@@ -17,7 +17,7 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
         lib = pkgs.lib;
-        sbcl = pkgs.sbcl;
+        sbcl = pkgs.sbcl.withPackages (ps: [ ps.ironclad ]);
 
         starLang = pkgs.stdenvNoCC.mkDerivation {
           pname = "star-lang";
