@@ -278,39 +278,44 @@
       (fail-actor 'actor-contract-error
                   "Actor ~A returned no values."
                   (actor-name actor)))
-    (when (> (length values) 1)
-      (setf (actor-instance-data actor) (second values)))
-    (first values)))
+    (values (first values)
+            (and (> (length values) 1) (second values))
+            (> (length values) 1))))
 
 (defun invoke-actor (runtime target message)
   (let* ((actor (resolve-actor runtime target))
          (definition (actor-instance-definition actor)))
-    (unless (actor-running-p actor)
-      (fail-actor 'actor-stopped-error
-                  "Actor ~A is stopped."
-                  (actor-name actor)))
-    (when (eq :external (actor-definition-kind definition))
-      (fail-actor 'actor-external-dispatch-required-error
-                  "Actor ~A is external at ~A; a transport dispatcher is required."
-                  (actor-name actor)
-                  (actor-service-uri actor)))
-    (validate-contract
-     "input"
-     (actor-definition-input-validator definition)
-     (actor-definition-accepts definition)
-     message
-     actor)
     (handler-case
-        (let ((result (invoke-native-handler actor message runtime)))
+        (progn
+          (unless (actor-running-p actor)
+            (fail-actor 'actor-stopped-error
+                        "Actor ~A is stopped."
+                        (actor-name actor)))
+          (when (eq :external (actor-definition-kind definition))
+            (fail-actor 'actor-external-dispatch-required-error
+                        "Actor ~A is external at ~A; a transport dispatcher is required."
+                        (actor-name actor)
+                        (actor-service-uri actor)))
           (validate-contract
-           "output"
-           (actor-definition-output-validator definition)
-           (actor-definition-produces definition)
-           result
+           "input"
+           (actor-definition-input-validator definition)
+           (actor-definition-accepts definition)
+           message
            actor)
-          (incf (actor-instance-invocation-count actor))
-          (setf (actor-instance-last-error actor) nil)
-          result)
+          (multiple-value-bind (result next-state state-supplied-p)
+              (invoke-native-handler actor message runtime)
+            (validate-contract
+             "output"
+             (actor-definition-output-validator definition)
+             (actor-definition-produces definition)
+             result
+             actor)
+            ;; State changes commit only after the output contract succeeds.
+            (when state-supplied-p
+              (setf (actor-instance-data actor) next-state))
+            (incf (actor-instance-invocation-count actor))
+            (setf (actor-instance-last-error actor) nil)
+            result))
       (actor-runtime-error (condition)
         (setf (actor-instance-last-error actor) condition)
         (error condition))
