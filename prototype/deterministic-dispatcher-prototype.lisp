@@ -51,9 +51,14 @@
   (format nil "~A-~6,'0D"
           prefix (deterministic-dispatcher-sequence dispatcher)))
 
+(defun dispatcher-star-service-target-p (value)
+  (and (stringp value)
+       (<= 7 (length value))
+       (string= "star://" value :end2 7)))
+
 (defun dispatcher-actor-contract (dispatcher actor-target)
   (let ((actors (getf (deterministic-dispatcher-manifest dispatcher) :actors)))
-    (if (star-service-uri-target-p actor-target)
+    (if (dispatcher-star-service-target-p actor-target)
         (let ((canonical
                 (star-service-uri-string
                  (ensure-star-service-uri actor-target))))
