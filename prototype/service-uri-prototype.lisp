@@ -1,7 +1,11 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (unless (find-package "STARACTORPROTOCOL")
     (require :asdf)
-    (asdf:load-system "star-actor-protocol")))
+    ;; Do not reader-reference ASDF:LOAD-SYSTEM here.  This file is also loaded
+    ;; directly by regression scripts started with plain `sbcl --script`, where
+    ;; the ASDF package does not exist until REQUIRE has executed.
+    (funcall (symbol-function (find-symbol "LOAD-SYSTEM" "ASDF"))
+             "star-actor-protocol")))
 
 (in-package #:star-lang.core-surface.prototype)
 
