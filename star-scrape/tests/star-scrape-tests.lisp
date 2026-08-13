@@ -34,7 +34,10 @@
       (typep condition condition-type))))
 
 (defun fixture-node (text &rest attributes)
-  (list :text text :attributes attributes))
+  (list :text text
+        :attributes
+        (loop for (name value) on attributes by #'cddr
+              collect (cons name value))))
 
 (defun fixture-attribute (node attribute)
   (cdr (assoc attribute (getf node :attributes) :test #'string=)))
