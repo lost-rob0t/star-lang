@@ -3,7 +3,7 @@
   :author "lost-rob0t"
   :license "AGPL-3.0-only"
   :version "0.1.0"
-  :depends-on ()
+  :depends-on ("ironclad")
   :serial t
   :components
   ((:module "prototype"
@@ -44,6 +44,7 @@
      (:file "star-loader")
      (:file "resolver-effect-ports-prototype")
      (:file "resolver-shell-effects-prototype")
+     (:file "resolver-ironclad-digest-prototype")
      (:file "document-runtime")
      (:file "relation-compatibility")
      (:file "constructor-runtime")
