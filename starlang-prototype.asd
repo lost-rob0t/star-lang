@@ -42,6 +42,8 @@
      (:file "prototype")
      ;; Loader / document / constructor / api chain
      (:file "star-loader")
+     (:file "resolver-effect-ports-prototype")
+     (:file "resolver-shell-effects-prototype")
      (:file "document-runtime")
      (:file "relation-compatibility")
      (:file "constructor-runtime")
