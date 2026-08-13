@@ -130,6 +130,18 @@ jobs:
               py_compile.compile(str(path), doraise=True)
           PY
 
+      - name: Verify frozen canonical manifest fixtures
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmp --silent \
+            star-lang-fec-manifest.json \
+            fixtures/canonical/fec-manifest-v1.json
+          cmp --silent \
+            star-lang-bbp-domain-manifest.json \
+            fixtures/canonical/bbp-domain-manifest-v1.json
+          sha256sum --check fixtures/canonical/SHA256SUMS
+
       - name: Upload test logs and generated artifacts
         if: always()
         uses: actions/upload-artifact@v4
