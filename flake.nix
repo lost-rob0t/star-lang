@@ -37,7 +37,9 @@
 
             export HOME="$TMPDIR/home"
             mkdir -p "$HOME"
-            export CL_SOURCE_REGISTRY="$PWD//:"
+            # sbcl.withPackages prepends the dependency registry and its own
+            # ASDF inheritance marker; do not add a second trailing colon here.
+            export CL_SOURCE_REGISTRY="$PWD//"
 
             sbcl --non-interactive \
               --eval '(require :asdf)' \
@@ -68,7 +70,7 @@
 
             export HOME="$test_root/home"
             mkdir -p "$HOME"
-            export CL_SOURCE_REGISTRY="$source_root//:"
+            export CL_SOURCE_REGISTRY="$source_root//"
 
             sbcl --non-interactive \
               --eval '(require :asdf)' \
@@ -91,7 +93,7 @@
             set -euo pipefail
 
             source_root="$out/share/common-lisp/source/star-lang"
-            export CL_SOURCE_REGISTRY="\$source_root//:"
+            export CL_SOURCE_REGISTRY="\$source_root//"
 
             exec ${sbcl}/bin/sbcl \
               --eval '(require :asdf)' \
@@ -109,7 +111,7 @@
 
             export HOME="\$test_root/home"
             ${pkgs.coreutils}/bin/mkdir -p "\$HOME"
-            export CL_SOURCE_REGISTRY="\$source_root//:"
+            export CL_SOURCE_REGISTRY="\$source_root//"
             cd "\$test_root"
 
             ${sbcl}/bin/sbcl --non-interactive \
@@ -159,7 +161,7 @@
           ] ++ lib.optional (pkgs ? roswell) pkgs.roswell;
 
           shellHook = ''
-            export CL_SOURCE_REGISTRY="$PWD//:"
+            export CL_SOURCE_REGISTRY="$PWD//"
             echo "star-lang dev shell: $(sbcl --version)"
             echo "Build: nix build"
             echo "Run: nix run"
