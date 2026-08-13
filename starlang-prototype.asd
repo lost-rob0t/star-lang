@@ -22,6 +22,7 @@
      (:file "deferred-dispatch-completion-prototype")
      (:file "dispatcher-idempotency-identity-prototype")
      (:file "transport-port-prototype")
+     (:file "rabbitmq-transport-binding-prototype")
      (:file "dispatcher-transport-adapter-prototype")
      (:file "runtime-directory-prototype")
      (:file "domain-server-core-prototype")
