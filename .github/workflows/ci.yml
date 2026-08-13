@@ -36,7 +36,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      CL_SOURCE_REGISTRY: ${{ github.workspace }}//:
+      CL_SOURCE_REGISTRY: "${{ github.workspace }}//:"
     steps:
       - uses: actions/checkout@v4
 
