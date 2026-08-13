@@ -90,6 +90,16 @@ jobs:
             --eval '(asdf:test-system :star-actor-protocol)' \
             --eval '(sb-ext:quit)'
 
+      - name: Test final actor runtime independently
+        shell: bash
+        run: |
+          set -euo pipefail
+          sbcl --non-interactive \
+            --eval '(require :asdf)' \
+            --eval '(asdf:test-system :starlang-runtime)' \
+            --eval '(assert (null (find-package "STAR-LANG.PROTOTYPE")))' \
+            --eval '(sb-ext:quit)'
+
       - name: Run starlang-prototype ASDF test system
         shell: bash
         run: |
