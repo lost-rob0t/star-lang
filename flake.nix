@@ -82,6 +82,11 @@
               --eval '(asdf:test-system :starlang-prototype)' \
               --eval '(sb-ext:quit)'
 
+            sbcl --script "$source_root/prototype/run-star.lisp" \
+              load "$source_root/fixtures/star-cl-constructors.star" \
+              --runtime-compiler eval \
+              --cache "$test_root/cli-cache"
+
             cd "$source_root"
             runHook postCheck
           '';
@@ -101,8 +106,7 @@
             export CL_SOURCE_REGISTRY="\$source_root//"
 
             exec ${sbcl}/bin/sbcl \
-              --eval '(require :asdf)' \
-              --eval '(asdf:load-system :starlang-prototype)' \
+              --script "\$source_root/prototype/run-star.lisp" \
               "\$@"
             EOF
 
