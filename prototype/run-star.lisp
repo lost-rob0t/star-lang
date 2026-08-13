@@ -6,9 +6,9 @@
 
 (defun usage (&optional (stream *standard-output*))
   (format stream
-          "Usage: sbcl --script run-star.lisp load FILE [--allow-network] [--cache DIR] [--manifest FILE]~%")
+          "Usage: starlang load FILE [--allow-network] [--cache DIR] [--manifest FILE] [--runtime-compiler eval]~%")
   (format stream
-          "       sbcl --script run-star.lisp load-url URL --name NAME --version VERSION --digest SHA256 [options]~%"))
+          "       starlang load-url URL --name NAME --version VERSION --digest SHA256 [options]~%"))
 
 (defun require-argument (arguments option)
   (unless arguments
@@ -21,7 +21,8 @@
         (manifest nil)
         (name nil)
         (version nil)
-        (digest nil))
+        (digest nil)
+        (runtime-compiler :eval))
     (loop while arguments
           for option = (pop arguments)
           do
@@ -53,6 +54,12 @@
                     (require-argument arguments option)
                   (setf digest value
                         arguments rest)))
+               ((string= option "--runtime-compiler")
+                (multiple-value-bind (value rest)
+                    (require-argument arguments option)
+                  (setf runtime-compiler
+                        (star-lang.api:normalize-runtime-compiler value)
+                        arguments rest)))
                (t
                 (error "Unknown option ~A." option))))
     (list :allow-network allow-network
@@ -60,7 +67,8 @@
           :manifest manifest
           :name name
           :version version
-          :digest digest)))
+          :digest digest
+          :runtime-compiler runtime-compiler)))
 
 (defun option-value (options key default)
   (let ((value (getf options key)))
@@ -82,10 +90,11 @@
             (merge-pathnames #P".cache/star-lang/specs/"
                              (user-homedir-pathname))))
          (graph
-           (star-lang.api:load-star-file
+           (star-lang.api:load-star-runtime
             source
             :allow-network (getf options :allow-network)
-            :cache-directory cache)))
+            :cache-directory cache
+            :runtime-compiler (getf options :runtime-compiler))))
     (star-lang.loader:print-loaded-graph graph)
     (when (getf options :manifest)
       (write-manifest-file graph (getf options :manifest))
@@ -101,13 +110,14 @@
             (merge-pathnames #P".cache/star-lang/specs/"
                              (user-homedir-pathname))))
          (graph
-           (star-lang.api:load-star-url
+           (star-lang.api:load-star-runtime
             source
             :name (getf options :name)
             :version (getf options :version)
             :digest (getf options :digest)
             :allow-network (getf options :allow-network)
-            :cache-directory cache)))
+            :cache-directory cache
+            :runtime-compiler (getf options :runtime-compiler))))
     (star-lang.loader:print-loaded-graph graph)
     (when (getf options :manifest)
       (write-manifest-file graph (getf options :manifest)))
@@ -140,5 +150,5 @@
       (main)
       (uiop:quit 0))
   (condition (caught)
-    (format *error-output* "star: ~A~%" caught)
+    (format *error-output* "starlang: ~A~%" caught)
     (uiop:quit 1)))
