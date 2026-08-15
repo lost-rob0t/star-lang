@@ -80,36 +80,14 @@
    (lambda ()
      (apply #'staractorprotocol:make-cancel-envelope source arguments))))
 
-(defun validate-prototype-lifecycle-payload (manifest envelope)
-  (unless manifest
-    (fail 'invalid-envelope-error
-          "Data lifecycle envelopes require a portable manifest."))
-  (let ((contract
-          (message-contract manifest (getf envelope :message-type))))
-    (unless contract
-      (fail 'invalid-envelope-error
-            "Unknown lifecycle message type ~A."
-            (getf envelope :message-type)))
-    (wire-fields-object
-     manifest
-     (getf contract :fields)
-     (getf envelope :payload)
-     (format nil "Message ~A" (getf envelope :message-type))))
-  t)
-
 (defun validate-lifecycle-envelope
     (manifest envelope &key (validate-payload t))
   (call-final-lifecycle
    (lambda ()
-     (staractorprotocol:validate-lifecycle-envelope
+     (staractorprotocol:validate-lifecycle-envelope-against-manifest
+      manifest
       envelope
-      :validate-payload validate-payload
-      :payload-validator
-      (and validate-payload
-           (lambda (data-envelope)
-             (validate-prototype-lifecycle-payload
-              manifest
-              data-envelope))))))
+      :validate-payload validate-payload)))
   t)
 
 (defun lifecycle-common-json-entries (envelope)
