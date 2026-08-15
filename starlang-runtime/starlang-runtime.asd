@@ -2,8 +2,8 @@
   :description "The durable actor runtime that executes compiled StarLang"
   :author "lost-rob0t"
   :license "AGPL-3.0-only"
-  :version "0.1.0"
-  :depends-on ("star-actor-protocol")
+  :version "0.2.0"
+  :depends-on ("star-actor-protocol" "star-mailbox")
   :serial t
   :components
   ((:module "src"
