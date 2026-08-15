@@ -9,9 +9,9 @@
          :message (apply #'format nil control arguments)))
 
 (defconstant +lifecycle-wire-version+ 1)
-(defconstant +ack-message-type+ "star.protocol/ack@1")
-(defconstant +error-message-type+ "star.protocol/error@1")
-(defconstant +cancel-message-type+ "star.protocol/cancel@1")
+(defparameter +ack-message-type+ "star.protocol/ack@1")
+(defparameter +error-message-type+ "star.protocol/error@1")
+(defparameter +cancel-message-type+ "star.protocol/cancel@1")
 
 (defparameter *lifecycle-kinds*
   '(:command :event :reply :ack :error :cancel))
@@ -35,9 +35,8 @@
   value)
 
 (defun lifecycle-plist-has-key-p (plist key)
-  (loop for (candidate value) on plist by #'cddr
-        do (declare (ignore value))
-        when (eq candidate key)
+  (loop for rest on plist by #'cddr
+        when (eq (car rest) key)
           do (return t)
         finally (return nil)))
 
