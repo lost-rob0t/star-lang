@@ -46,4 +46,9 @@
    #:lifecycle-correlation-id
    #:lifecycle-causation-id
    #:cancel-target-message-id
-   #:cancel-target-correlation-id))
+   #:cancel-target-correlation-id
+   #:make-wire-envelope
+   #:validate-wire-envelope
+   #:portable-manifest-message-contract
+   #:portable-manifest-actor-contract
+   #:portable-actor-accepts-message-p))
