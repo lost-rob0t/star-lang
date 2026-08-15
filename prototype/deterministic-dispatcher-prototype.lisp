@@ -51,27 +51,10 @@
   (format nil "~A-~6,'0D"
           prefix (deterministic-dispatcher-sequence dispatcher)))
 
-(defun dispatcher-star-service-target-p (value)
-  (and (stringp value)
-       (<= 7 (length value))
-       (string= "star://" value :end2 7)))
-
 (defun dispatcher-actor-contract (dispatcher actor-target)
-  (let ((actors (getf (deterministic-dispatcher-manifest dispatcher) :actors)))
-    (if (dispatcher-star-service-target-p actor-target)
-        (let ((canonical
-                (star-service-uri-string
-                 (ensure-star-service-uri actor-target))))
-          (find-if
-           (lambda (actor)
-             (let ((service-uri (getf actor :service-uri)))
-               (and service-uri
-                    (string= canonical service-uri))))
-           actors))
-        (find actor-target
-              actors
-              :key (lambda (actor) (getf actor :name))
-              :test #'string=))))
+  (staractorprotocol:portable-manifest-actor-contract
+   (deterministic-dispatcher-manifest dispatcher)
+   actor-target))
 
 (defun register-dispatch-actor (dispatcher actor-name handler)
   (required-nonempty-string actor-name "actor name")
@@ -149,7 +132,8 @@
                        deadline)))))
 
 (defun actor-accepts-message-p (contract message-type)
-  (member message-type (getf contract :accepts) :test #'string=))
+  (staractorprotocol:portable-actor-accepts-message-p
+   contract message-type))
 
 (defun validate-command-route (dispatcher command)
   (let* ((actor-target (getf command :actor))
