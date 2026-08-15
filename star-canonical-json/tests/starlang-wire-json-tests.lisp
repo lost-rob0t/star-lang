@@ -105,7 +105,8 @@
             :code "star.test"
             :message "fixture failure"
             :retryable nil
-            :details '(:attempt 1 :source "fixture"))))
+            :details '(("attempt" . 1)
+                       ("source" . "fixture")))))
     (check
      (string=
       "{\"actor\":\"caller\",\"attempt\":1,\"causationId\":\"cmd-1\",\"correlationId\":\"cmd-1\",\"dataset\":\"fixture\",\"kind\":\"ack\",\"messageId\":\"ack-1\",\"messageType\":\"star.protocol/ack@1\",\"payload\":{\"forMessageId\":\"cmd-1\",\"status\":\"accepted\"},\"sender\":\"worker\",\"starVersion\":1}"
