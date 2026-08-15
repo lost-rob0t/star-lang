@@ -65,15 +65,14 @@ The one-authority rule applies to every row: after a behavior is migrated, the p
 
 ## Prototype reduction metric
 
-For the behavior file touched by this extraction, Git comparison against `main` reports:
+Git comparison against `main` and the green CI metric artifact report:
 
-- `prototype/cl-gserver-runtime-facade-prototype.lisp`: **+20 / -53**, net **-33 lines**;
+- aggregate `prototype/**/*.lisp`: **19,868 LOC before → 19,845 LOC after**, delta **-23 LOC**;
+- `prototype/cl-gserver-runtime-facade-prototype.lisp`: **+30 / -53**, net **-23 lines**;
 - the removed lines are the prototype-owned runtime-port struct and operation wrappers;
-- the remaining additions are compatibility composition that calls `star-sento-compat`.
+- the remaining additions are compatibility composition and a standalone-test dependency loader that both call the final `star-sento-compat` implementation.
 
 The aggregate `prototype/` directory still contains substantial runtime authority; this slice intentionally does not count untouched prototype code as migrated.
-
-CI records aggregate prototype Common Lisp LOC before/after separately so each extraction PR can track directory-level movement rather than inferring it from net diff size.
 
 ## Exact next extraction slice
 
