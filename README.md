@@ -78,6 +78,7 @@ acquisition implementation.
 | `star-lease` | Time-bound leases for actors and resources. |
 | `star-capability` | Capability tokens and authorization surface. |
 | `star-artifact` | Artifact storage and provenance attachment. |
+| `star-verification` | Immutable verification certificate, claim vocabulary, and evidence-scope contract. |
 | `star-adapter-sdk` | SDK for building inbound and outbound adapter ports. |
 | `star-http-port` | HTTP adapter port built on the adapter SDK. |
 | `star-process-port` | External-process adapter port. |
@@ -85,6 +86,12 @@ acquisition implementation.
 | `star-xlsx` | XLSX reading and writing for structured ingest. |
 | `starlang-compiler` | The StarLang parser, IR, and compiler. |
 | `starlang-runtime` | The durable actor runtime that executes compiled StarLang. |
+
+`star-verification` is authoritative only for the generic
+`star.verify.certificate/1` data contract and its closed vocabularies. It does
+not validate documents, match actor manifests, execute lifecycle transitions,
+model-check topologies, persist artifacts, or serialize canonical JSON. Those
+behaviors remain with their existing or later dependency-correct authorities.
 
 ## Implementation language
 
