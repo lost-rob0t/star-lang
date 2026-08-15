@@ -77,6 +77,7 @@
               --eval '(asdf:test-system :star-actor-protocol)' \
               --eval '(asdf:test-system :star-canonical-json)' \
               --eval '(asdf:test-system :star-journal)' \
+              --eval '(asdf:test-system :star-lease)' \
               --eval '(asdf:test-system :starlang-runtime)' \
               --eval '(asdf:test-system :star-http-port)' \
               --eval '(asdf:test-system :star-scrape)' \
@@ -130,6 +131,7 @@
               --eval '(asdf:test-system :star-actor-protocol)' \
               --eval '(asdf:test-system :star-canonical-json)' \
               --eval '(asdf:test-system :star-journal)' \
+              --eval '(asdf:test-system :star-lease)' \
               --eval '(asdf:test-system :starlang-runtime)' \
               --eval '(asdf:test-system :star-http-port)' \
               --eval '(asdf:test-system :star-scrape)' \
