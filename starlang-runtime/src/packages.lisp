@@ -37,10 +37,12 @@
    #:actor-mailbox-depth
    #:runtime
    #:runtime-p
+   #:runtime-status
    #:make-runtime
    #:runtime-actor-count
    #:instantiate-actor
    #:register-actor
+   #:spawn
    #:create-actor
    #:create-native-actor
    #:create-external-actor
@@ -50,6 +52,7 @@
    #:start-actor
    #:stop-actor
    #:restart-actor
+   #:shutdown-runtime
    #:delivery-result
    #:delivery-result-p
    #:delivery-result-status
