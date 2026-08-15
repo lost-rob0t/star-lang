@@ -5,8 +5,10 @@
   :depends-on ("starlang-runtime")
   :serial t
   :components
-  ((:file "starlang-runtime-tests"))
+  ((:file "starlang-runtime-tests")
+   (:file "wire-dispatcher-tests"))
   :perform
   (test-op (operation component)
     (declare (ignore operation component))
-    (uiop:symbol-call :starlangruntime-tests :run-tests)))
+    (uiop:symbol-call :starlangruntime-tests :run-tests)
+    (uiop:symbol-call :starlangruntime-wire-tests :run-tests)))
