@@ -1,3 +1,5 @@
+;; STAR-VERIFICATION owns certificate data and vocabulary only.  Runtime,
+;; validation, persistence, proof execution, and canonical JSON stay elsewhere.
 (defpackage :starverification
   (:use :cl)
   (:nicknames :star-verification)
