@@ -66,9 +66,11 @@ jobs:
           done < <(find prototype -type f -name '*.lisp' -print0)
 
           delta=$((after - before))
-          echo "prototype_lisp_loc_before=$before"
-          echo "prototype_lisp_loc_after=$after"
-          echo "prototype_lisp_loc_delta=$delta"
+          {
+            echo "prototype_lisp_loc_before=$before"
+            echo "prototype_lisp_loc_after=$after"
+            echo "prototype_lisp_loc_delta=$delta"
+          } | tee prototype-migration-metrics.txt
           {
             echo "### Prototype migration LOC"
             echo ""
@@ -235,6 +237,7 @@ jobs:
         with:
           name: star-lang-test-logs
           path: |
+            prototype-migration-metrics.txt
             star-lang-*.log
             star-lang-*.json
             star-lang-*.ndjson
