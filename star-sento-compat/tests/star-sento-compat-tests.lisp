@@ -3,7 +3,10 @@
   (:import-from :starsentocompat
                 #:star-sento-compat-error
                 #:unsupported-sento-operation-error
+                #:sento-backend-unavailable-error
+                #:runtime-port-p
                 #:make-runtime-port
+                #:make-sento-runtime-port
                 #:runtime-spawn
                 #:runtime-tell
                 #:runtime-ask
@@ -67,3 +70,10 @@
            :shutdown (lambda (&rest values) (declare (ignore values))))))
     (signals unsupported-sento-operation-error
       (runtime-ask port :actor :message :timeout 1))))
+
+(test concrete-sento-port-does-not-create-a-hard-system-dependency
+  (is (runtime-port-p (make-sento-runtime-port)))
+  (signals sento-backend-unavailable-error
+    (starsentocompat::sento-operation
+     "STARLANG.TEST.MISSING-SENTO-PACKAGE"
+     "NO-SUCH-OPERATION")))
