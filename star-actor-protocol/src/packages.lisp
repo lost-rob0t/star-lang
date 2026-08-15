@@ -4,6 +4,8 @@
   (:export
    #:star-actor-protocol-error
    #:invalid-star-service-uri-error
+   #:invalid-actor-reference-error
+   #:invalid-wire-envelope-error
    #:star-service-uri
    #:star-service-uri-p
    #:star-service-uri-domain
@@ -15,7 +17,6 @@
    #:star-service-uri-target-p
    #:ensure-star-service-uri
    #:canonical-star-service-uri-for-actor
-   #:invalid-actor-reference-error
    #:star-actor-reference
    #:star-actor-reference-p
    #:star-actor-reference-domain-id
@@ -26,4 +27,23 @@
    #:star-actor-reference-capability-set-hash
    #:make-star-actor-reference
    #:star-actor-reference-service-uri
-   #:star-actor-reference-same-logical-actor-p))
+   #:star-actor-reference-same-logical-actor-p
+   #:+lifecycle-wire-version+
+   #:+ack-message-type+
+   #:+error-message-type+
+   #:+cancel-message-type+
+   #:make-command-envelope
+   #:make-event-envelope
+   #:make-reply-envelope
+   #:make-ack-envelope
+   #:make-error-envelope
+   #:make-cancel-envelope
+   #:validate-lifecycle-envelope
+   #:delivery-outcome
+   #:terminal-lifecycle-envelope-p
+   #:idempotency-scope-key
+   #:lifecycle-message-id
+   #:lifecycle-correlation-id
+   #:lifecycle-causation-id
+   #:cancel-target-message-id
+   #:cancel-target-correlation-id))
