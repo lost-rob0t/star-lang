@@ -8,9 +8,6 @@
     (runtime-directory-error)
   ())
 
-(defun fail-runtime-directory (condition-type control &rest arguments)
-  (fail-actor condition-type control arguments))
-
 (defun proper-runtime-directory-plist-p (value)
   (loop with rest = value
         do (cond
