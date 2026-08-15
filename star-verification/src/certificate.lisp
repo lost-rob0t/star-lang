@@ -216,6 +216,12 @@
                 +claim-topology-protocol-progress+)
           :test #'string=))
 
+(defun class-requires-plan-digest-p (class)
+  (member class
+          (list +verification-class-model-checked+
+                +verification-class-solver-certificate+)
+          :test #'string=))
+
 (defun class-requires-evidence-p (class)
   (member class
           (list +verification-class-evidence+
@@ -231,10 +237,12 @@
     (fail-certificate
      "Verification claim ~A requires specificationDigest."
      claim))
-  (when (and (claim-requires-plan-digest-p claim)
+  (when (and (or (claim-requires-plan-digest-p claim)
+                 (class-requires-plan-digest-p class))
              (null plan-digest))
     (fail-certificate
-     "Verification claim ~A requires planDigest."
+     "Verification class/claim combination ~A / ~A requires planDigest."
+     class
      claim))
   (when (and (string= class +verification-class-model-checked+)
              (null bounds))
