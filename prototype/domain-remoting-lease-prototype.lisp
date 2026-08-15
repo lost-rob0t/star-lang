@@ -49,14 +49,17 @@
       node-id))))
 
 (defun expire-main-domain-gateway-nodes (gateway)
-  (let ((lease (main-domain-gateway-lease-state gateway))
-        (expired '()))
+  (let* ((lease (main-domain-gateway-lease-state gateway))
+         (now
+           (call-final-heartbeat-lease
+            (lambda () (starlease:heartbeat-lease-now lease))))
+         (expired '()))
     (maphash
      (lambda (node-id node)
        (when (and
               (call-final-heartbeat-lease
                (lambda ()
-                 (starlease:heartbeat-lease-expired-p lease node-id)))
+                 (starlease:heartbeat-lease-expired-p lease node-id now)))
               (remote-domain-node-alive-p node))
          (setf (remote-domain-node-alive-p node) nil)
          (push node-id expired)))
