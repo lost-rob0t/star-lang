@@ -40,6 +40,45 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Report prototype migration LOC
+        shell: bash
+        run: |
+          set -euo pipefail
+          base_branch="${GITHUB_BASE_REF:-main}"
+          git fetch --no-tags --depth=1 \
+            origin "$base_branch:refs/remotes/origin/$base_branch"
+
+          count_ref_lisp_lines() {
+            local ref="$1"
+            local total=0
+            while IFS= read -r file; do
+              lines="$(git show "$ref:$file" | wc -l)"
+              total=$((total + lines))
+            done < <(git ls-tree -r --name-only "$ref" -- prototype | grep '\.lisp$')
+            printf '%s' "$total"
+          }
+
+          before="$(count_ref_lisp_lines "origin/$base_branch")"
+          after=0
+          while IFS= read -r -d '' file; do
+            lines="$(wc -l < "$file")"
+            after=$((after + lines))
+          done < <(find prototype -type f -name '*.lisp' -print0)
+
+          delta=$((after - before))
+          echo "prototype_lisp_loc_before=$before"
+          echo "prototype_lisp_loc_after=$after"
+          echo "prototype_lisp_loc_delta=$delta"
+          {
+            echo "### Prototype migration LOC"
+            echo ""
+            echo "| Metric | LOC |"
+            echo "| --- | ---: |"
+            echo "| Base prototype Lisp | $before |"
+            echo "| PR prototype Lisp | $after |"
+            echo "| Delta | $delta |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Enforce Common Lisp-only implementation boundary
         shell: bash
         run: |
