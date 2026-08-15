@@ -51,13 +51,22 @@
    "Canonical JSON array/scalar encoding changed."))
 
 (defun test-string-escaping ()
-  (let ((value
-          (coerce
-           (list #\" #\\ #\Newline #\Tab (code-char 1))
-           'string)))
+  (let* ((value
+           (coerce
+            (list #\" #\\ #\Newline #\Tab (code-char 1))
+            'string))
+         (expected
+           (coerce
+            (list #\"
+                  #\\ #\"
+                  #\\ #\\
+                  #\\ #\n
+                  #\\ #\t
+                  #\\ #\u #\0 #\0 #\0 #\1
+                  #\")
+            'string)))
     (check
-     (string= "\"\\\"\\\\\\n\\t\\u0001\""
-              (canonical-json-string value))
+     (string= expected (canonical-json-string value))
      "Canonical JSON string escaping changed.")))
 
 (defun test-nested-structures ()
