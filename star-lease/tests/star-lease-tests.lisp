@@ -3,6 +3,7 @@
   (:import-from :starlease
                 #:star-lease-error
                 #:make-heartbeat-lease
+                #:heartbeat-lease-now
                 #:heartbeat-lease-note-seen
                 #:heartbeat-lease-last-seen-at
                 #:heartbeat-lease-expired-p)
@@ -60,6 +61,27 @@
     (check (not (heartbeat-lease-expired-p lease "never-seen"))
            "Unseen heartbeat key was treated as expired.")))
 
+(defun test-shared-expiration-sample ()
+  (let ((clock 0)
+        (calls 0))
+    (let ((lease
+            (make-heartbeat-lease
+             :timeout-ms 1000
+             :clock
+             (lambda ()
+               (incf calls)
+               clock))))
+      (heartbeat-lease-note-seen lease :a)
+      (heartbeat-lease-note-seen lease :b)
+      (setf clock 1000)
+      (let ((now (heartbeat-lease-now lease)))
+        (check (heartbeat-lease-expired-p lease :a now)
+               "Shared expiration sample did not expire the first key.")
+        (check (heartbeat-lease-expired-p lease :b now)
+               "Shared expiration sample did not expire the second key.")
+        (check (= 3 calls)
+               "Explicit expiration sample unexpectedly re-read the clock.")))))
+
 (defun test-configuration-and-clock-validation ()
   (check
    (signals-p 'star-lease-error
@@ -83,6 +105,7 @@
 (defun run-tests ()
   (test-timeout-boundary-and-renewal)
   (test-keys-expire-independently)
+  (test-shared-expiration-sample)
   (test-configuration-and-clock-validation)
   (test-final-system-is-prototype-independent)
   (format t "~&star-lease tests passed~%")
