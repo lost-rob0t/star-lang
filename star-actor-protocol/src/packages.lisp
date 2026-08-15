@@ -14,4 +14,16 @@
    #:star-service-uri-string
    #:star-service-uri-target-p
    #:ensure-star-service-uri
-   #:canonical-star-service-uri-for-actor))
+   #:canonical-star-service-uri-for-actor
+   #:invalid-actor-reference-error
+   #:star-actor-reference
+   #:star-actor-reference-p
+   #:star-actor-reference-domain-id
+   #:star-actor-reference-logical-path
+   #:star-actor-reference-node-id
+   #:star-actor-reference-generation
+   #:star-actor-reference-protocol-revision
+   #:star-actor-reference-capability-set-hash
+   #:make-star-actor-reference
+   #:star-actor-reference-service-uri
+   #:star-actor-reference-same-logical-actor-p))

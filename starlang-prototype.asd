@@ -3,7 +3,7 @@
   :author "lost-rob0t"
   :license "AGPL-3.0-only"
   :version "0.1.0"
-  :depends-on ("star-actor-protocol" "ironclad")
+  :depends-on ("star-actor-protocol" "star-sento-compat" "ironclad")
   :serial t
   :components
   ((:module "prototype"
@@ -35,6 +35,8 @@
      (:file "domain-remoting-lease-prototype")
      (:file "domain-remoting-journal-prototype")
      (:file "domain-remoting-config-prototype")
+     ;; Transitional facade. Its runtime-port implementation is final-owned by
+     ;; star-sento-compat; this file only composes prototype dispatch behavior.
      (:file "cl-gserver-runtime-facade-prototype")
      ;; Standalone prototypes
      (:file "compiler-ir-prototype")

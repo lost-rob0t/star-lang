@@ -40,6 +40,47 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Report prototype migration LOC
+        shell: bash
+        run: |
+          set -euo pipefail
+          base_branch="${GITHUB_BASE_REF:-main}"
+          git fetch --no-tags --depth=1 \
+            origin "$base_branch:refs/remotes/origin/$base_branch"
+
+          count_ref_lisp_lines() {
+            local ref="$1"
+            local total=0
+            while IFS= read -r file; do
+              lines="$(git show "$ref:$file" | wc -l)"
+              total=$((total + lines))
+            done < <(git ls-tree -r --name-only "$ref" -- prototype | grep '\.lisp$')
+            printf '%s' "$total"
+          }
+
+          before="$(count_ref_lisp_lines "origin/$base_branch")"
+          after=0
+          while IFS= read -r -d '' file; do
+            lines="$(wc -l < "$file")"
+            after=$((after + lines))
+          done < <(find prototype -type f -name '*.lisp' -print0)
+
+          delta=$((after - before))
+          {
+            echo "prototype_lisp_loc_before=$before"
+            echo "prototype_lisp_loc_after=$after"
+            echo "prototype_lisp_loc_delta=$delta"
+          } | tee prototype-migration-metrics.txt
+          {
+            echo "### Prototype migration LOC"
+            echo ""
+            echo "| Metric | LOC |"
+            echo "| --- | ---: |"
+            echo "| Base prototype Lisp | $before |"
+            echo "| PR prototype Lisp | $after |"
+            echo "| Delta | $delta |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Enforce Common Lisp-only implementation boundary
         shell: bash
         run: |
@@ -56,7 +97,7 @@ jobs:
       - name: Install SBCL and Common Lisp dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes sbcl cl-ironclad
+          sudo apt-get install --yes sbcl cl-ironclad cl-fiveam
 
       - name: Load starlang-prototype ASDF system
         shell: bash
@@ -88,6 +129,24 @@ jobs:
           sbcl --non-interactive \
             --eval '(require :asdf)' \
             --eval '(asdf:test-system :star-actor-protocol)' \
+            --eval '(sb-ext:quit)'
+
+      - name: Test final mailbox system independently
+        shell: bash
+        run: |
+          set -euo pipefail
+          sbcl --non-interactive \
+            --eval '(require :asdf)' \
+            --eval '(asdf:test-system :star-mailbox)' \
+            --eval '(sb-ext:quit)'
+
+      - name: Test final Sento compatibility system independently
+        shell: bash
+        run: |
+          set -euo pipefail
+          sbcl --non-interactive \
+            --eval '(require :asdf)' \
+            --eval '(asdf:test-system :star-sento-compat)' \
             --eval '(sb-ext:quit)'
 
       - name: Test final actor runtime independently
@@ -178,6 +237,7 @@ jobs:
         with:
           name: star-lang-test-logs
           path: |
+            prototype-migration-metrics.txt
             star-lang-*.log
             star-lang-*.json
             star-lang-*.ndjson
