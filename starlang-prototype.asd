@@ -5,6 +5,7 @@
   :version "0.1.0"
   :depends-on ("star-actor-protocol"
                "star-canonical-json"
+               "star-journal"
                "star-sento-compat"
                "ironclad")
   :serial t
