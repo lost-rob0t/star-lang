@@ -9,6 +9,16 @@
 
 (define-condition cl-gserver-runtime-error (star-lang-core-error) ())
 
+;; Prototype test scripts historically load this compatibility facade directly
+;; instead of through ASDF. Load its final-owned dependency before the reader
+;; reaches STARSENTOCOMPAT package-qualified symbols below.
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (require :asdf))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (unless (find-package "STARSENTOCOMPAT")
+    (funcall (find-symbol "LOAD-SYSTEM" "ASDF") :star-sento-compat)))
+
 ;; Compatibility constructor only. The runtime-port implementation and
 ;; operation error boundary are authoritative in star-sento-compat.
 (defun make-cl-gserver-runtime-port (&key actor-of tell stop shutdown)
