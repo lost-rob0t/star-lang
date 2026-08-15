@@ -1,5 +1,6 @@
 (require :asdf)
 (asdf:load-system :sento-remoting)
+(asdf:load-system :star-sento-compat)
 
 (load (merge-pathnames "core-surface-prototype.lisp" *load-truename*))
 (load (merge-pathnames "actor-wire-prototype.lisp" *load-truename*))
@@ -63,7 +64,8 @@
   (multiple-value-bind (library tools domain actor manifest)
       (compile-bbp-domain-program)
     (declare (ignore library tools domain actor))
-    (let* ((actor-system (or system (asys:make-actor-system)))
+    (let* ((actor-system
+             (or system (starsentocompat:sento-make-actor-system)))
            (remoting-port (make-sento-remoting-domain-port))
            (dispatcher
              (make-deterministic-dispatcher manifest))
@@ -112,7 +114,8 @@
   (multiple-value-bind (library tools domain actor manifest)
       (compile-bbp-domain-program)
     (declare (ignore library manifest))
-    (let* ((actor-system (or system (asys:make-actor-system)))
+    (let* ((actor-system
+             (or system (starsentocompat:sento-make-actor-system)))
            (remoting-port (make-sento-remoting-domain-port))
            (engine
              (make-bbp-domain-engine
@@ -163,7 +166,7 @@
   (remoting-disable
    (bbp-main-runtime-remoting-port runtime)
    (bbp-main-runtime-system runtime))
-  (ac:shutdown (bbp-main-runtime-system runtime))
+  (starsentocompat:sento-shutdown (bbp-main-runtime-system runtime))
   :stopped)
 
 (defun stop-bbp-tool-domain-server (runtime)
@@ -171,7 +174,7 @@
   (remoting-disable
    (bbp-worker-runtime-remoting-port runtime)
    (bbp-worker-runtime-system runtime))
-  (ac:shutdown (bbp-worker-runtime-system runtime))
+  (starsentocompat:sento-shutdown (bbp-worker-runtime-system runtime))
   :stopped)
 
 (defun run-bbp-runtime-loop (&key (sleep-seconds 1))
