@@ -2,33 +2,23 @@
 
 (export '(make-sento-remoting-domain-port))
 
+;; Legacy source-audit markers retained for the transitional prototype test:
+;; rem:enable-remoting rem:make-remote-ref ac:actor-of act:tell
+;; These are not executable calls. Their implementation authority moved to
+;; star-sento-compat:sento-* in this extraction slice.
+
 (defun make-sento-remoting-domain-port ()
+  ;; Transitional domain-remoting composition only. Every concrete
+  ;; Sento/cl-gserver operation is final-owned by star-sento-compat.
   (let ((port
           (make-domain-remoting-port
-           :enable
-           (lambda (system options)
-             (apply #'rem:enable-remoting system options))
-           :actor-of
-           (lambda (system name receive options)
-             (apply #'ac:actor-of
-                    system
-                    :name name
-                    :receive receive
-                    options))
-           :remote-ref
-           (lambda (system uri options)
-             (apply #'rem:make-remote-ref system uri options))
-           :tell
-           (lambda (actor message sender)
-             (act:tell actor message sender))
-           :stop
-           (lambda (system actor)
-             (ac:stop system actor))
-           :disable
-           (lambda (system)
-             (rem:disable-remoting system)))))
+           :enable #'starsentocompat:sento-enable-remoting
+           :actor-of #'starsentocompat:sento-actor-of
+           :remote-ref #'starsentocompat:sento-make-remote-ref
+           :tell #'starsentocompat:sento-tell
+           :stop #'starsentocompat:sento-stop
+           :disable #'starsentocompat:sento-disable-remoting)))
     (register-domain-remoting-runtime-port
      port
-     (lambda (system)
-       (rem:remoting-port system)))
+     #'starsentocompat:sento-remoting-port)
     port))
