@@ -62,7 +62,8 @@
   (actors-by-name (make-hash-table :test #'equal) :type hash-table)
   (actors-by-uri (make-hash-table :test #'equal) :type hash-table)
   (actor-order '() :type list)
-  (sequence 0 :type (integer 0 *)))
+  (sequence 0 :type (integer 0 *))
+  (status :running :type keyword))
 
 (defstruct (delivery-result
             (:constructor %make-delivery-result
@@ -96,6 +97,16 @@
 
 (defun make-runtime ()
   (%make-runtime))
+
+(defun ensure-runtime-running (runtime)
+  (unless (runtime-p runtime)
+    (fail-actor 'actor-runtime-error
+                "Expected a StarLang runtime, received ~S."
+                runtime))
+  (unless (eq :running (runtime-status runtime))
+    (fail-actor 'actor-runtime-error
+                "StarLang runtime is shut down."))
+  runtime)
 
 (defun default-local-service-uri (name)
   (format nil "star://local:localhost:~A" name))
@@ -254,10 +265,7 @@
   (starmailbox:mailbox-depth (actor-instance-mailbox actor)))
 
 (defun register-actor (runtime actor)
-  (unless (runtime-p runtime)
-    (fail-actor 'actor-runtime-error
-                "Expected a StarLang runtime, received ~S."
-                runtime))
+  (ensure-runtime-running runtime)
   (unless (actor-instance-p actor)
     (fail-actor 'actor-definition-error
                 "Expected an actor instance, received ~S."
@@ -275,16 +283,21 @@
           (append (runtime-actor-order runtime) (list name)))
     actor))
 
-(defun create-actor (runtime definition)
+(defun spawn (runtime definition)
+  "Instantiate and register one actor in the runtime."
   (register-actor runtime (instantiate-actor definition)))
 
+(defun create-actor (runtime definition)
+  "Compatibility name for SPAWN."
+  (spawn runtime definition))
+
 (defun create-native-actor (runtime name handler &rest options)
-  (create-actor runtime
-                (apply #'make-native-actor-definition name handler options)))
+  (spawn runtime
+         (apply #'make-native-actor-definition name handler options)))
 
 (defun create-external-actor (runtime name service-uri &rest options)
-  (create-actor runtime
-                (apply #'make-external-actor-definition name service-uri options)))
+  (spawn runtime
+         (apply #'make-external-actor-definition name service-uri options)))
 
 (defun find-actor (runtime target)
   (cond
@@ -344,6 +357,7 @@
     actor))
 
 (defun start-actor (runtime target)
+  (ensure-runtime-running runtime)
   (let ((actor (resolve-actor runtime target)))
     (unless (eq :running (actor-instance-status actor))
       (incf (actor-instance-generation actor))
@@ -355,11 +369,26 @@
     actor))
 
 (defun restart-actor (runtime target)
+  (ensure-runtime-running runtime)
   (let ((actor (resolve-actor runtime target)))
     ;; Current v1 policy preserves committed actor state and drops queued work.
     ;; The new generation receives a fresh bounded mailbox.
     (stop-actor runtime actor)
     (start-actor runtime actor)))
+
+(defun shutdown-runtime (runtime)
+  "Terminally stop all registered actors and reject future spawns/restarts."
+  (unless (runtime-p runtime)
+    (fail-actor 'actor-runtime-error
+                "Expected a StarLang runtime, received ~S."
+                runtime))
+  (when (eq :running (runtime-status runtime))
+    (dolist (name (copy-list (runtime-actor-order runtime)))
+      (let ((actor (gethash name (runtime-actors-by-name runtime))))
+        (when actor
+          (stop-actor runtime actor))))
+    (setf (runtime-status runtime) :stopped))
+  :stopped)
 
 (defun contract-valid-p (validator contract value)
   (or (null validator)
