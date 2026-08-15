@@ -4,35 +4,35 @@
           expire-main-domain-gateway-nodes
           main-domain-gateway-live-node-count))
 
-(defstruct (main-domain-lease-state
-            (:constructor %make-main-domain-lease-state))
-  clock-fn
-  timeout-ms
-  (last-seen (make-hash-table :test #'equal)))
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (require :asdf))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (unless (find-package "STARLEASE")
+    (funcall
+     (find-symbol "LOAD-ASD" "ASDF")
+     (merge-pathnames "../star-lease/star-lease.asd" *load-truename*))
+    (funcall (find-symbol "LOAD-SYSTEM" "ASDF") :star-lease)))
 
 (defvar *main-domain-gateway-leases* (make-hash-table :test #'eq))
 
-(defun domain-monotonic-milliseconds ()
-  (floor (* 1000
-            (/ (get-internal-real-time)
-               internal-time-units-per-second))))
+(defun call-final-heartbeat-lease (thunk)
+  (handler-case
+      (funcall thunk)
+    (starlease:star-lease-error (condition)
+      (fail 'domain-remoting-error "~A" condition))))
 
 (defun configure-main-domain-gateway-lease
     (gateway &key (timeout-ms 15000) clock)
   (unless (main-domain-gateway-p gateway)
     (fail 'domain-remoting-error
           "Heartbeat lease configuration requires a main domain gateway."))
-  (unless (and (integerp timeout-ms) (> timeout-ms 0))
-    (fail 'domain-remoting-error
-          "Heartbeat lease timeout must be a positive integer."))
-  (when clock
-    (unless (functionp clock)
-      (fail 'domain-remoting-error
-            "Heartbeat lease clock must be a function.")))
   (setf (gethash gateway *main-domain-gateway-leases*)
-        (%make-main-domain-lease-state
-         :clock-fn (or clock #'domain-monotonic-milliseconds)
-         :timeout-ms timeout-ms))
+        (call-final-heartbeat-lease
+         (lambda ()
+           (starlease:make-heartbeat-lease
+            :timeout-ms timeout-ms
+            :clock clock))))
   gateway)
 
 (defun main-domain-gateway-lease-state (gateway)
@@ -41,33 +41,25 @@
         (configure-main-domain-gateway-lease gateway)
         (gethash gateway *main-domain-gateway-leases*))))
 
-(defun main-domain-lease-now (gateway)
-  (funcall
-   (main-domain-lease-state-clock-fn
-    (main-domain-gateway-lease-state gateway))))
-
 (defun note-main-domain-node-seen (gateway node-id)
-  (setf (gethash node-id
-                 (main-domain-lease-state-last-seen
-                  (main-domain-gateway-lease-state gateway)))
-        (main-domain-lease-now gateway))
-  node-id)
+  (call-final-heartbeat-lease
+   (lambda ()
+     (starlease:heartbeat-lease-note-seen
+      (main-domain-gateway-lease-state gateway)
+      node-id))))
 
 (defun expire-main-domain-gateway-nodes (gateway)
-  (let* ((lease (main-domain-gateway-lease-state gateway))
-         (now (main-domain-lease-now gateway))
-         (timeout (main-domain-lease-state-timeout-ms lease))
-         (expired '()))
+  (let ((lease (main-domain-gateway-lease-state gateway))
+        (expired '()))
     (maphash
      (lambda (node-id node)
-       (let ((last-seen
-               (gethash node-id
-                        (main-domain-lease-state-last-seen lease))))
-         (when (and last-seen
-                    (>= (- now last-seen) timeout)
-                    (remote-domain-node-alive-p node))
-           (setf (remote-domain-node-alive-p node) nil)
-           (push node-id expired))))
+       (when (and
+              (call-final-heartbeat-lease
+               (lambda ()
+                 (starlease:heartbeat-lease-expired-p lease node-id)))
+              (remote-domain-node-alive-p node))
+         (setf (remote-domain-node-alive-p node) nil)
+         (push node-id expired)))
      (main-domain-gateway-nodes gateway))
     (sort expired #'string<)))
 
