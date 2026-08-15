@@ -39,6 +39,7 @@
    #:make-error-envelope
    #:make-cancel-envelope
    #:validate-lifecycle-envelope
+   #:validate-lifecycle-envelope-against-manifest
    #:delivery-outcome
    #:terminal-lifecycle-envelope-p
    #:idempotency-scope-key
@@ -50,5 +51,15 @@
    #:make-wire-envelope
    #:validate-wire-envelope
    #:portable-manifest-message-contract
+   #:portable-manifest-type-contract
+   #:portable-manifest-document-fields
    #:portable-manifest-actor-contract
-   #:portable-actor-accepts-message-p))
+   #:portable-actor-accepts-message-p
+   #:portable-wire-identifier-string
+   #:portable-field-key-string
+   #:portable-keyword-plist-p
+   #:portable-string-alist-p
+   #:portable-payload-entry
+   #:validate-portable-wire-fields
+   #:validate-portable-wire-value
+   #:validate-portable-message-payload))
