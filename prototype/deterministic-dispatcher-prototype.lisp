@@ -128,11 +128,11 @@
       (first queue))))
 
 (defun command-idempotency-record (dispatcher command)
-  (gethash (idempotency-scope-key command)
+  (gethash (staractorprotocol:idempotency-scope-key command)
            (deterministic-dispatcher-idempotency dispatcher)))
 
 (defun set-command-idempotency-record (dispatcher command record)
-  (setf (gethash (idempotency-scope-key command)
+  (setf (gethash (staractorprotocol:idempotency-scope-key command)
                  (deterministic-dispatcher-idempotency dispatcher))
         record))
 
@@ -172,39 +172,45 @@
     handler))
 
 (defun make-dispatch-ack (dispatcher command status &key reason retry-after-ms)
-  (make-ack-envelope
-   command
-   :message-id (dispatcher-next-message-id dispatcher "ack")
-   :actor (or (getf command :sender) "star.dispatcher")
-   :sender (getf command :actor)
-   :status status
-   :reason reason
-   :retry-after-ms retry-after-ms
-   :sent-at (deterministic-dispatcher-now dispatcher)))
+  (call-final-lifecycle
+   (lambda ()
+     (staractorprotocol:make-ack-envelope
+      command
+      :message-id (dispatcher-next-message-id dispatcher "ack")
+      :actor (or (getf command :sender) "star.dispatcher")
+      :sender (getf command :actor)
+      :status status
+      :reason reason
+      :retry-after-ms retry-after-ms
+      :sent-at (deterministic-dispatcher-now dispatcher)))))
 
 (defun make-dispatch-error (dispatcher command code message retryable
                             &optional details)
-  (make-error-envelope
-   command
-   :message-id (dispatcher-next-message-id dispatcher "error")
-   :actor (or (getf command :sender) "star.dispatcher")
-   :sender (getf command :actor)
-   :code code
-   :message message
-   :retryable retryable
-   :details details
-   :sent-at (deterministic-dispatcher-now dispatcher)))
+  (call-final-lifecycle
+   (lambda ()
+     (staractorprotocol:make-error-envelope
+      command
+      :message-id (dispatcher-next-message-id dispatcher "error")
+      :actor (or (getf command :sender) "star.dispatcher")
+      :sender (getf command :actor)
+      :code code
+      :message message
+      :retryable retryable
+      :details details
+      :sent-at (deterministic-dispatcher-now dispatcher)))))
 
 (defun make-dispatch-reply (dispatcher command message-type payload)
-  (make-reply-envelope
-   command
-   :message-id (dispatcher-next-message-id dispatcher "reply")
-   :message-type message-type
-   :actor (or (getf command :sender) "star.dispatcher")
-   :sender (getf command :actor)
-   :dataset (getf command :dataset)
-   :sent-at (deterministic-dispatcher-now dispatcher)
-   :payload payload))
+  (call-final-lifecycle
+   (lambda ()
+     (staractorprotocol:make-reply-envelope
+      command
+      :message-id (dispatcher-next-message-id dispatcher "reply")
+      :message-type message-type
+      :actor (or (getf command :sender) "star.dispatcher")
+      :sender (getf command :actor)
+      :dataset (getf command :dataset)
+      :sent-at (deterministic-dispatcher-now dispatcher)
+      :payload payload))))
 
 (defun terminal-record (command outcomes)
   (list :status :terminal
@@ -238,6 +244,8 @@
       (let ((reply
               (make-dispatch-reply
                dispatcher command message-type (getf result :payload))))
+        ;; Portable lifecycle validation is final-owned; this compatibility call
+        ;; only composes the prototype manifest payload contract around it.
         (validate-lifecycle-envelope
          (deterministic-dispatcher-manifest dispatcher) reply)
         (dispatcher-emit dispatcher reply)
@@ -347,9 +355,14 @@
                       target-correlation-id)))))
 
 (defun apply-cancel-envelope (dispatcher cancel)
-  (let* ((payload (getf cancel :payload))
-         (target-message-id (getf payload :target-message-id))
-         (target-correlation-id (getf payload :target-correlation-id)))
+  (let ((target-message-id
+          (call-final-lifecycle
+           (lambda ()
+             (staractorprotocol:cancel-target-message-id cancel))))
+        (target-correlation-id
+          (call-final-lifecycle
+           (lambda ()
+             (staractorprotocol:cancel-target-correlation-id cancel)))))
     (setf (gethash target-message-id
                    (deterministic-dispatcher-cancelled-messages dispatcher))
           t)
@@ -366,6 +379,8 @@
     :cancel-requested))
 
 (defun submit-dispatch-envelope (dispatcher envelope)
+  ;; The compatibility validator delegates portable semantics to
+  ;; star-actor-protocol and retains only prototype manifest payload checking.
   (validate-lifecycle-envelope
    (deterministic-dispatcher-manifest dispatcher) envelope)
   (case (getf envelope :kind)
