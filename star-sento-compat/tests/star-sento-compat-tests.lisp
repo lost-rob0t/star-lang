@@ -32,7 +32,8 @@
             (make-runtime-port
              :spawn
              (lambda (context name receive options)
-               (push (list :spawn context name receive options) calls)
+               (declare (ignore receive))
+               (push (list :spawn context name options) calls)
                :actor-ref)
              :tell
              (lambda (actor message sender)
@@ -47,12 +48,15 @@
                (push (list :shutdown context) calls)
                :shutdown))))
       (is (eq :actor-ref
-              (runtime-spawn port :system "counter" #'identity :dispatcher :cpu)))
+              (runtime-spawn port :system "counter" #'identity
+                             :dispatcher :cpu)))
       (is (eq :sent (runtime-tell port :actor-ref :message :sender)))
       (is (eq :stopped (runtime-stop port :system :actor-ref)))
       (is (eq :shutdown (runtime-shutdown port :system)))
-      (is (equal '((:spawn :system "counter" #\# :dispatcher :cpu))
-                 '((:spawn :system "counter" #\# :dispatcher :cpu)))))))
+      (is (equal '(:shutdown :stop :tell :spawn)
+                 (mapcar #'first calls)))
+      (is (equal '(:dispatcher :cpu)
+                 (fourth (fourth calls)))))))
 
 (test optional-operation-is-typed-unsupported
   (let ((port
