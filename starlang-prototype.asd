@@ -8,6 +8,7 @@
                "star-journal"
                "star-lease"
                "star-sento-compat"
+               "starlang-runtime"
                "ironclad")
   :serial t
   :components

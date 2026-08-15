@@ -9,6 +9,12 @@
                 #:actor-ask-timeout-error
                 #:actor-external-dispatch-required-error
                 #:actor-contract-error
+                #:runtime-directory-error
+                #:runtime-directory-service-not-found-error
+                #:runtime-directory-service-unavailable-error
+                #:make-runtime-directory-port
+                #:runtime-directory-snapshot
+                #:resolve-star-service-uri
                 #:actor-instance-data
                 #:actor-instance-generation
                 #:actor-instance-invocation-count
@@ -304,6 +310,179 @@
     (check (= 3 count)
            "Deterministic drain did not execute every queued message.")))
 
+(defun runtime-directory-fixture ()
+  (make-runtime-directory-port
+   :snapshot
+   (lambda (context)
+     (declare (ignore context))
+     (list
+      (list :name "user-hunt"
+            :service-uri "star://quasar:localhost:user-hunt"
+            :domain "quasar"
+            :address "localhost"
+            :runtime :cl-gserver
+            :alive t
+            :capabilities '("username-search")
+            :ref :user-hunt-ref)
+      (list :name "nmap"
+            :service-uri "star://bbp:localhost:nmap"
+            :domain "bbp"
+            :address "localhost"
+            :runtime :cl-gserver
+            :alive nil
+            :capabilities '("port-scan")
+            :ref :nmap-ref)
+      (list :name "unknown-health"
+            :service-uri "star://ops:localhost:unknown-health"
+            :domain "ops"
+            :address "localhost"
+            :runtime :external
+            :alive :unknown
+            :ref :unknown-ref)))))
+
+(defun test-runtime-directory-service-resolution ()
+  (let* ((directory (runtime-directory-fixture))
+         (entry
+           (resolve-star-service-uri
+            directory :context "star://quasar:localhost:user-hunt")))
+    (check (string= "user-hunt" (getf entry :name))
+           "Runtime directory resolved the wrong actor name.")
+    (check (eq :user-hunt-ref (getf entry :ref))
+           "Runtime directory did not preserve the opaque runtime ref.")
+    (setf (getf entry :alive) nil)
+    (check (eq t
+               (getf (resolve-star-service-uri
+                      directory :context
+                      "star://quasar:localhost:user-hunt")
+                     :alive))
+           "Runtime directory result was not defensively copied.")
+    (check
+     (signals-p
+      'runtime-directory-service-unavailable-error
+      (lambda ()
+        (resolve-star-service-uri
+         directory :context "star://bbp:localhost:nmap")))
+     "Runtime directory did not distinguish unavailable from missing service.")
+    (check
+     (signals-p
+      'runtime-directory-service-not-found-error
+      (lambda ()
+        (resolve-star-service-uri
+         directory :context "star://quasar:localhost:missing")))
+     "Runtime directory did not report a missing service.")
+    (check
+     (eq :unknown-ref
+         (getf (resolve-star-service-uri
+                directory :context "star://ops:localhost:unknown-health")
+               :ref))
+     "Unknown liveness was incorrectly treated as unavailable.")))
+
+(defun test-runtime-directory-validation-and-duplicates ()
+  (let ((duplicates
+          (make-runtime-directory-port
+           :snapshot
+           (lambda (context)
+             (declare (ignore context))
+             (list
+              (list :name "nmap"
+                    :service-uri "star://bbp:localhost:nmap"
+                    :runtime :external
+                    :alive t)
+              (list :name "nmap"
+                    :service-uri "star://bbp:localhost:nmap"
+                    :runtime :external
+                    :alive t)))))
+        (bad-capabilities
+          (make-runtime-directory-port
+           :snapshot
+           (lambda (context)
+             (declare (ignore context))
+             (list
+              (list :name "bad"
+                    :runtime :external
+                    :alive t
+                    :capabilities '(:not-a-string))))))
+        (bad-service-uri
+          (make-runtime-directory-port
+           :snapshot
+           (lambda (context)
+             (declare (ignore context))
+             (list
+              (list :name "other"
+                    :service-uri "star://bbp:localhost:nmap"
+                    :runtime :external
+                    :alive t))))))
+    (check
+     (signals-p
+      'runtime-directory-error
+      (lambda ()
+        (resolve-star-service-uri
+         duplicates :context "star://bbp:localhost:nmap")))
+     "Duplicate runtime-directory registration was accepted.")
+    (check
+     (signals-p 'runtime-directory-error
+                (lambda ()
+                  (runtime-directory-snapshot bad-capabilities :context)))
+     "Runtime directory accepted non-string capabilities.")
+    (check
+     (signals-p 'runtime-directory-error
+                (lambda ()
+                  (runtime-directory-snapshot bad-service-uri :context)))
+     "Runtime directory accepted actor/service URI mismatch.")))
+
+(defun test-runtime-directory-boundary-errors ()
+  (check
+   (signals-p
+    'runtime-directory-error
+    (lambda ()
+      (runtime-directory-snapshot
+       (make-runtime-directory-port
+        :snapshot
+        (lambda (context)
+          (declare (ignore context))
+          (error "backend boom")))
+       :context)))
+   "Runtime directory did not type a backend failure.")
+  (check
+   (signals-p
+    'staractorprotocol:invalid-star-service-uri-error
+    (lambda ()
+      (resolve-star-service-uri
+       (runtime-directory-fixture)
+       :context
+       "not-a-star-uri")))
+   "Malformed STAR URI was hidden behind a runtime-directory error."))
+
+(defun test-runtime-directory-is-injected-not-global ()
+  (let ((state :first))
+    (let ((directory
+            (make-runtime-directory-port
+             :snapshot
+             (lambda (context)
+               (declare (ignore context))
+               (list
+                (list :name "dynamic"
+                      :service-uri "star://test:localhost:dynamic"
+                      :runtime :external
+                      :alive t
+                      :ref state))))))
+      (check (eq :first
+                 (getf (resolve-star-service-uri
+                        directory nil "star://test:localhost:dynamic")
+                       :ref))
+             "Injected runtime directory did not use the first snapshot.")
+      (setf state :second)
+      (check (eq :second
+                 (getf (resolve-star-service-uri
+                        directory nil "star://test:localhost:dynamic")
+                       :ref))
+             "Runtime directory cached global state instead of using its injected snapshot."))))
+
+(defun test-final-runtime-is-prototype-independent ()
+  (check
+   (null (find-package "STAR-LANG.CORE-SURFACE.PROTOTYPE"))
+   "starlang-runtime loaded the prototype package transitively."))
+
 (defun run-tests ()
   (test-mailbox-tell-ordering)
   (test-state-and-restart-generation)
@@ -314,5 +493,10 @@
   (test-spawn-and-shutdown)
   (test-runtime-registry-and-external-boundary)
   (test-run-until-idle)
+  (test-runtime-directory-service-resolution)
+  (test-runtime-directory-validation-and-duplicates)
+  (test-runtime-directory-boundary-errors)
+  (test-runtime-directory-is-injected-not-global)
+  (test-final-runtime-is-prototype-independent)
   (format t "~&starlang-runtime tests passed~%")
   t)

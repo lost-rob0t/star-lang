@@ -12,6 +12,14 @@
    #:actor-ask-timeout-error
    #:actor-external-dispatch-required-error
    #:actor-contract-error
+   #:runtime-directory-error
+   #:runtime-directory-service-not-found-error
+   #:runtime-directory-service-unavailable-error
+   #:runtime-directory-port
+   #:runtime-directory-port-p
+   #:make-runtime-directory-port
+   #:runtime-directory-snapshot
+   #:resolve-star-service-uri
    #:actor-definition
    #:actor-definition-p
    #:actor-definition-name
