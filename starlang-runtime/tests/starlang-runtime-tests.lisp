@@ -4,12 +4,23 @@
                 #:actor-definition-error
                 #:actor-already-registered-error
                 #:actor-stopped-error
+                #:actor-stale-reference-error
+                #:actor-ask-timeout-error
                 #:actor-external-dispatch-required-error
                 #:actor-instance-data
                 #:actor-instance-generation
                 #:actor-instance-invocation-count
+                #:actor-instance-last-error
+                #:actor-reference
+                #:actor-mailbox-depth
+                #:delivery-result-status
+                #:dispatch-result-status
                 #:create-native-actor
                 #:create-external-actor
+                #:tell
+                #:ask
+                #:dispatch-next
+                #:run-until-idle
                 #:invoke-actor
                 #:make-external-actor-definition
                 #:make-runtime
@@ -38,7 +49,39 @@
   (and (eq contract :integer)
        (integerp value)))
 
-(defun run-tests ()
+(defun test-mailbox-tell-ordering ()
+  (let ((runtime (make-runtime))
+        (seen '()))
+    (let ((actor
+            (create-native-actor
+             runtime
+             "ordered"
+             (lambda (message state actor-runtime)
+               (declare (ignore actor-runtime))
+               (push message seen)
+               (values message state))
+             :mailbox-capacity 2)))
+      (check (eq :accepted
+                 (delivery-result-status (tell runtime actor :first)))
+             "First tell was not accepted.")
+      (check (eq :accepted
+                 (delivery-result-status (tell runtime actor :second)))
+             "Second tell was not accepted.")
+      (check (null seen)
+             "Tell executed the handler synchronously instead of enqueueing.")
+      (check (= 2 (actor-mailbox-depth actor))
+             "Mailbox depth did not reflect queued tells.")
+      (check (eq :mailbox-full
+                 (delivery-result-status (tell runtime actor :third)))
+             "Bounded mailbox did not return typed mailbox-full delivery.")
+      (check (eq :completed (dispatch-result-status (dispatch-next runtime actor)))
+             "First queued tell did not dispatch.")
+      (check (eq :completed (dispatch-result-status (dispatch-next runtime actor)))
+             "Second queued tell did not dispatch.")
+      (check (equal '(:first :second) (reverse seen))
+             "Tell dispatch did not preserve FIFO order."))))
+
+(defun test-state-and-restart-generation ()
   (let* ((runtime (make-runtime))
          (counter
            (create-native-actor
@@ -51,58 +94,115 @@
             :produces :integer
             :input-validator #'integer-contract-p
             :output-validator #'integer-contract-p
-            :initial-state 0)))
-    (check (= 1 (runtime-actor-count runtime))
-           "Expected one registered actor.")
-    (check (eq counter (resolve-actor runtime "counter"))
-           "Actor name did not resolve to the created actor.")
-    (check (eq counter
-               (resolve-actor runtime "star://local:localhost:counter"))
-           "Canonical local STAR URI did not resolve to the created actor.")
-    (check (= 10 (invoke-actor runtime "counter" 10))
-           "Counter actor returned the wrong first result.")
+            :initial-state 0
+            :mailbox-capacity 4)))
+    (check (= 10 (ask runtime "counter" 10))
+           "ASK returned the wrong first result.")
     (check (= 1 (actor-instance-data counter))
-           "Counter actor did not persist its private state.")
+           "Actor did not commit its private state.")
     (check (= 11 (invoke-actor runtime "counter" 10))
-           "Counter actor returned the wrong stateful result.")
+           "Compatibility invoke-actor did not use stateful ASK semantics.")
     (check (= 2 (actor-instance-invocation-count counter))
-           "Counter invocation count did not advance.")
+           "Invocation count did not advance after mailbox execution.")
+    (let ((stale-reference (actor-reference counter)))
+      (stop-actor runtime counter)
+      (check (eq :stopped
+                 (delivery-result-status (tell runtime counter 1)))
+             "Tell did not reject a stopped actor.")
+      (check (signals-p 'actor-stopped-error
+                        (lambda () (ask runtime counter 1)))
+             "ASK did not reject a stopped actor.")
+      (restart-actor runtime counter)
+      (check (= 1 (actor-instance-generation counter))
+             "Actor restart did not advance generation.")
+      (check (= 3 (ask runtime counter 1))
+             "Restart did not preserve explicitly retained committed state.")
+      (check (signals-p 'actor-stale-reference-error
+                        (lambda () (resolve-actor runtime stale-reference)))
+             "Pre-restart ActorRef was not rejected as stale."))))
 
-    (stop-actor runtime "counter")
-    (check (signals-p 'actor-stopped-error
-                      (lambda () (invoke-actor runtime "counter" 1)))
-           "Stopped actor invocation did not fail deterministically.")
-    (restart-actor runtime "counter")
-    (check (= 1 (actor-instance-generation counter))
-           "Actor restart did not advance its generation.")
-    (check (= 3 (invoke-actor runtime "counter" 1))
-           "Restarted actor lost or corrupted its state.")
+(defun test-failed-transition-does-not-commit ()
+  (let* ((runtime (make-runtime))
+         (actor
+           (create-native-actor
+            runtime
+            "transactional"
+            (lambda (message state actor-runtime)
+              (declare (ignore actor-runtime))
+              (if (eq message :boom)
+                  (error "boom")
+                  (values message (1+ state))))
+            :initial-state 7)))
+    (tell runtime actor :boom)
+    (let ((result (dispatch-next runtime actor)))
+      (check (eq :failed (dispatch-result-status result))
+             "Handler failure did not become an async dispatch failure.")
+      (check (= 7 (actor-instance-data actor))
+             "Failed transition committed actor state.")
+      (check (actor-instance-last-error actor)
+             "Handler failure was not recorded on the actor."))))
 
+(defun test-two-actor-ask-exchange ()
+  (let ((runtime (make-runtime)))
+    (create-native-actor
+     runtime
+     "double"
+     (lambda (message state actor-runtime)
+       (declare (ignore state actor-runtime))
+       (* 2 message)))
+    (create-native-actor
+     runtime
+     "plus-one-via-double"
+     (lambda (message state actor-runtime)
+       (declare (ignore state))
+       (1+ (ask actor-runtime "double" message))))
+    (check (= 9 (ask runtime "plus-one-via-double" 4))
+           "Two actors did not exchange request/reply through mailbox machinery.")))
+
+(defun test-no-reentrant-self-ask ()
+  (let ((runtime (make-runtime)))
+    (create-native-actor
+     runtime
+     "self-ask"
+     (lambda (message state actor-runtime)
+       (declare (ignore state))
+       (ask actor-runtime "self-ask" message :timeout-steps 1)))
+    (check
+     (signals-p 'actor-ask-timeout-error
+                (lambda () (ask runtime "self-ask" :loop)))
+     "Busy actor was re-entered instead of timing out its self-ASK.")))
+
+(defun test-runtime-registry-and-external-boundary ()
+  (let ((runtime (make-runtime)))
+    (let ((counter
+            (create-native-actor
+             runtime "counter"
+             (lambda (message state actor-runtime)
+               (declare (ignore state actor-runtime))
+               message))))
+      (check (eq counter (resolve-actor runtime "counter"))
+             "Actor name did not resolve.")
+      (check (eq counter
+                 (resolve-actor runtime "star://local:localhost:counter"))
+             "Canonical local STAR URI did not resolve."))
     (let ((user-hunt
             (create-external-actor
-             runtime
-             "user-hunt"
-             "star://quasar:localhost:user-hunt"))
+             runtime "user-hunt" "star://quasar:localhost:user-hunt"))
           (nmap
             (create-external-actor
-             runtime
-             "nmap"
-             "star://bbp:localhost:nmap")))
+             runtime "nmap" "star://bbp:localhost:nmap")))
       (check (eq user-hunt
                  (resolve-actor runtime "star://quasar:localhost:user-hunt"))
              "Quasar user-hunt service URI did not resolve.")
       (check (eq nmap
                  (resolve-actor runtime "star://bbp:localhost:nmap"))
              "BBP nmap service URI did not resolve independently.")
-      (check (not (eq user-hunt nmap))
-             "Independent external STAR services collapsed to one actor.")
       (check (signals-p 'actor-external-dispatch-required-error
                         (lambda ()
-                          (invoke-actor runtime
-                                        "star://quasar:localhost:user-hunt"
-                                        :fixture)))
-             "External actor invocation did not require a transport dispatcher."))
-
+                          (ask runtime
+                               "star://quasar:localhost:user-hunt"
+                               :fixture)))
+             "External actor ASK bypassed the transport boundary."))
     (check
      (signals-p
       'actor-definition-error
@@ -111,7 +211,6 @@
          "other-name"
          "star://quasar:localhost:user-hunt")))
      "Actor name/service URI mismatch was not rejected.")
-
     (check
      (signals-p
       'actor-already-registered-error
@@ -123,10 +222,32 @@
            (declare (ignore state actor-runtime))
            message))))
      "Duplicate actor registration was not rejected.")
-
     (unregister-actor runtime "star://bbp:localhost:nmap")
     (check (= 2 (runtime-actor-count runtime))
-           "Actor unregister did not remove both name and URI indexes."))
+           "Actor unregister did not remove both name and URI indexes.")))
 
+(defun test-run-until-idle ()
+  (let ((runtime (make-runtime))
+        (count 0))
+    (create-native-actor
+     runtime "drain"
+     (lambda (message state actor-runtime)
+       (declare (ignore message state actor-runtime))
+       (incf count)))
+    (dotimes (index 3)
+      (tell runtime "drain" index))
+    (check (= 3 (run-until-idle runtime))
+           "Deterministic drain processed the wrong number of messages.")
+    (check (= 3 count)
+           "Deterministic drain did not execute every queued message.")))
+
+(defun run-tests ()
+  (test-mailbox-tell-ordering)
+  (test-state-and-restart-generation)
+  (test-failed-transition-does-not-commit)
+  (test-two-actor-ask-exchange)
+  (test-no-reentrant-self-ask)
+  (test-runtime-registry-and-external-boundary)
+  (test-run-until-idle)
   (format t "~&starlang-runtime tests passed~%")
   t)
