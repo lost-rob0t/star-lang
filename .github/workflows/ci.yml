@@ -56,7 +56,7 @@ jobs:
       - name: Install SBCL and Common Lisp dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes sbcl cl-ironclad
+          sudo apt-get install --yes sbcl cl-ironclad cl-fiveam
 
       - name: Load starlang-prototype ASDF system
         shell: bash
@@ -88,6 +88,24 @@ jobs:
           sbcl --non-interactive \
             --eval '(require :asdf)' \
             --eval '(asdf:test-system :star-actor-protocol)' \
+            --eval '(sb-ext:quit)'
+
+      - name: Test final mailbox system independently
+        shell: bash
+        run: |
+          set -euo pipefail
+          sbcl --non-interactive \
+            --eval '(require :asdf)' \
+            --eval '(asdf:test-system :star-mailbox)' \
+            --eval '(sb-ext:quit)'
+
+      - name: Test final Sento compatibility system independently
+        shell: bash
+        run: |
+          set -euo pipefail
+          sbcl --non-interactive \
+            --eval '(require :asdf)' \
+            --eval '(asdf:test-system :star-sento-compat)' \
             --eval '(sb-ext:quit)'
 
       - name: Test final actor runtime independently
