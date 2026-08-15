@@ -53,9 +53,14 @@
     (fail-lease "Expected a heartbeat lease, received ~S." lease))
   (gethash key (heartbeat-lease-last-seen lease)))
 
-(defun heartbeat-lease-expired-p (lease key)
+(defun heartbeat-lease-expired-p
+    (lease key &optional (now (heartbeat-lease-now lease)))
+  (unless (and (integerp now) (>= now 0))
+    (fail-lease
+     "Heartbeat lease expiry time must be a nonnegative integer, received ~S."
+     now))
   (multiple-value-bind (last-seen present-p)
       (heartbeat-lease-last-seen-at lease key)
     (and present-p
-         (>= (- (heartbeat-lease-now lease) last-seen)
+         (>= (- now last-seen)
              (heartbeat-lease-timeout-ms lease)))))
