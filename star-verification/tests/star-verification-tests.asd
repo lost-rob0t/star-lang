@@ -5,8 +5,10 @@
   :depends-on ("star-verification")
   :serial t
   :components
-  ((:file "star-verification-tests"))
+  ((:file "star-verification-tests")
+   (:file "scope-tests"))
   :perform
   (test-op (operation component)
     (declare (ignore operation component))
-    (uiop:symbol-call :starverification-tests :run-tests)))
+    (uiop:symbol-call :starverification-tests :run-tests)
+    (uiop:symbol-call :starverification-tests :run-scope-tests)))
