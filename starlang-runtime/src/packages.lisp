@@ -78,4 +78,38 @@
    #:ask
    #:dispatch-next
    #:run-until-idle
-   #:invoke-actor))
+   #:invoke-actor
+
+   ;; Deterministic wire dispatcher authority.
+   #:wire-dispatcher-error
+   #:wire-dispatcher-invalid-actor-error
+   #:wire-dispatcher-idempotency-conflict-error
+   #:deterministic-dispatcher
+   #:deterministic-dispatcher-p
+   #:deterministic-dispatcher-manifest
+   #:deterministic-dispatcher-queue
+   #:deterministic-dispatcher-emitted
+   #:deterministic-dispatcher-idempotency
+   #:deterministic-dispatcher-handler-count
+   #:deterministic-dispatcher-sequence
+   #:deterministic-dispatcher-now
+   #:make-deterministic-dispatcher
+   #:advance-dispatcher-clock
+   #:dispatcher-next-message-id
+   #:register-dispatch-actor
+   #:complete-dispatch
+   #:retry-dispatch
+   #:fail-dispatch
+   #:defer-dispatch
+   #:dispatcher-emit
+   #:drain-dispatcher-emitted
+   #:command-idempotency-record
+   #:set-command-idempotency-record
+   #:command-idempotency-identity
+   #:process-command
+   #:submit-dispatch-envelope
+   #:run-dispatcher
+   #:run-dispatcher-next
+   #:redeliver-command
+   #:deferred-dispatch-status
+   #:finish-deferred-dispatch))
