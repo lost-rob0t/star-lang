@@ -1,5 +1,18 @@
 (in-package #:star-lang.core-surface.prototype)
 
+;; Standalone prototype tests historically load this file without ASDF.
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (require :asdf))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (unless (find-package "STARACTORPROTOCOL")
+    (funcall
+     (find-symbol "LOAD-ASD" "ASDF")
+     (merge-pathnames
+      "../star-actor-protocol/star-actor-protocol.asd"
+      *load-truename*))
+    (funcall (find-symbol "LOAD-SYSTEM" "ASDF") :star-actor-protocol)))
+
 (defun compile-actor (form &optional library)
   (unless (and (listp form)
                (= (length form) 3)
@@ -166,48 +179,22 @@
                           (declarations-of-kind library :message))
         :actors (mapcar #'portable-actor actors)))
 
-(defun make-wire-envelope (&key message-type message-id actor dataset reply-to payload)
-  (unless (and (stringp message-type)
-               (stringp message-id)
-               (stringp actor))
-    (fail 'invalid-envelope-error
-          "Wire envelope requires string message-type, message-id, and actor."))
-  (list :star-version 1
-        :message-type message-type
-        :message-id message-id
-        :actor actor
-        :dataset dataset
-        :reply-to reply-to
-        :payload payload))
+(defun call-final-wire-contract (thunk)
+  (handler-case
+      (funcall thunk)
+    (staractorprotocol:invalid-wire-envelope-error (condition)
+      (fail 'invalid-envelope-error "~A" condition))))
 
-(defun map-entry (map key)
-  (cond
-    ((and (listp map)
-          (every #'consp map))
-     (assoc key map :test #'string=))
-    ((listp map)
-     (let ((keyword (intern (string-upcase key) :keyword)))
-       (when (plist-has-key-p map keyword)
-         (cons key (getf map keyword)))))
-    (t nil)))
+(defun make-wire-envelope (&rest arguments)
+  (call-final-wire-contract
+   (lambda ()
+     (apply #'staractorprotocol:make-wire-envelope arguments))))
 
 (defun message-contract (manifest message-type)
-  (find message-type (getf manifest :messages)
-        :key (lambda (message) (getf message :name))
-        :test #'string=))
+  (staractorprotocol:portable-manifest-message-contract
+   manifest message-type))
 
 (defun validate-wire-envelope (manifest envelope)
-  (unless (= (getf envelope :star-version) 1)
-    (fail 'invalid-envelope-error "Unsupported Star wire version."))
-  (let* ((message-type (getf envelope :message-type))
-         (contract (message-contract manifest message-type))
-         (payload (getf envelope :payload)))
-    (unless contract
-      (fail 'invalid-envelope-error "Unknown message type ~A." message-type))
-    (dolist (field (getf contract :fields))
-      (when (and (getf field :required)
-                 (null (map-entry payload (getf field :name))))
-        (fail 'invalid-envelope-error
-              "Message ~A is missing required field ~A."
-              message-type (getf field :name))))
-    t))
+  (call-final-wire-contract
+   (lambda ()
+     (staractorprotocol:validate-wire-envelope manifest envelope))))
