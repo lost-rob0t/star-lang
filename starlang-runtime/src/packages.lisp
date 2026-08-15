@@ -7,6 +7,9 @@
    #:actor-already-registered-error
    #:actor-not-found-error
    #:actor-stopped-error
+   #:actor-stale-reference-error
+   #:actor-mailbox-full-error
+   #:actor-ask-timeout-error
    #:actor-external-dispatch-required-error
    #:actor-contract-error
    #:actor-definition
@@ -17,6 +20,7 @@
    #:actor-definition-accepts
    #:actor-definition-produces
    #:actor-definition-restart-policy
+   #:actor-definition-mailbox-capacity
    #:actor-definition-metadata
    #:make-native-actor-definition
    #:make-external-actor-definition
@@ -29,6 +33,8 @@
    #:actor-instance-invocation-count
    #:actor-instance-last-error
    #:actor-running-p
+   #:actor-reference
+   #:actor-mailbox-depth
    #:runtime
    #:runtime-p
    #:make-runtime
@@ -44,4 +50,21 @@
    #:start-actor
    #:stop-actor
    #:restart-actor
+   #:delivery-result
+   #:delivery-result-p
+   #:delivery-result-status
+   #:delivery-result-reference
+   #:delivery-result-depth
+   #:delivery-result-capacity
+   #:dispatch-result
+   #:dispatch-result-p
+   #:dispatch-result-status
+   #:dispatch-result-reference
+   #:dispatch-result-correlation-id
+   #:dispatch-result-value
+   #:dispatch-result-condition
+   #:tell
+   #:ask
+   #:dispatch-next
+   #:run-until-idle
    #:invoke-actor))
