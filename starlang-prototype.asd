@@ -3,7 +3,10 @@
   :author "lost-rob0t"
   :license "AGPL-3.0-only"
   :version "0.1.0"
-  :depends-on ("star-actor-protocol" "star-sento-compat" "ironclad")
+  :depends-on ("star-actor-protocol"
+               "star-canonical-json"
+               "star-sento-compat"
+               "ironclad")
   :serial t
   :components
   ((:module "prototype"
