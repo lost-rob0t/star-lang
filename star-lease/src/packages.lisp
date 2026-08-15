@@ -7,6 +7,7 @@
    #:heartbeat-lease-p
    #:make-heartbeat-lease
    #:heartbeat-lease-timeout-ms
+   #:heartbeat-lease-now
    #:heartbeat-lease-note-seen
    #:heartbeat-lease-last-seen-at
    #:heartbeat-lease-expired-p))
