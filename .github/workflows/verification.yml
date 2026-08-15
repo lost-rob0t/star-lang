@@ -1,0 +1,43 @@
+name: star-lang verification certificate
+
+on:
+  pull_request:
+    paths:
+      - "star-verification/**"
+      - "ci/target-systems.txt"
+      - ".github/workflows/verification.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "star-verification/**"
+      - "ci/target-systems.txt"
+      - ".github/workflows/verification.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  certificate:
+    name: Verification certificate contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CL_SOURCE_REGISTRY: "${{ github.workspace }}//:"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install SBCL
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes sbcl
+      - name: Test star-verification independently
+        shell: bash
+        run: |
+          set -euo pipefail
+          sbcl --non-interactive \
+            --eval '(require :asdf)' \
+            --eval '(asdf:test-system :star-verification)' \
+            --eval '(assert (null (find-package "STAR-LANG.PROTOTYPE")))' \
+            --eval '(assert (null (find-package "STAR-LANG.CORE-SURFACE.PROTOTYPE")))' \
+            --eval '(sb-ext:quit)'
