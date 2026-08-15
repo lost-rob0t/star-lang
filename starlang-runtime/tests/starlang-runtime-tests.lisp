@@ -1,12 +1,14 @@
 (defpackage :starlangruntime-tests
   (:use :cl)
   (:import-from :starlangruntime
+                #:actor-runtime-error
                 #:actor-definition-error
                 #:actor-already-registered-error
                 #:actor-stopped-error
                 #:actor-stale-reference-error
                 #:actor-ask-timeout-error
                 #:actor-external-dispatch-required-error
+                #:actor-contract-error
                 #:actor-instance-data
                 #:actor-instance-generation
                 #:actor-instance-invocation-count
@@ -15,8 +17,10 @@
                 #:actor-mailbox-depth
                 #:delivery-result-status
                 #:dispatch-result-status
+                #:make-native-actor-definition
                 #:create-native-actor
                 #:create-external-actor
+                #:spawn
                 #:tell
                 #:ask
                 #:dispatch-next
@@ -24,8 +28,10 @@
                 #:invoke-actor
                 #:make-external-actor-definition
                 #:make-runtime
+                #:runtime-status
                 #:resolve-actor
                 #:restart-actor
+                #:shutdown-runtime
                 #:runtime-actor-count
                 #:stop-actor
                 #:unregister-actor)
@@ -142,6 +148,27 @@
       (check (actor-instance-last-error actor)
              "Handler failure was not recorded on the actor."))))
 
+(defun test-contract-failure-does-not-commit ()
+  (let* ((runtime (make-runtime))
+         (actor
+           (create-native-actor
+            runtime
+            "contract-rollback"
+            (lambda (message state actor-runtime)
+              (declare (ignore message state actor-runtime))
+              (values "invalid-output" 99))
+            :produces :integer
+            :output-validator #'integer-contract-p
+            :initial-state 5)))
+    (tell runtime actor :go)
+    (let ((result (dispatch-next runtime actor)))
+      (check (eq :failed (dispatch-result-status result))
+             "Output contract failure did not fail dispatch.")
+      (check (= 5 (actor-instance-data actor))
+             "Output contract failure committed proposed actor state.")
+      (check (typep (actor-instance-last-error actor) 'actor-contract-error)
+             "Output contract failure did not preserve the typed condition."))))
+
 (defun test-two-actor-ask-exchange ()
   (let ((runtime (make-runtime)))
     (create-native-actor
@@ -171,6 +198,42 @@
      (signals-p 'actor-ask-timeout-error
                 (lambda () (ask runtime "self-ask" :loop)))
      "Busy actor was re-entered instead of timing out its self-ASK.")))
+
+(defun test-spawn-and-shutdown ()
+  (let* ((runtime (make-runtime))
+         (definition
+           (make-native-actor-definition
+            "spawned"
+            (lambda (message state actor-runtime)
+              (declare (ignore state actor-runtime))
+              message)
+            :mailbox-capacity 2))
+         (actor (spawn runtime definition)))
+    (check (eq actor (resolve-actor runtime "spawned"))
+           "SPAWN did not register the actor.")
+    (tell runtime actor :queued)
+    (check (= 1 (actor-mailbox-depth actor))
+           "Spawned actor did not own its mailbox.")
+    (check (eq :stopped (shutdown-runtime runtime))
+           "Runtime shutdown did not return terminal status.")
+    (check (eq :stopped (runtime-status runtime))
+           "Runtime status did not become stopped.")
+    (check (= 0 (actor-mailbox-depth actor))
+           "Runtime shutdown did not discard queued work.")
+    (check (eq :stopped
+               (delivery-result-status (tell runtime actor :late)))
+           "Shutdown actor accepted a late tell.")
+    (check
+     (signals-p
+      'actor-runtime-error
+      (lambda ()
+        (spawn runtime
+               (make-native-actor-definition
+                "too-late"
+                (lambda (message state actor-runtime)
+                  (declare (ignore state actor-runtime))
+                  message)))))
+     "Shut-down runtime accepted a new actor spawn.")))
 
 (defun test-runtime-registry-and-external-boundary ()
   (let ((runtime (make-runtime)))
@@ -245,8 +308,10 @@
   (test-mailbox-tell-ordering)
   (test-state-and-restart-generation)
   (test-failed-transition-does-not-commit)
+  (test-contract-failure-does-not-commit)
   (test-two-actor-ask-exchange)
   (test-no-reentrant-self-ask)
+  (test-spawn-and-shutdown)
   (test-runtime-registry-and-external-boundary)
   (test-run-until-idle)
   (format t "~&starlang-runtime tests passed~%")
