@@ -10,5 +10,6 @@
     :components
     ((:file "packages")
      (:file "runtime")
+     (:file "wire-dispatcher")
      (:file "runtime-directory"))))
   :in-order-to ((test-op (test-op "starlang-runtime-tests"))))
