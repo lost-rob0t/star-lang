@@ -60,16 +60,20 @@
 (defun field-value (name fields)
   (cdr (assoc name fields :test #'string=)))
 
-(defun make-model-certificate (&key
-                                 (certificate-id "verify_01")
-                                 (subject-hash +subject-hash+)
-                                 (bounds '(("retryLimit" . 2)
-                                           ("actors" . 2))))
-                                 (assumptions '("weak-fair-next")))
+(defun make-model-certificate
+    (&key
+       (certificate-id "verify_01")
+       (class +verification-class-model-checked+)
+       (claim +claim-topology-protocol-deadlock-free+)
+       (subject-hash +subject-hash+)
+       (bounds '(("retryLimit" . 2)
+                 ("actors" . 2)))
+       (assumptions '("weak-fair-next"))
+       (result +verification-result-valid+))
   (make-verification-certificate
    :certificate-id certificate-id
-   :class +verification-class-model-checked+
-   :claim +claim-topology-protocol-deadlock-free+
+   :class class
+   :claim claim
    :subject-type "star.actor-topology/1"
    :subject-hash subject-hash
    :specification-digest +specification-digest+
@@ -79,38 +83,37 @@
    :assumptions assumptions
    :bounds bounds
    :evidence (list +evidence-hash+)
-   :result +verification-result-valid+))
+   :result result))
 
 (defun test-frozen-vocabularies ()
-  (check
-   (equal '("evidence"
+  (let ((expected-classes
+          '("evidence"
             "checked-conformance"
             "lifecycle-verified"
             "model-checked"
             "solver-certificate"
-            "theorem-artifact")
-          (verification-certificate-classes))
-   "Verification classes changed unexpectedly.")
-  (check
-   (equal '("valid" "invalid" "inconclusive")
-          (verification-certificate-results))
-   "Verification results changed unexpectedly.")
-  (dolist (claim '("star.subject.identity-bound"
-                   "star.document.schema-conformant"
-                   "star.document.valid-for-domain"
-                   "star.document.domain-constraint-satisfied"
-                   "star.actor.accepts-message"
-                   "star.actor.emits-message"
-                   "star.actor.protocol-conformant"
-                   "star.lifecycle.transition-valid"
-                   "star.poison.terminal-disposition"
-                   "star.poison.active-path-nonreturn"
-                   "star.topology.hard-wait-acyclic"
-                   "star.topology.protocol-deadlock-free"
-                   "star.topology.protocol-progress"))
-    (check (verification-claim-p claim)
-           "Verification claim ~A is missing from the vocabulary."
-           claim))
+            "theorem-artifact"))
+        (expected-results '("valid" "invalid" "inconclusive"))
+        (expected-claims
+          '("star.subject.identity-bound"
+            "star.document.schema-conformant"
+            "star.document.valid-for-domain"
+            "star.document.domain-constraint-satisfied"
+            "star.actor.accepts-message"
+            "star.actor.emits-message"
+            "star.actor.protocol-conformant"
+            "star.lifecycle.transition-valid"
+            "star.poison.terminal-disposition"
+            "star.poison.active-path-nonreturn"
+            "star.topology.hard-wait-acyclic"
+            "star.topology.protocol-deadlock-free"
+            "star.topology.protocol-progress")))
+    (check (equal expected-classes (verification-certificate-classes))
+           "Verification classes changed unexpectedly.")
+    (check (equal expected-results (verification-certificate-results))
+           "Verification results changed unexpectedly.")
+    (check (equal expected-claims (verification-claims))
+           "Verification claims changed unexpectedly."))
   (check (not (verification-claim-p "verified"))
          "Generic verified claim was accepted.")
   (check (not (verification-class-p "proved"))
@@ -118,18 +121,29 @@
   (check (not (verification-result-p "safe"))
          "Generic safe result was accepted."))
 
+(defun test-vocabulary-results-are-copies ()
+  (let ((classes (verification-certificate-classes))
+        (claims (verification-claims)))
+    (setf (char (first classes) 0) #\X
+          (char (first claims) 0) #\X)
+    (check (string= "evidence" (first (verification-certificate-classes)))
+           "Mutating returned classes changed the authoritative vocabulary.")
+    (check (string= "star.subject.identity-bound"
+                    (first (verification-claims)))
+           "Mutating returned claims changed the authoritative vocabulary.")))
+
 (defun test-digest-contract ()
   (check (sha256-digest-p +subject-hash+)
          "Valid lowercase SHA-256 digest was rejected.")
+  (check (sha256-digest-p +evidence-hash+)
+         "Valid evidence SHA-256 digest was rejected.")
   (check
    (not
     (sha256-digest-p
      "sha256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"))
    "Uppercase SHA-256 digest was accepted.")
   (check (not (sha256-digest-p "sha256:abc"))
-         "Short SHA-256 digest was accepted.")
-  (check (not (sha256-digest-p +evidence-hash+))
-         "Digest fixture should not alias through mutable state."))
+         "Short SHA-256 digest was accepted."))
 
 (defun test-certificate-shape-and-scope ()
   (let* ((certificate (make-model-certificate))
@@ -265,39 +279,30 @@
              "Mutating returned bounds changed certificate state."))))
 
 (defun test-invalid-certificates-fail-closed ()
-  (flet ((invalid-p (&rest arguments)
-           (signals-p
-            'invalid-verification-certificate-error
-            (lambda ()
-              (apply #'make-verification-certificate arguments)))))
-    (let ((base
-            (list :certificate-id "verify_bad"
-                  :class "model-checked"
-                  :claim "star.topology.protocol-deadlock-free"
-                  :subject-type "star.actor-topology/1"
-                  :subject-hash +subject-hash+
-                  :plan-digest +plan-digest+
-                  :verifier "star.verify.tlc/1"
-                  :verifier-version "TLC2-2.19"
-                  :result "valid")))
-      (check (apply #'invalid-p
-                    (append base (list :claim "verified")))
-             "Unknown generic claim was accepted.")
-      (check (apply #'invalid-p
-                    (append base (list :class "proved")))
-             "Unknown verification class was accepted.")
-      (check (apply #'invalid-p
-                    (append base (list :result "safe")))
-             "Unknown verification result was accepted.")
-      (check (apply #'invalid-p
-                    (append base (list :subject-hash "sha256:abc")))
-             "Malformed subject hash was accepted.")
-      (check
-       (apply #'invalid-p
-              (append base
-                      (list :bounds '(("actors" . 2)
-                                      ("actors" . 3)))))
-       "Duplicate bound keys were accepted."))))
+  (check
+   (signals-p 'invalid-verification-certificate-error
+              (lambda () (make-model-certificate :claim "verified")))
+   "Unknown generic claim was accepted.")
+  (check
+   (signals-p 'invalid-verification-certificate-error
+              (lambda () (make-model-certificate :class "proved")))
+   "Unknown verification class was accepted.")
+  (check
+   (signals-p 'invalid-verification-certificate-error
+              (lambda () (make-model-certificate :result "safe")))
+   "Unknown verification result was accepted.")
+  (check
+   (signals-p 'invalid-verification-certificate-error
+              (lambda ()
+                (make-model-certificate :subject-hash "sha256:abc")))
+   "Malformed subject hash was accepted.")
+  (check
+   (signals-p
+    'invalid-verification-certificate-error
+    (lambda ()
+      (make-model-certificate
+       :bounds '(("actors" . 2) ("actors" . 3)))))
+   "Duplicate bound keys were accepted."))
 
 (defun test-final-system-is-prototype-independent ()
   (check (null (find-package "STAR-LANG.PROTOTYPE"))
@@ -307,6 +312,7 @@
 
 (defun run-tests ()
   (test-frozen-vocabularies)
+  (test-vocabulary-results-are-copies)
   (test-digest-contract)
   (test-certificate-shape-and-scope)
   (test-semantic-identity-projection)
