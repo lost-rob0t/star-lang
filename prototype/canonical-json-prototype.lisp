@@ -4,12 +4,17 @@
           canonical-manifest-json
           validate-wire-value))
 
-;; Standalone prototype scripts load this file directly, so resolve the final
-;; serializer before package-qualified compatibility calls are read.
+;; Standalone prototype scripts load this file directly, so resolve final
+;; protocol and serializer dependencies before package-qualified calls are read.
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (require :asdf))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
+  (unless (find-package "STARACTORPROTOCOL")
+    (funcall (find-symbol "LOAD-ASD" "ASDF")
+             (merge-pathnames "../star-actor-protocol/star-actor-protocol.asd"
+                              *load-truename*))
+    (funcall (find-symbol "LOAD-SYSTEM" "ASDF") :star-actor-protocol))
   (unless (find-package "STARCANONICALJSON")
     (funcall (find-symbol "LOAD-ASD" "ASDF")
              (merge-pathnames "../star-canonical-json/star-canonical-json.asd"
@@ -33,35 +38,11 @@
     (starcanonicaljson:invalid-canonical-json-error (condition)
       (fail 'invalid-envelope-error "~A" condition))))
 
-(defun keyword-plist-p (value)
-  (and (listp value)
-       (evenp (length value))
-       (loop for tail on value by #'cddr
-             always (keywordp (first tail)))))
-
-(defun string-alist-p (value)
-  (and (listp value)
-       value
-       (every (lambda (entry)
-                (and (consp entry) (stringp (car entry))))
-              value)))
-
-(defun json-key-name (key)
-  (let ((name (string-downcase
-               (etypecase key
-                 (keyword (symbol-name key))
-                 (symbol (symbol-name key))
-                 (string key)))))
-    (with-output-to-string (stream)
-      (loop with uppercase-next = nil
-            for character across name
-            do (cond
-                 ((or (char= character #\-) (char= character #\_))
-                  (setf uppercase-next t))
-                 (uppercase-next
-                  (write-char (char-upcase character) stream)
-                  (setf uppercase-next nil))
-                 (t (write-char character stream)))))))
+(defun call-final-payload-validation (thunk)
+  (handler-case
+      (funcall thunk)
+    (staractorprotocol:invalid-wire-envelope-error (condition)
+      (fail 'invalid-envelope-error "~A" condition))))
 
 (defun json-symbol-value (value)
   (substitute #\- #\_ (string-downcase (symbol-name value))))
@@ -78,7 +59,7 @@
           do (unless (and (null value)
                           (not (eq key :required))
                           (not (json-array-key-p key)))
-               (push (cons (json-key-name key)
+               (push (cons (staractorprotocol:portable-field-key-string key)
                            (manifest-json-value value key))
                      entries)))
     (%make-json-object entries)))
@@ -95,8 +76,9 @@
     ((integerp value) value)
     ((keywordp value) (json-symbol-value value))
     ((symbolp value) (identifier-string value))
-    ((keyword-plist-p value) (manifest-json-object value))
-    ((string-alist-p value)
+    ((staractorprotocol:portable-keyword-plist-p value)
+     (manifest-json-object value))
+    ((staractorprotocol:portable-string-alist-p value)
      (%make-json-object
       (mapcar (lambda (entry)
                 (cons (car entry) (manifest-json-value (cdr entry))))
@@ -110,27 +92,10 @@
   (canonical-json-string (manifest-json-object manifest)))
 
 (defun manifest-type-contract (manifest qualified-name)
-  (find qualified-name (getf manifest :types)
-        :key (lambda (contract) (getf contract :name))
-        :test #'string=))
+  (staractorprotocol:portable-manifest-type-contract manifest qualified-name))
 
 (defun payload-entry (payload field-name)
-  (cond
-    ((string-alist-p payload) (assoc field-name payload :test #'string=))
-    ((keyword-plist-p payload)
-     (loop for (key value) on payload by #'cddr
-           when (string= (field-key-string key) field-name)
-             return (cons field-name value)))
-    (t nil)))
-
-(defun payload-field-names (payload)
-  (cond
-    ((string-alist-p payload) (mapcar #'car payload))
-    ((keyword-plist-p payload)
-     (loop for tail on payload by #'cddr
-           collect (field-key-string (first tail))))
-    ((null payload) '())
-    (t nil)))
+  (staractorprotocol:portable-payload-entry payload field-name))
 
 (defun generic-wire-json-value (value)
   (cond
@@ -138,8 +103,9 @@
     ((null value) +json-null+)
     ((stringp value) value)
     ((integerp value) value)
-    ((symbolp value) (identifier-string value))
-    ((string-alist-p value)
+    ((symbolp value)
+     (staractorprotocol:portable-wire-identifier-string value))
+    ((staractorprotocol:portable-string-alist-p value)
      (%make-json-object
       (mapcar (lambda (entry)
                 (cons (car entry) (generic-wire-json-value (cdr entry))))
@@ -149,115 +115,61 @@
      (fail 'invalid-envelope-error "Unsupported wire value ~S." value))))
 
 (defun wire-map-value (value context)
+  (declare (ignore context))
   (cond
     ((null value) (%make-json-object '()))
-    ((string-alist-p value)
+    ((staractorprotocol:portable-string-alist-p value)
      (%make-json-object
       (mapcar (lambda (entry)
                 (cons (car entry) (generic-wire-json-value (cdr entry))))
               value)))
-    ((keyword-plist-p value) (manifest-json-object value))
+    ((staractorprotocol:portable-keyword-plist-p value)
+     (manifest-json-object value))
     (t
-     (fail 'invalid-envelope-error
-           "~A requires an object/map value." context))))
+     (error "Validated wire map reached an unsupported encoder shape: ~S."
+            value))))
 
 (defun wire-reference-value (value context)
-  (let ((schema (payload-entry value "schema"))
-        (id (payload-entry value "id")))
-    (unless (and schema (stringp (cdr schema)) id (stringp (cdr id)))
-      (fail 'invalid-envelope-error
-            "~A requires reference fields schema and id as strings." context))
-    (wire-map-value value context)))
+  (wire-map-value value context))
 
-(defun wire-enum-value (contract value context)
-  (let ((normalized
-          (cond
-            ((stringp value) value)
-            ((symbolp value) (identifier-string value))
-            (t nil))))
-    (unless (and normalized
-                 (member normalized (getf contract :values) :test #'string=))
-      (fail 'invalid-envelope-error
-            "~A requires one of ~S, received ~S."
-            context (getf contract :values) value))
-    normalized))
+(defun wire-enum-value (value)
+  (if (stringp value)
+      value
+      (staractorprotocol:portable-wire-identifier-string value)))
 
 (defun manifest-document-fields (manifest contract)
-  (let ((parent-name (getf contract :extends)))
-    (append
-     (when parent-name
-       (let ((parent (manifest-type-contract manifest parent-name)))
-         (unless (and parent (eq (getf parent :kind) :document))
-           (fail 'invalid-envelope-error
-                 "Cannot resolve document parent ~A while validating wire data."
-                 parent-name))
-         (manifest-document-fields manifest parent)))
-     (copy-tree (getf contract :fields)))))
-
-(defun decimal-wire-string-p (value)
-  (and (stringp value)
-       (> (length value) 0)
-       (let* ((start (if (member (char value 0) '(#\+ #\-)) 1 0))
-              (dot (position #\. value :start start)))
-         (and (< start (length value))
-              (or (null dot) (> dot start))
-              (every #'digit-char-p
-                     (if dot (subseq value start dot) (subseq value start)))
-              (or (null dot)
-                  (and (< dot (1- (length value)))
-                       (every #'digit-char-p (subseq value (1+ dot)))))))))
-
-(defun decimal-fraction-digits (value)
-  (let ((dot (position #\. value)))
-    (if dot (- (length value) dot 1) 0)))
-
-(defun validate-scalar-constraints (contract value context)
-  (let ((minimum (getf contract :minimum))
-        (maximum (getf contract :maximum))
-        (scale (getf contract :scale)))
-    (when (and minimum (numberp value) (< value minimum))
-      (fail 'invalid-envelope-error
-            "~A is below scalar minimum ~A." context minimum))
-    (when (and maximum (numberp value) (> value maximum))
-      (fail 'invalid-envelope-error
-            "~A exceeds scalar maximum ~A." context maximum))
-    (when scale
-      (unless (and (decimal-wire-string-p value)
-                   (<= (decimal-fraction-digits value) scale))
-        (fail 'invalid-envelope-error
-              "~A requires a decimal string with at most ~D fractional digits."
-              context scale))))
-  value)
+  (call-final-payload-validation
+   (lambda ()
+     (staractorprotocol:portable-manifest-document-fields
+      manifest contract))))
 
 (defun wire-fields-object (manifest fields value context)
-  (unless (or (string-alist-p value) (keyword-plist-p value) (null value))
-    (fail 'invalid-envelope-error "~A requires an object payload." context))
-  (let ((known (mapcar (lambda (field) (getf field :name)) fields))
-        (entries '()))
-    (dolist (name (payload-field-names value))
-      (unless (member name known :test #'string=)
-        (fail 'invalid-envelope-error
-              "~A contains unknown field ~A." context name)))
+  (call-final-payload-validation
+   (lambda ()
+     (staractorprotocol:validate-portable-wire-fields
+      manifest fields value context)))
+  (let ((entries '()))
     (dolist (field fields)
       (let* ((name (getf field :name))
              (entry (payload-entry value name)))
-        (cond
-          (entry
-           (push (cons name
-                       (wire-json-value-for-type
-                        manifest (getf field :type) (cdr entry)
-                        (format nil "~A field ~A" context name)))
-                 entries))
-          ((getf field :required)
-           (fail 'invalid-envelope-error
-                 "~A is missing required field ~A." context name)))))
+        (when entry
+          (push
+           (cons name
+                 (wire-json-value-for-type
+                  manifest
+                  (getf field :type)
+                  (cdr entry)
+                  (format nil "~A field ~A" context name)))
+           entries))))
     (%make-json-object entries)))
 
 (defun wire-json-value-for-type (manifest type value context)
+  (call-final-payload-validation
+   (lambda ()
+     (staractorprotocol:validate-portable-wire-value
+      manifest type value context)))
   (cond
     ((and (listp type) (eq (first type) :list) (= (length type) 2))
-     (unless (listp value)
-       (fail 'invalid-envelope-error "~A requires a list." context))
      (%make-json-array
       (mapcar (lambda (item)
                 (wire-json-value-for-type manifest (second type) item context))
@@ -266,59 +178,46 @@
      (if (null value)
          +json-null+
          (wire-json-value-for-type manifest (second type) value context)))
-    ((not (stringp type))
-     (fail 'invalid-envelope-error "~A has invalid type contract ~S." context type))
     ((string= type "any") (generic-wire-json-value value))
     ((member type '("string" "symbol" "iso-date" "iso-datetime") :test #'string=)
-     (unless (or (stringp value) (and (string= type "symbol") (symbolp value)))
-       (fail 'invalid-envelope-error "~A requires ~A." context type))
-     (if (symbolp value) (identifier-string value) value))
-    ((string= type "integer")
-     (unless (integerp value)
-       (fail 'invalid-envelope-error "~A requires an integer." context))
-     value)
-    ((string= type "boolean")
-     (unless (or (eq value t) (null value))
-       (fail 'invalid-envelope-error "~A requires a boolean." context))
-     (if value +json-true+ +json-false+))
-    ((string= type "decimal")
-     (unless (decimal-wire-string-p value)
-       (fail 'invalid-envelope-error
-             "~A requires a decimal string to preserve wire precision." context))
-     value)
+     (if (symbolp value)
+         (staractorprotocol:portable-wire-identifier-string value)
+         value))
+    ((string= type "integer") value)
+    ((string= type "boolean") (if value +json-true+ +json-false+))
+    ((string= type "decimal") value)
     ((string= type "map") (wire-map-value value context))
     ((string= type "reference") (wire-reference-value value context))
     (t
      (let ((contract (manifest-type-contract manifest type)))
-       (unless contract
-         (fail 'invalid-envelope-error "~A references unknown type ~A." context type))
        (case (getf contract :kind)
          (:scalar
-          (let ((encoded
-                  (wire-json-value-for-type
-                   manifest (getf contract :base) value context)))
-            (validate-scalar-constraints contract value context)
-            encoded))
-         (:enum (wire-enum-value contract value context))
+          (wire-json-value-for-type
+           manifest (getf contract :base) value context))
+         (:enum
+          (wire-enum-value value))
          (:document
           (wire-fields-object
            manifest (manifest-document-fields manifest contract) value context))
          (otherwise
-          (fail 'invalid-envelope-error
-                "~A cannot use type kind ~A."
-                context (getf contract :kind))))))))
+          (error "Validated wire type reached an unsupported encoder kind: ~S."
+                 (getf contract :kind))))))))
 
 (defun validate-wire-value (manifest type value &optional (context "wire value"))
-  (wire-json-value-for-type manifest type value context)
+  (call-final-payload-validation
+   (lambda ()
+     (staractorprotocol:validate-portable-wire-value
+      manifest type value context)))
   t)
 
 (defun envelope-json-object (manifest envelope)
-  (unless (= (getf envelope :star-version) 1)
-    (fail 'invalid-envelope-error "Unsupported Star wire version."))
+  (call-final-payload-validation
+   (lambda ()
+     (staractorprotocol:validate-wire-envelope manifest envelope)))
   (let* ((message-type (getf envelope :message-type))
-         (contract (message-contract manifest message-type)))
-    (unless contract
-      (fail 'invalid-envelope-error "Unknown message type ~A." message-type))
+         (contract
+           (staractorprotocol:portable-manifest-message-contract
+            manifest message-type)))
     (let ((entries
             (list (cons "starVersion" 1)
                   (cons "messageType" message-type)
