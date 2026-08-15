@@ -2,7 +2,7 @@
   :description "Actor message and protocol definitions"
   :author "lost-rob0t"
   :license "AGPL-3.0-only"
-  :version "0.4.0"
+  :version "0.5.0"
   :depends-on ()
   :serial t
   :components
@@ -12,5 +12,6 @@
      (:file "service-uri")
      (:file "actor-reference")
      (:file "message-lifecycle")
-     (:file "portable-wire"))))
+     (:file "portable-wire")
+     (:file "portable-payload"))))
   :in-order-to ((test-op (test-op "star-actor-protocol-tests"))))
