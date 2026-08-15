@@ -1,40 +1,44 @@
 (in-package :starverification)
 
-(defconstant +verification-certificate-schema+ "star.verify.certificate/1")
+;; String-valued public vocabulary bindings use DEFPARAMETER rather than
+;; DEFCONSTANT because ANSI Common Lisp does not make independently read
+;; strings EQL across compile/load phases.  Certificate construction copies
+;; every accepted string, so these bindings never become certificate storage.
+(defparameter +verification-certificate-schema+ "star.verify.certificate/1")
 
-(defconstant +verification-class-evidence+ "evidence")
-(defconstant +verification-class-checked-conformance+ "checked-conformance")
-(defconstant +verification-class-lifecycle-verified+ "lifecycle-verified")
-(defconstant +verification-class-model-checked+ "model-checked")
-(defconstant +verification-class-solver-certificate+ "solver-certificate")
-(defconstant +verification-class-theorem-artifact+ "theorem-artifact")
+(defparameter +verification-class-evidence+ "evidence")
+(defparameter +verification-class-checked-conformance+ "checked-conformance")
+(defparameter +verification-class-lifecycle-verified+ "lifecycle-verified")
+(defparameter +verification-class-model-checked+ "model-checked")
+(defparameter +verification-class-solver-certificate+ "solver-certificate")
+(defparameter +verification-class-theorem-artifact+ "theorem-artifact")
 
-(defconstant +verification-result-valid+ "valid")
-(defconstant +verification-result-invalid+ "invalid")
-(defconstant +verification-result-inconclusive+ "inconclusive")
+(defparameter +verification-result-valid+ "valid")
+(defparameter +verification-result-invalid+ "invalid")
+(defparameter +verification-result-inconclusive+ "inconclusive")
 
-(defconstant +claim-subject-identity-bound+ "star.subject.identity-bound")
-(defconstant +claim-document-schema-conformant+
+(defparameter +claim-subject-identity-bound+ "star.subject.identity-bound")
+(defparameter +claim-document-schema-conformant+
   "star.document.schema-conformant")
-(defconstant +claim-document-valid-for-domain+
+(defparameter +claim-document-valid-for-domain+
   "star.document.valid-for-domain")
-(defconstant +claim-document-domain-constraint-satisfied+
+(defparameter +claim-document-domain-constraint-satisfied+
   "star.document.domain-constraint-satisfied")
-(defconstant +claim-actor-accepts-message+ "star.actor.accepts-message")
-(defconstant +claim-actor-emits-message+ "star.actor.emits-message")
-(defconstant +claim-actor-protocol-conformant+
+(defparameter +claim-actor-accepts-message+ "star.actor.accepts-message")
+(defparameter +claim-actor-emits-message+ "star.actor.emits-message")
+(defparameter +claim-actor-protocol-conformant+
   "star.actor.protocol-conformant")
-(defconstant +claim-lifecycle-transition-valid+
+(defparameter +claim-lifecycle-transition-valid+
   "star.lifecycle.transition-valid")
-(defconstant +claim-poison-terminal-disposition+
+(defparameter +claim-poison-terminal-disposition+
   "star.poison.terminal-disposition")
-(defconstant +claim-poison-active-path-nonreturn+
+(defparameter +claim-poison-active-path-nonreturn+
   "star.poison.active-path-nonreturn")
-(defconstant +claim-topology-hard-wait-acyclic+
+(defparameter +claim-topology-hard-wait-acyclic+
   "star.topology.hard-wait-acyclic")
-(defconstant +claim-topology-protocol-deadlock-free+
+(defparameter +claim-topology-protocol-deadlock-free+
   "star.topology.protocol-deadlock-free")
-(defconstant +claim-topology-protocol-progress+
+(defparameter +claim-topology-protocol-progress+
   "star.topology.protocol-progress")
 
 (define-condition star-verification-error (error)
@@ -191,6 +195,58 @@
      (require-digest digest "Certificate evidence hash"))
    evidence))
 
+(defun claim-requires-specification-digest-p (claim)
+  (member claim
+          (list +claim-document-schema-conformant+
+                +claim-document-valid-for-domain+
+                +claim-document-domain-constraint-satisfied+
+                +claim-actor-accepts-message+
+                +claim-actor-emits-message+
+                +claim-actor-protocol-conformant+
+                +claim-poison-terminal-disposition+)
+          :test #'string=))
+
+(defun claim-requires-plan-digest-p (claim)
+  (member claim
+          (list +claim-document-valid-for-domain+
+                +claim-poison-terminal-disposition+
+                +claim-poison-active-path-nonreturn+
+                +claim-topology-hard-wait-acyclic+
+                +claim-topology-protocol-deadlock-free+
+                +claim-topology-protocol-progress+)
+          :test #'string=))
+
+(defun class-requires-evidence-p (class)
+  (member class
+          (list +verification-class-evidence+
+                +verification-class-model-checked+
+                +verification-class-solver-certificate+
+                +verification-class-theorem-artifact+)
+          :test #'string=))
+
+(defun validate-certificate-scope
+    (class claim specification-digest plan-digest bounds evidence)
+  (when (and (claim-requires-specification-digest-p claim)
+             (null specification-digest))
+    (fail-certificate
+     "Verification claim ~A requires specificationDigest."
+     claim))
+  (when (and (claim-requires-plan-digest-p claim)
+             (null plan-digest))
+    (fail-certificate
+     "Verification claim ~A requires planDigest."
+     claim))
+  (when (and (string= class +verification-class-model-checked+)
+             (null bounds))
+    (fail-certificate
+     "Verification class model-checked requires explicit non-empty bounds."))
+  (when (and (class-requires-evidence-p class)
+             (null evidence))
+    (fail-certificate
+     "Verification class ~A requires at least one evidence hash."
+     class))
+  t)
+
 (defstruct (verification-certificate
             (:constructor %make-verification-certificate)
             (:copier nil)
@@ -231,25 +287,49 @@
     (fail-certificate "Unknown verification claim ~S." claim))
   (unless (verification-result-p result)
     (fail-certificate "Unknown verification result ~S." result))
-  (%make-verification-certificate
-   :certificate-id (require-string certificate-id "Certificate id")
-   :class (copy-seq class)
-   :claim (copy-seq claim)
-   :subject-type (require-string subject-type "Certificate subject type")
-   :subject-hash (require-digest subject-hash "Certificate subject hash")
-   :specification-digest
-   (require-digest specification-digest
-                   "Certificate specification digest"
-                   :optional t)
-   :plan-digest
-   (require-digest plan-digest "Certificate plan digest" :optional t)
-   :verifier (require-string verifier "Certificate verifier")
-   :verifier-version
-   (require-string verifier-version "Certificate verifier version")
-   :assumptions (normalize-string-list assumptions "Certificate assumption")
-   :bounds (normalize-bounds bounds)
-   :evidence (normalize-evidence evidence)
-   :result (copy-seq result)))
+  (let* ((normalized-certificate-id
+           (require-string certificate-id "Certificate id"))
+         (normalized-subject-type
+           (require-string subject-type "Certificate subject type"))
+         (normalized-subject-hash
+           (require-digest subject-hash "Certificate subject hash"))
+         (normalized-specification-digest
+           (require-digest specification-digest
+                           "Certificate specification digest"
+                           :optional t))
+         (normalized-plan-digest
+           (require-digest plan-digest
+                           "Certificate plan digest"
+                           :optional t))
+         (normalized-verifier
+           (require-string verifier "Certificate verifier"))
+         (normalized-verifier-version
+           (require-string verifier-version "Certificate verifier version"))
+         (normalized-assumptions
+           (normalize-string-list assumptions "Certificate assumption"))
+         (normalized-bounds (normalize-bounds bounds))
+         (normalized-evidence (normalize-evidence evidence)))
+    (validate-certificate-scope
+     class
+     claim
+     normalized-specification-digest
+     normalized-plan-digest
+     normalized-bounds
+     normalized-evidence)
+    (%make-verification-certificate
+     :certificate-id normalized-certificate-id
+     :class (copy-seq class)
+     :claim (copy-seq claim)
+     :subject-type normalized-subject-type
+     :subject-hash normalized-subject-hash
+     :specification-digest normalized-specification-digest
+     :plan-digest normalized-plan-digest
+     :verifier normalized-verifier
+     :verifier-version normalized-verifier-version
+     :assumptions normalized-assumptions
+     :bounds normalized-bounds
+     :evidence normalized-evidence
+     :result (copy-seq result))))
 
 (defun ensure-verification-certificate (certificate)
   (unless (verification-certificate-p certificate)
