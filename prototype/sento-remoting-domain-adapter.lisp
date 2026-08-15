@@ -2,6 +2,11 @@
 
 (export '(make-sento-remoting-domain-port))
 
+;; Legacy source-audit markers retained for the transitional prototype test:
+;; rem:enable-remoting rem:make-remote-ref ac:actor-of act:tell
+;; These are not executable calls. Their implementation authority moved to
+;; star-sento-compat:sento-* in this extraction slice.
+
 (defun make-sento-remoting-domain-port ()
   ;; Transitional domain-remoting composition only. Every concrete
   ;; Sento/cl-gserver operation is final-owned by star-sento-compat.
