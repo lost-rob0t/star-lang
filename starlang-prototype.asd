@@ -6,6 +6,7 @@
   :depends-on ("star-actor-protocol"
                "star-canonical-json"
                "star-journal"
+               "star-lease"
                "star-sento-compat"
                "ironclad")
   :serial t
