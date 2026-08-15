@@ -9,13 +9,8 @@
 
 (define-condition cl-gserver-runtime-error (star-lang-core-error) ())
 
-(defstruct (cl-gserver-runtime-port
-            (:constructor %make-cl-gserver-runtime-port))
-  actor-of-fn
-  tell-fn
-  stop-fn
-  shutdown-fn)
-
+;; Compatibility constructor only. The runtime-port implementation and
+;; operation error boundary are authoritative in star-sento-compat.
 (defun make-cl-gserver-runtime-port (&key actor-of tell stop shutdown)
   (dolist (operation
            (list (cons "actor-of" actor-of)
@@ -26,42 +21,14 @@
       (fail 'cl-gserver-runtime-error
             "cl-gserver runtime operation ~A must be a function."
             (car operation))))
-  (%make-cl-gserver-runtime-port
-   :actor-of-fn actor-of
-   :tell-fn tell
-   :stop-fn stop
-   :shutdown-fn shutdown))
-
-(defun runtime-operation-error (operation condition)
-  (fail 'cl-gserver-runtime-error
-        "cl-gserver runtime operation ~A failed: ~A"
-        operation condition))
-
-(defun runtime-actor-of (port context name receive)
-  (handler-case
-      (funcall (cl-gserver-runtime-port-actor-of-fn port)
-               context name receive)
-    (cl-gserver-runtime-error (condition) (error condition))
-    (error (condition) (runtime-operation-error "actor-of" condition))))
-
-(defun runtime-tell (port actor message &optional sender)
-  (handler-case
-      (funcall (cl-gserver-runtime-port-tell-fn port)
-               actor message sender)
-    (cl-gserver-runtime-error (condition) (error condition))
-    (error (condition) (runtime-operation-error "tell" condition))))
-
-(defun runtime-stop (port context actor)
-  (handler-case
-      (funcall (cl-gserver-runtime-port-stop-fn port) context actor)
-    (cl-gserver-runtime-error (condition) (error condition))
-    (error (condition) (runtime-operation-error "stop" condition))))
-
-(defun runtime-shutdown (port context)
-  (handler-case
-      (funcall (cl-gserver-runtime-port-shutdown-fn port) context)
-    (cl-gserver-runtime-error (condition) (error condition))
-    (error (condition) (runtime-operation-error "shutdown" condition))))
+  (starsentocompat:make-runtime-port
+   :spawn
+   (lambda (context name receive options)
+     (declare (ignore options))
+     (funcall actor-of context name receive))
+   :tell tell
+   :stop stop
+   :shutdown shutdown))
 
 (defstruct (cl-gserver-runtime-job
             (:constructor make-cl-gserver-runtime-job
@@ -133,9 +100,9 @@
 (defun make-cl-gserver-runtime-facade
     (&key context runtime-port dispatcher transport-adapter
           native-contracts handlers (retry-delay-ms 1000))
-  (unless (cl-gserver-runtime-port-p runtime-port)
+  (unless (starsentocompat:runtime-port-p runtime-port)
     (fail 'cl-gserver-runtime-error
-          "Runtime facade requires a cl-gserver runtime port."))
+          "Runtime facade requires a star-sento-compat runtime port."))
   (unless (deterministic-dispatcher-p dispatcher)
     (fail 'cl-gserver-runtime-error
           "Runtime facade requires a deterministic dispatcher."))
@@ -238,7 +205,7 @@
                       "native runtime job-id"))
              (command (getf message :command))
              (result (native-handler-result handler command)))
-        (runtime-tell
+        (starsentocompat:runtime-tell
          (cl-gserver-runtime-facade-runtime-port facade)
          (cl-gserver-runtime-facade-coordinator facade)
          (runtime-result-message job-id result)
@@ -260,13 +227,13 @@
       (setf (gethash job-id (cl-gserver-runtime-facade-jobs facade)) job)
       (handler-case
           (progn
-            (runtime-tell
+            (starsentocompat:runtime-tell
              (cl-gserver-runtime-facade-runtime-port facade)
              actor
              (runtime-job-message job)
              (cl-gserver-runtime-facade-coordinator facade))
             job-id)
-        (cl-gserver-runtime-error (condition)
+        (starsentocompat:star-sento-compat-error (condition)
           (declare (ignore condition))
           (remhash job-id (cl-gserver-runtime-facade-jobs facade))
           nil)))))
@@ -283,7 +250,7 @@
 
 (defun start-runtime-coordinator (facade)
   (setf (cl-gserver-runtime-facade-coordinator facade)
-        (runtime-actor-of
+        (starsentocompat:runtime-spawn
          (cl-gserver-runtime-facade-runtime-port facade)
          (cl-gserver-runtime-facade-context facade)
          "star-runtime-coordinator"
@@ -292,7 +259,7 @@
 (defun start-native-runtime-actor (facade contract)
   (let* ((name (getf contract :name))
          (actor
-           (runtime-actor-of
+           (starsentocompat:runtime-spawn
             (cl-gserver-runtime-facade-runtime-port facade)
             (cl-gserver-runtime-facade-context facade)
             name
@@ -319,17 +286,17 @@
     (maphash
      (lambda (name actor)
        (declare (ignore name))
-       (runtime-stop
+       (starsentocompat:runtime-stop
         (cl-gserver-runtime-facade-runtime-port facade)
         (cl-gserver-runtime-facade-context facade)
         actor))
      (cl-gserver-runtime-facade-actors facade))
     (when (cl-gserver-runtime-facade-coordinator facade)
-      (runtime-stop
+      (starsentocompat:runtime-stop
        (cl-gserver-runtime-facade-runtime-port facade)
        (cl-gserver-runtime-facade-context facade)
        (cl-gserver-runtime-facade-coordinator facade)))
-    (runtime-shutdown
+    (starsentocompat:runtime-shutdown
      (cl-gserver-runtime-facade-runtime-port facade)
      (cl-gserver-runtime-facade-context facade))
     (setf (cl-gserver-runtime-facade-started-p facade) nil))
