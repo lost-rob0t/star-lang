@@ -75,6 +75,7 @@
             sbcl --non-interactive \
               --eval '(require :asdf)' \
               --eval '(asdf:test-system :star-actor-protocol)' \
+              --eval '(asdf:test-system :star-canonical-json)' \
               --eval '(asdf:test-system :starlang-runtime)' \
               --eval '(asdf:test-system :star-http-port)' \
               --eval '(asdf:test-system :star-scrape)' \
@@ -126,6 +127,7 @@
             ${sbcl}/bin/sbcl --non-interactive \
               --eval '(require :asdf)' \
               --eval '(asdf:test-system :star-actor-protocol)' \
+              --eval '(asdf:test-system :star-canonical-json)' \
               --eval '(asdf:test-system :starlang-runtime)' \
               --eval '(asdf:test-system :star-http-port)' \
               --eval '(asdf:test-system :star-scrape)' \

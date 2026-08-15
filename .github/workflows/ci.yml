@@ -131,6 +131,16 @@ jobs:
             --eval '(asdf:test-system :star-actor-protocol)' \
             --eval '(sb-ext:quit)'
 
+      - name: Test final canonical JSON system independently
+        shell: bash
+        run: |
+          set -euo pipefail
+          sbcl --non-interactive \
+            --eval '(require :asdf)' \
+            --eval '(asdf:test-system :star-canonical-json)' \
+            --eval '(assert (null (find-package "STAR-LANG.CORE-SURFACE.PROTOTYPE")))' \
+            --eval '(sb-ext:quit)'
+
       - name: Test final mailbox system independently
         shell: bash
         run: |
