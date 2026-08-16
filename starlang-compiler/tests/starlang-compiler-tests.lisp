@@ -1,6 +1,6 @@
 (defpackage :starlangcompiler-tests
   (:use :cl :fiveam)
-  (:export))
+  (:export #:run-tests))
 
 (in-package :starlangcompiler-tests)
 
@@ -114,3 +114,6 @@
   "The final compiler logic compatibility path stays prototype-independent."
   (is (null (find-package "STAR-LANG.PROTOTYPE")))
   (is (null (find-package "STAR-LANG.CORE-SURFACE.PROTOTYPE"))))
+
+(defun run-tests ()
+  (run! 'starlangcompiler-tests))
