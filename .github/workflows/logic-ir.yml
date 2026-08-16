@@ -50,9 +50,11 @@ jobs:
             --eval '(asdf:test-system :star-logic-ir)' \
             --eval '(assert (null (find-package "STAR-LANG.PROTOTYPE")))' \
             --eval '(assert (null (find-package "STAR-LANG.CORE-SURFACE.PROTOTYPE")))' \
-            --eval '(sb-ext:quit)'
+            --eval '(sb-ext:quit)' \
+            2>&1 | tee logic-ir-test.log
 
       - name: Test compiler logic-policy compatibility independently
+        if: always()
         shell: bash
         run: |
           set -euo pipefail
@@ -61,10 +63,24 @@ jobs:
             --eval '(asdf:test-system :starlang-compiler)' \
             --eval '(assert (null (find-package "STAR-LANG.PROTOTYPE")))' \
             --eval '(assert (null (find-package "STAR-LANG.CORE-SURFACE.PROTOTYPE")))' \
-            --eval '(sb-ext:quit)'
+            --eval '(sb-ext:quit)' \
+            2>&1 | tee compiler-logic-policy-test.log
 
       - name: Verify frozen canonical fixtures
+        if: always()
         shell: bash
         run: |
           set -euo pipefail
-          sha256sum --check fixtures/canonical/SHA256SUMS
+          sha256sum --check fixtures/canonical/SHA256SUMS \
+            2>&1 | tee logic-fixtures.log
+
+      - name: Upload logic verification logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logic-ir-verification-logs
+          path: |
+            logic-ir-test.log
+            compiler-logic-policy-test.log
+            logic-fixtures.log
+          if-no-files-found: warn
