@@ -12,6 +12,8 @@ star-http-port
 star-scrape
 star-process-port
 star-canonical-json
+star-logic-protocol
+star-logic-testing
 star-xlsx
 starlang-compiler
 starlang-runtime
