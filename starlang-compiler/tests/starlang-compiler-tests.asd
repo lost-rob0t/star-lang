@@ -5,6 +5,7 @@
   :depends-on ("starlang-compiler" "star-logic-testing" "fiveam")
   :components
   ((:file "starlang-compiler-tests"))
-  :perform (test-op (op c)
-             (declare (ignore op c))
-             (symbol-call :fiveam '#:run! 'starlangcompiler-tests)))
+  :perform
+  (test-op (op c)
+    (declare (ignore op c))
+    (uiop:symbol-call :starlangcompiler-tests :run-tests)))
