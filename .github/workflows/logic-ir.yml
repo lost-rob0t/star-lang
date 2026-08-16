@@ -1,0 +1,70 @@
+name: star-lang logic IR
+
+on:
+  pull_request:
+    paths:
+      - "star-logic-ir/**"
+      - "star-logic-protocol/**"
+      - "star-logic-testing/**"
+      - "starlang-compiler/**"
+      - "fixtures/canonical/**"
+      - "ci/target-systems.txt"
+      - ".github/workflows/logic-ir.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "star-logic-ir/**"
+      - "star-logic-protocol/**"
+      - "star-logic-testing/**"
+      - "starlang-compiler/**"
+      - "fixtures/canonical/**"
+      - "ci/target-systems.txt"
+      - ".github/workflows/logic-ir.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Engine-free logic IR contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CL_SOURCE_REGISTRY: "${{ github.workspace }}//:"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install SBCL test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes sbcl cl-fiveam
+
+      - name: Test final logic IR independently
+        shell: bash
+        run: |
+          set -euo pipefail
+          sbcl --non-interactive \
+            --eval '(require :asdf)' \
+            --eval '(asdf:test-system :star-logic-ir)' \
+            --eval '(assert (null (find-package "STAR-LANG.PROTOTYPE")))' \
+            --eval '(assert (null (find-package "STAR-LANG.CORE-SURFACE.PROTOTYPE")))' \
+            --eval '(sb-ext:quit)'
+
+      - name: Test compiler logic-policy compatibility independently
+        shell: bash
+        run: |
+          set -euo pipefail
+          sbcl --non-interactive \
+            --eval '(require :asdf)' \
+            --eval '(asdf:test-system :starlang-compiler)' \
+            --eval '(assert (null (find-package "STAR-LANG.PROTOTYPE")))' \
+            --eval '(assert (null (find-package "STAR-LANG.CORE-SURFACE.PROTOTYPE")))' \
+            --eval '(sb-ext:quit)'
+
+      - name: Verify frozen canonical fixtures
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum --check fixtures/canonical/SHA256SUMS
