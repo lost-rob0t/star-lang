@@ -215,7 +215,7 @@
    "Package identity accepted an unlocked package digest."))
 
 (defun test-normalization-is-deterministic-and-defensive ()
-  (let* ((bindings '(("zeta" . 2) ("alpha" . 1)))
+  (let* ((bindings (list (cons "zeta" 2) (cons "alpha" 1)))
          (call
            (make-test-call
             :bindings bindings
