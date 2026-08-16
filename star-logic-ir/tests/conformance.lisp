@@ -184,7 +184,9 @@
    (signals-p
     'starlogicir:invalid-logic-value-error
     (lambda ()
-      (make-test-call :bindings '(("goal" . (parent alice bob))))))
+      (make-test-call
+       :bindings
+       (list (cons "goal" (list 'parent "alice" "bob"))))))
    "Normalized IR accepted a raw Prolog-style executable form.")
   (check
    (signals-p
@@ -192,7 +194,7 @@
     (lambda ()
       (make-test-call
        :bindings
-       '(("rule" . (defrule risky-rule (person ?x) => (call-host ?x)))))))
+       (list (cons "rule" (list 'defrule "risky-rule"))))))
    "Normalized IR accepted a raw LISA/Common Lisp executable form."))
 
 (defun test-invalid-operation-and-package-identity-fail-early ()
