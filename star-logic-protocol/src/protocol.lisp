@@ -1,8 +1,11 @@
 (in-package :starlogicprotocol)
 
-(defconstant +logic-backend-lisa+ "lisa")
-(defconstant +logic-backend-swi-prolog+ "swi-prolog")
-(defconstant +logic-backend-n-prolog+ "n-prolog")
+;; Strings are deliberately parameters rather than DEFCONSTANT values: Common
+;; Lisp does not portably permit redefinition of non-EQL constant objects such
+;; as freshly loaded strings.
+(defparameter +logic-backend-lisa+ "lisa")
+(defparameter +logic-backend-swi-prolog+ "swi-prolog")
+(defparameter +logic-backend-n-prolog+ "n-prolog")
 
 (defconstant +logic-operation-pending+ :pending)
 (defconstant +logic-operation-running+ :running)
@@ -14,7 +17,7 @@
 (define-condition star-logic-error (error)
   ((message :initarg :message :reader star-logic-error-message))
   (:report (lambda (condition stream)
-             (format stream "~A" (slot-value condition 'message)))))
+             (format stream "~A" (star-logic-error-message condition)))))
 
 (define-condition invalid-logic-backend-descriptor-error (star-logic-error) ())
 (define-condition duplicate-logic-backend-error (star-logic-error) ())
@@ -30,21 +33,21 @@
 (defun %non-empty-string-p (value)
   (and (stringp value) (plusp (length value))))
 
-(defun %require-non-empty-string (value field)
+(defun %require-non-empty-string (value field condition-type)
   (unless (%non-empty-string-p value)
-    (%fail 'invalid-logic-backend-descriptor-error
+    (%fail condition-type
            "~A must be a non-empty string, got ~S."
            field value))
   value)
 
-(defun %normalize-string-list (values field)
+(defun %normalize-string-list (values field condition-type)
   (unless (listp values)
-    (%fail 'invalid-logic-backend-descriptor-error
+    (%fail condition-type
            "~A must be a list of strings, got ~S."
            field values))
   (dolist (value values)
     (unless (%non-empty-string-p value)
-      (%fail 'invalid-logic-backend-descriptor-error
+      (%fail condition-type
              "~A contains an invalid value ~S."
              field value)))
   (sort (remove-duplicates (copy-list values) :test #'string=) #'string<))
@@ -72,14 +75,32 @@
           cooperative-limits
           metadata)
   (%make-logic-backend-descriptor
-   :id (%require-non-empty-string id "backend id")
-   :version (%require-non-empty-string version "backend version")
-   :build-id (%require-non-empty-string build-id "backend build id")
-   :semantic-profiles (%normalize-string-list semantic-profiles "semantic profiles")
-   :capabilities (%normalize-string-list capabilities "capabilities")
-   :isolation-classes (%normalize-string-list isolation-classes "isolation classes")
-   :hard-limits (%normalize-string-list hard-limits "hard limits")
-   :cooperative-limits (%normalize-string-list cooperative-limits "cooperative limits")
+   :id (%require-non-empty-string
+        id "backend id" 'invalid-logic-backend-descriptor-error)
+   :version (%require-non-empty-string
+             version "backend version" 'invalid-logic-backend-descriptor-error)
+   :build-id (%require-non-empty-string
+              build-id "backend build id" 'invalid-logic-backend-descriptor-error)
+   :semantic-profiles
+   (%normalize-string-list semantic-profiles
+                           "semantic profiles"
+                           'invalid-logic-backend-descriptor-error)
+   :capabilities
+   (%normalize-string-list capabilities
+                           "capabilities"
+                           'invalid-logic-backend-descriptor-error)
+   :isolation-classes
+   (%normalize-string-list isolation-classes
+                           "isolation classes"
+                           'invalid-logic-backend-descriptor-error)
+   :hard-limits
+   (%normalize-string-list hard-limits
+                           "hard limits"
+                           'invalid-logic-backend-descriptor-error)
+   :cooperative-limits
+   (%normalize-string-list cooperative-limits
+                           "cooperative limits"
+                           'invalid-logic-backend-descriptor-error)
    :metadata metadata))
 
 (defstruct (logic-backend-registry
@@ -142,14 +163,10 @@
        required-capabilities
        required-hard-limits
        required-isolation)
-  (unless (%non-empty-string-p backend-policy)
-    (%fail 'logic-backend-selection-error
-           "Backend policy must be a non-empty string, got ~S."
-           backend-policy))
-  (unless (%non-empty-string-p semantic-profile)
-    (%fail 'logic-backend-selection-error
-           "Semantic profile must be a non-empty string, got ~S."
-           semantic-profile))
+  (%require-non-empty-string
+   backend-policy "backend policy" 'logic-backend-selection-error)
+  (%require-non-empty-string
+   semantic-profile "semantic profile" 'logic-backend-selection-error)
   (when (and required-isolation
              (not (%non-empty-string-p required-isolation)))
     (%fail 'logic-backend-selection-error
@@ -158,12 +175,14 @@
   (%make-logic-selection-request
    :backend-policy backend-policy
    :semantic-profile semantic-profile
-   :required-capabilities (%normalize-string-list
-                           required-capabilities
-                           "required capabilities")
-   :required-hard-limits (%normalize-string-list
-                          required-hard-limits
-                          "required hard limits")
+   :required-capabilities
+   (%normalize-string-list required-capabilities
+                           "required capabilities"
+                           'logic-backend-selection-error)
+   :required-hard-limits
+   (%normalize-string-list required-hard-limits
+                           "required hard limits"
+                           'logic-backend-selection-error)
    :required-isolation required-isolation))
 
 (defstruct logic-selection-candidate
