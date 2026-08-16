@@ -13,6 +13,7 @@ star-scrape
 star-process-port
 star-canonical-json
 star-logic-protocol
+star-logic-ir
 star-logic-testing
 star-xlsx
 starlang-compiler
