@@ -5,7 +5,8 @@
   :depends-on ("star-logic-ir" "star-logic-testing")
   :serial t
   :components
-  ((:file "star-logic-ir-tests"))
+  ((:file "helpers")
+   (:file "conformance"))
   :perform
   (test-op (operation component)
     (declare (ignore operation component))
