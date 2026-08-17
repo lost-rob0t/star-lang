@@ -5,6 +5,8 @@
    #:star-sento-compat-error
    #:unsupported-sento-operation-error
    #:sento-backend-unavailable-error
+   #:sento-ask-failure-error
+   #:sento-ask-failure-cause
    #:runtime-port
    #:runtime-port-p
    #:make-runtime-port
@@ -23,8 +25,15 @@
    #:sento-make-actor-system
    #:sento-enable-remoting
    #:sento-actor-of
+   #:sento-ask
+   #:sento-reply
    #:sento-make-remote-ref
    #:sento-tell
+   #:sento-find-actors
+   #:sento-all-actors
+   #:sento-actor-live-p
+   #:sento-future-complete-p
+   #:sento-future-result
    #:sento-stop
    #:sento-disable-remoting
    #:sento-remoting-port

@@ -10,6 +10,8 @@ on:
       - "**/*.lisp"
       - "flake.nix"
       - "flake.lock"
+      - "AGENTS.md"
+      - "README.md"
       - "LICENSE"
       - ".github/workflows/nix.yml"
   push:
@@ -23,6 +25,8 @@ on:
       - "**/*.lisp"
       - "flake.nix"
       - "flake.lock"
+      - "AGENTS.md"
+      - "README.md"
       - "LICENSE"
       - ".github/workflows/nix.yml"
   workflow_dispatch:
@@ -31,6 +35,31 @@ permissions:
   contents: read
 
 jobs:
+  actor-integration:
+    name: Real Sento actor-system integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/determinate-nix-action@v3
+      - name: Run focused real-backend suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180 nix develop --command \
+            sbcl --non-interactive \
+              --eval '(require :asdf)' \
+              --eval '(asdf:test-system :star-sento-compat-integration-tests)' \
+              --eval '(sb-ext:quit)' \
+            2>&1 | tee real-sento-integration.log
+      - name: Upload integration diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-sento-integration-log
+          path: real-sento-integration.log
+          if-no-files-found: warn
+
   flake:
     name: Nix flake check
     runs-on: ubuntu-latest

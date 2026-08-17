@@ -258,7 +258,13 @@ The implementation slice should:
 
 Sento exposes both synchronous and asynchronous ask forms. StarLang research prefers asynchronous actor-to-actor request/reply because a synchronous nested actor wait can produce wait cycles.
 
-The concrete adapter MUST make its choice explicit. Do not silently map StarLang's higher-level semantics to a synchronous blocking primitive merely because it is convenient for a test.
+The concrete adapter uses Sento's asynchronous `ask`, which returns a future
+and creates a temporary reply actor. Waiting is permitted only at an outer
+caller/test boundary; an actor receive handler must not hold mailbox execution
+while synchronously awaiting another actor. A timeout completes the future with
+Sento's handler-error tuple, which `sento-future-result` maps to
+`sento-ask-failure-error`. An explicit sender is rejected because Sento owns the
+temporary reply actor used for correlation.
 
 The current deterministic runtime still has a known separate limitation: nested A -> B -> A `ask` remains synchronous at the StarLang semantic layer and terminates via deterministic timeout instead of split-phase continuation progress. This design does not claim to solve that gap.
 
@@ -266,7 +272,8 @@ The current deterministic runtime still has a known separate limitation: nested 
 
 Real actor evidence must be a pull-request gate, not a nightly curiosity.
 
-The current Nix environment loads final systems but does not provide concrete Sento integration coverage. The actor slice must update CI/Nix so that:
+The flake-locked Nix environment supplies Sento to a separate hard-dependency
+integration system. CI and Nix must continue to ensure that:
 
 1. deterministic actor tests still run;
 2. `star-sento-compat` wiring tests run;
