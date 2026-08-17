@@ -19,6 +19,7 @@
    #:runtime-mailbox-metrics
    #:runtime-shutdown
    #:sento-backend-available-p
+   #:sento-remoting-backend-available-p
    #:sento-make-actor-system
    #:sento-enable-remoting
    #:sento-actor-of
