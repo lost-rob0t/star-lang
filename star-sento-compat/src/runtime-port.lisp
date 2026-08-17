@@ -8,6 +8,9 @@
 
 (define-condition unsupported-sento-operation-error (star-sento-compat-error) ())
 
+(define-condition sento-ask-failure-error (star-sento-compat-error)
+  ((cause :initarg :cause :reader sento-ask-failure-cause)))
+
 (defun fail-sento (condition-type control &rest arguments)
   (error condition-type :message (apply #'format nil control arguments)))
 
@@ -90,10 +93,10 @@
    (list actor message timeout sender)
    :optional-p t))
 
-(defun runtime-stop (port context actor)
+(defun runtime-stop (port context actor &key wait)
   (invoke-runtime-operation
    port #'runtime-port-stop-fn "stop"
-   (list context actor)))
+   (list context actor :wait wait)))
 
 (defun runtime-watch (port watcher actor)
   (invoke-runtime-operation
@@ -125,7 +128,7 @@
    (list actor)
    :optional-p t))
 
-(defun runtime-shutdown (port context)
+(defun runtime-shutdown (port context &key wait)
   (invoke-runtime-operation
    port #'runtime-port-shutdown-fn "shutdown"
-   (list context)))
+   (list context :wait wait)))

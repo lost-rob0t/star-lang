@@ -20,12 +20,12 @@ The one-authority rule applies to every row: after a behavior is migrated, the p
 | actor lifecycle | cl-gserver facade, domain gateway/remoting code | `starlang-runtime`, then `star-supervisor` | actor ref, mailbox | runtime spawn/stop/restart/shutdown tests | PARTIAL | Extract supervision-driven lifecycle and Sento lifecycle hooks |
 | actor registration | deterministic dispatcher, runtime directory, domain remoting prototype | `starlang-runtime` local; runtime directory target still to choose/finalize | actor ref | final runtime registry tests | PARTIAL | Extract runtime-directory registration and remote registration |
 | STAR URI resolution | compatibility wrappers in prototype; canonical parser already extracted by PR #22 | `star-actor-protocol` | none | `star-actor-protocol-tests.lisp` | **FINAL** | Switch remaining runtime-directory/remoting callers to the final reference type |
-| spawn | cl-gserver facade uses injected actor-of; BBP creates Sento actor systems directly | `starlang-runtime`; `star-sento-compat` adapter | actor ref, mailbox | explicit `SPAWN` + registration test; compat port forwarding test | PARTIAL | Move concrete Sento actor-system/spawn adapter behind `star-sento-compat` |
-| stop | cl-gserver facade and remoting adapter contain Sento stop paths | `starlang-runtime`; `star-sento-compat` adapter | mailbox | stop/restart/shutdown runtime tests; compat forwarding test | PARTIAL | Extract concrete Sento stop implementation |
+| spawn | prototype facade is compatibility composition only | `starlang-runtime`; `star-sento-compat` adapter | actor ref, mailbox | deterministic spawn tests; real Sento actor-system integration | **FINAL for local deterministic and concrete paths** | Carry final spawn/ref identity into later remote-directory extraction |
+| stop | prototype remoting wrapper delegates to final compatibility entry points | `starlang-runtime`; `star-sento-compat` adapter | mailbox | deterministic lifecycle tests; blocking real Sento stop/lookup evidence | **FINAL for base local lifecycle** | Define richer policy only in `star-supervisor` |
 | restart | prototype restart/recovery logic is distributed across facade/remoting/journal paths | `starlang-runtime`, then `star-supervisor` | generation, mailbox, journal later | restart/generation/stale-ref runtime tests | PARTIAL | Move policy enforcement to supervisor and connect durable recovery later |
 | generation | not represented by the old final direct-call path | `star-actor-protocol` + `starlang-runtime` | actor ref | generation advance and stale reference tests | **FINAL for local runtime in this slice** | Carry generation through runtime directory/remoting |
-| tell | cl-gserver facade and Sento remoting adapter; deterministic dispatcher queue is separate wire path | `starlang-runtime` + `star-mailbox`; Sento translation in `star-sento-compat` | mailbox, actor ref | tell-not-synchronous, FIFO, mailbox-full tests | **FINAL for local runtime in this slice** | Extract concrete Sento tell; later connect wire dispatcher to the same semantic contract |
-| ask | lifecycle envelopes provide request/reply correlation; cl-gserver facade proves async result flow | `starlang-runtime`; Sento translation in `star-sento-compat` | mailbox, correlation | ask/reply, timeout, two-actor exchange, non-reentrant self-ask tests | **FINAL for deterministic local semantics in this slice** | Extract Sento ask semantics/equivalence; wire lifecycle envelopes remain separate |
+| tell | prototype remoting composition delegates; deterministic wire dispatcher remains separate migration debt | `starlang-runtime` + `star-mailbox`; Sento translation in `star-sento-compat` | mailbox, actor ref | deterministic FIFO/bounds tests; real multi-actor Sento topology | **FINAL for local deterministic and concrete paths** | Connect the wire dispatcher to the same semantic contract later |
+| ask | wire lifecycle envelopes remain prototype debt | `starlang-runtime`; asynchronous Sento translation in `star-sento-compat` | mailbox, correlation | deterministic ask tests; real Sento future/reply and timeout mapping | **FINAL for ordinary local request/reply** | Implement split-phase deterministic nested ask separately; extract wire envelopes later |
 | reply | `message-lifecycle-prototype.lisp` and dispatcher own wire reply envelopes | `star-actor-protocol` for wire contract; `starlang-runtime` for local completion | correlation | final ask/reply test; prototype lifecycle/dispatcher tests | PARTIAL | Extract command/reply/error envelope contract to `star-actor-protocol` |
 | error | lifecycle/dispatcher prototype owns wire error envelopes | `star-actor-protocol` for wire contract; `starlang-runtime` for local failures | correlation, contracts | handler failure and contract rollback runtime tests; prototype lifecycle tests | PARTIAL | Extract typed wire error lifecycle |
 | cancel | `message-lifecycle-prototype.lisp`, deterministic dispatcher, transport adapter | `star-actor-protocol` + `starlang-runtime` | lifecycle, dispatcher | prototype cancellation/race tests | PROTOTYPE | Extract lifecycle envelope contract before adding local cancellation helpers |
@@ -33,8 +33,8 @@ The one-authority rule applies to every row: after a behavior is migrated, the p
 | mailbox bounds | manifest declaration normalized in prototype; no real old final runtime bound | `star-mailbox` + `starlang-runtime`; compiler declaration later | actor definition | capacity/full/closed tests | **FINAL runtime enforcement in this slice** | Lower prototype mailbox declaration into final actor IR/runtime capacity |
 | dispatch | `deterministic-dispatcher-prototype.lisp`, transport adapter, domain gateways | `starlang-runtime` local scheduler; final wire dispatcher boundary still to extract | mailbox, lifecycle | dispatch-next/run-until-idle tests; prototype dispatcher tests | PARTIAL | Extract deterministic wire dispatcher without creating a second queue or handler path |
 | dispatcher selection | Sento/prototype configuration and approved design | `star-sento-compat` / runtime configuration | adapter API | prototype integration evidence only | PROTOTYPE | Define final portable dispatcher assignment after concrete Sento adapter extraction |
-| state ownership | old final runtime directly called handlers; prototype Sento/fake path serialized execution | `starlang-runtime` | mailbox | state transition, rollback, self-ask/non-reentrancy tests | **FINAL for local runtime in this slice** | Prove the same transition contract through real Sento |
-| Sento integration | `cl-gserver-runtime-facade-prototype.lisp`, `sento-remoting-domain-adapter.lisp`, BBP remoting runtime | `star-sento-compat` | Sento/cl-gserver | compat port tests; prototype cl-gserver/BBP Sento smoke tests | PARTIAL | Move concrete Sento/remoting calls into `star-sento-compat` and switch prototype callers |
+| state ownership | prototype facade is compatibility composition | `starlang-runtime`; concrete execution translated by `star-sento-compat` | mailbox | deterministic rollback tests; concurrent-producer real Sento counter | **FINAL for base local paths** | Supervision/restart policy remains separate |
+| Sento integration | prototype BBP/domain code is a thin composition wrapper | `star-sento-compat` | Sento/cl-gserver | wiring tests plus hard-dependency real actor-system integration; BBP smoke uses final entry points | **FINAL for claimed local operations and concrete remoting translation** | Extend claims only when real evidence exists; watch/link remain unsupported |
 | watch | no stable final implementation; approved compatibility API requires it | `star-sento-compat` | Sento | none final | SURFACE ONLY | Implement only while extracting concrete Sento adapter, backed by real integration test |
 | unwatch | same | `star-sento-compat` | Sento | none final | SURFACE ONLY | Same concrete adapter slice |
 | link | same | `star-sento-compat` | Sento | none final | SURFACE ONLY | Same concrete adapter slice |
@@ -60,28 +60,23 @@ The one-authority rule applies to every row: after a behavior is migrated, the p
 3. `starlang-runtime` now owns deterministic local actor execution through those mailboxes. `tell` no longer executes a handler synchronously; `ask` uses the same enqueue/dispatch path.
 4. `starlang-runtime` now owns local spawn, stop, restart/generation, stale-reference rejection, serialized state mutation, rollback on handler/contract failure, and runtime shutdown.
 5. `invoke-actor` remains only as a compatibility name over `ask`; it is no longer an independent direct-call implementation.
-6. `star-sento-compat` now owns the generic Sento/cl-gserver operation port. The prototype cl-gserver façade retains only a compatibility constructor and composition around the final port.
-7. Wire command/reply/error/cancel, deterministic transport dispatch, runtime directory, remoting, journal/replay/idempotency, leases/fencing, and concrete Sento remoting remain prototype-owned and are not reimplemented beside the prototype in this slice.
+6. `star-sento-compat` owns the generic port and concrete local Sento construction, spawn, tell, asynchronous ask/reply, lookup/liveness, stop, shutdown, and remoting translation.
+7. The real integration system hard-depends on the flake-locked Sento package while production compatibility loading remains soft.
+8. Prototype Sento/remoting files retain composition and end-to-end fixtures only; static CI rejects direct backend calls returning outside the final boundary.
+9. Wire command/reply/error/cancel, deterministic transport dispatch, runtime directory, journal/replay/idempotency, and leases/fencing remain prototype-owned and are not reimplemented beside the prototype in this slice.
 
 ## Prototype reduction metric
 
-Git comparison against `main` and the green CI metric artifact report:
-
-- aggregate `prototype/**/*.lisp`: **19,868 LOC before → 19,845 LOC after**, delta **-23 LOC**;
-- `prototype/cl-gserver-runtime-facade-prototype.lisp`: **+30 / -53**, net **-23 lines**;
-- the removed lines are the prototype-owned runtime-port struct and operation wrappers;
-- the remaining additions are compatibility composition and a standalone-test dependency loader that both call the final `star-sento-compat` implementation.
-
-The aggregate `prototype/` directory still contains substantial runtime authority; this slice intentionally does not count untouched prototype code as migrated.
+CI reports the exact branch-relative prototype LOC delta on every pull request.
+This slice removes obsolete backend audit markers and keeps the remaining Sento
+prototype adapter as composition only. The aggregate `prototype/` directory
+still contains substantial unrelated runtime authority; untouched code is not
+counted as migrated.
 
 ## Exact next extraction slice
 
-Extract the concrete Sento actor-system/remoting adapter behind `star-sento-compat`:
-
-1. move production `asys:`, `ac:`, `act:`, and `rem:` actor/remoting calls from `prototype/sento-remoting-domain-adapter.lisp` into a final `star-sento-compat` adapter;
-2. switch `prototype/bbp-remoting-runtime-example.lisp` and domain-remoting callers to that final compatibility API;
-3. retain the BBP domain fixtures and two-process Sento smoke as integration evidence, but make them exercise final compatibility entry points;
-4. add lifecycle-equivalence cases shared by deterministic and Sento-backed execution for spawn, tell, ask/reply, stop, restart/generation, failure, and shutdown where Sento supports the semantic operation;
-5. remove the corresponding direct production Sento calls from `prototype/` once callers are switched.
-
-After that slice, extract the wire lifecycle contract and deterministic transport dispatcher/runtime directory using the already-final actor reference and mailbox primitives. Do not add supervisor/journal/lease implementations until the base execution path and concrete Sento adapter share one semantic contract.
+Extract the wire lifecycle contract and deterministic transport
+dispatcher/runtime directory using the already-final actor reference, mailbox,
+and concrete Sento boundary. Do not broaden that work into supervision,
+journal, or lease policy. Split-phase nested ask remains a separately tracked
+semantic slice rather than an accidental consequence of backend integration.
