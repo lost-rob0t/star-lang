@@ -126,6 +126,28 @@
                  name))
     (symbol-function symbol)))
 
+(defun dexador-http-failure-condition-p (condition)
+  (let* ((package (find-package "DEXADOR.ERROR"))
+         (symbol (and package
+                      (find-symbol "HTTP-REQUEST-FAILED" package))))
+    (and symbol
+         (ignore-errors (typep condition symbol)))))
+
+(defun call-dexador-preserving-http-response (request-fn request)
+  "Let Dexador return 4xx/5xx responses instead of collapsing them into a
+transport error. Dexador signals HTTP-REQUEST-FAILED with a CONTINUE restart;
+invoking that documented continuable path preserves body, status and headers."
+  (handler-bind
+      ((error
+         (lambda (condition)
+           (when (dexador-http-failure-condition-p condition)
+             (let ((restart (find-restart 'continue condition)))
+               (when restart
+                 (invoke-restart restart)))))))
+    (apply request-fn
+           (http-request-url request)
+           (dexador-request-arguments request))))
+
 (defun dexador-request-arguments (request)
   (append
    (list :method (http-request-method request)
@@ -147,9 +169,7 @@ unit-testable without a network stack in the base StarLang closure."
      (lambda (request)
        (handler-case
            (multiple-value-bind (body status headers final-uri stream)
-               (apply request-fn
-                      (http-request-url request)
-                      (dexador-request-arguments request))
+               (call-dexador-preserving-http-response request-fn request)
              (declare (ignore stream))
              (make-http-response
               :body body
