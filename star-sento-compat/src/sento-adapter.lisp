@@ -8,7 +8,7 @@
     (unless package
       (fail-sento
        'sento-backend-unavailable-error
-       "Sento backend package ~A is not loaded. Load SENTO-REMOTING before selecting the Sento backend."
+       "Sento backend package ~A is not loaded. Load the Sento system that owns this operation before selecting the backend."
        package-name))
     (multiple-value-bind (symbol status) (find-symbol symbol-name package)
       (unless (and status symbol (fboundp symbol))
@@ -19,9 +19,15 @@
       (symbol-function symbol))))
 
 (defun sento-backend-available-p ()
+  "Return true when the local actor-system backend is loaded.
+Remoting is an optional, separately loaded Sento subsystem."
   (and (find-package "ASYS")
        (find-package "AC")
        (find-package "ACT")
+       t))
+
+(defun sento-remoting-backend-available-p ()
+  (and (sento-backend-available-p)
        (find-package "REM")
        t))
 
@@ -44,8 +50,9 @@
 (defun sento-tell (actor message &optional sender)
   (funcall (sento-operation "ACT" "TELL") actor message sender))
 
-(defun sento-stop (system actor)
-  (funcall (sento-operation "AC" "STOP") system actor))
+(defun sento-stop (system actor &key wait)
+  (funcall (sento-operation "AC" "STOP")
+           system actor :wait wait))
 
 (defun sento-disable-remoting (system)
   (funcall (sento-operation "REM" "DISABLE-REMOTING") system))
@@ -53,8 +60,9 @@
 (defun sento-remoting-port (system)
   (funcall (sento-operation "REM" "REMOTING-PORT") system))
 
-(defun sento-shutdown (system)
-  (funcall (sento-operation "AC" "SHUTDOWN") system))
+(defun sento-shutdown (system &key wait)
+  (funcall (sento-operation "AC" "SHUTDOWN")
+           system :wait wait))
 
 (defun make-sento-runtime-port ()
   "Construct the StarLang semantic runtime port backed by public Sento calls.
