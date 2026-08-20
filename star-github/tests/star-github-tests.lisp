@@ -5,7 +5,6 @@
   (:import-from :stargithub
                 #:github-target-validation-error
                 #:github-run-result-status
-                #:github-run-result-run-id
                 #:github-run-result-documents-written
                 #:create-github-actor)
   (:export #:run-tests))
@@ -33,7 +32,13 @@
           (gethash "target_type" data) "github-organization"
           (gethash "delay" data) 86400
           (gethash "recurring" data) t
-          (gethash "options" data) #("enumerate-members"))
+          (gethash "options" data)
+          #("enumerate-members"
+            "enumerate-repositories"
+            "enumerate-contributors"
+            "enumerate-stargazers"
+            "enumerate-followers"
+            "enumerate-following"))
     document))
 
 (defun make-legacy-target ()
@@ -47,17 +52,63 @@
           (gethash "options" document) #("enumerate-members"))
     document))
 
+(defun fixture-user (login id)
+  (list :login login
+        :id id
+        :html-url (format nil "https://example.invalid/~A" login)
+        :avatar-url (format nil "https://example.invalid/~A.png" login)
+        :account-type "User"))
+
 (defun fixture-members (organization)
   (declare (ignore organization))
-  (list (list :login "alice"
-              :id "101"
-              :html-url "https://example.invalid/alice"
-              :avatar-url ""
-              :account-type "User")))
+  (list (fixture-user "alice" "101")))
+
+(defun fixture-repositories (organization)
+  (declare (ignore organization))
+  (list (list :id "201"
+              :name "repo"
+              :full-name "example-org/repo"
+              :html-url "https://example.invalid/example-org/repo")))
+
+(defun fixture-contributors (repository)
+  (declare (ignore repository))
+  (list (append (fixture-user "bob" "102")
+                (list :contributions 7))))
+
+(defun fixture-stargazers (repository)
+  (declare (ignore repository))
+  (list (fixture-user "carol" "103")))
+
+(defun fixture-followers (login)
+  (declare (ignore login))
+  (list (fixture-user "dave" "104")))
+
+(defun fixture-following (login)
+  (declare (ignore login))
+  (list (fixture-user "erin" "105")))
 
 (defun parse-json-file (pathname)
   (with-open-file (stream pathname :direction :input :external-format :utf-8)
     (yason:parse stream)))
+
+(defun first-json-item (value)
+  (if (vectorp value)
+      (aref value 0)
+      (first value)))
+
+(defun check-v090-document (document dtype)
+  (check (string= "0.9.0" (gethash "schema_version" document))
+         "document is not StarIntel 0.9")
+  (check (= 1 (gethash "version" document))
+         "document version is not integer 1")
+  (check (string= dtype (gethash "dtype" document))
+         "document dtype is incorrect")
+  (check (nth-value 1 (gethash "sources" document))
+         "document is missing sources")
+  (check (nth-value 1 (gethash "evidence" document))
+         "document is missing evidence")
+  (check (hash-table-p (gethash "data" document))
+         "document is missing data object"))
 
 (defun legacy-target-rejected-p (runtime)
   (handler-case
@@ -74,33 +125,91 @@
            (when (probe-file root)
              (uiop:delete-directory-tree root :validate t :if-does-not-exist :ignore))
            (create-json-file-writer-actor runtime "json-files" root)
-           (create-github-actor runtime "github" "json-files"
-                                :enumerator #'fixture-members)
+           (create-github-actor
+            runtime "github" "json-files"
+            :enumerator #'fixture-members
+            :repository-enumerator #'fixture-repositories
+            :contributors-enumerator #'fixture-contributors
+            :stargazers-enumerator #'fixture-stargazers
+            :followers-enumerator #'fixture-followers
+            :following-enumerator #'fixture-following)
+
            (let* ((result (invoke-actor runtime "github" (make-target)))
-                  (user-file
+                  (org-file
+                    (merge-pathnames "documents-org/github-org-example-org.json" root))
+                  (repo-file
+                    (merge-pathnames "documents-product/github-repo-201.json" root))
+                  (alice-file
                     (merge-pathnames "documents-user/github-user-101.json" root))
-                  (document (parse-json-file user-file))
-                  (data (gethash "data" document)))
+                  (member-relation
+                    (merge-pathnames
+                     "documents-relation/github-rel-member-of-github-user-101-github-org-example-org.json"
+                     root))
+                  (contributor-relation
+                    (merge-pathnames
+                     "documents-relation/github-rel-contributed-to-github-user-102-github-repo-201.json"
+                     root))
+                  (star-relation
+                    (merge-pathnames
+                     "documents-relation/github-rel-stars-github-user-103-github-repo-201.json"
+                     root))
+                  (follower-relation
+                    (merge-pathnames
+                     "documents-relation/github-rel-follows-github-user-104-github-user-101.json"
+                     root))
+                  (following-relation
+                    (merge-pathnames
+                     "documents-relation/github-rel-follows-github-user-101-github-user-105.json"
+                     root)))
+
              (check (eq :completed (github-run-result-status result))
-                    "GitHub actor did not complete")
-             (check (= 1 (github-run-result-documents-written result))
-                    "GitHub actor wrote the wrong number of documents")
-             (check (probe-file user-file) "user JSON was not persisted")
-             (check (string= "0.9.0" (gethash "schema_version" document))
-                    "user JSON is not StarIntel 0.9")
-             (check (= 1 (gethash "version" document))
-                    "user JSON version is not the v0.9 integer revision")
-             (check (string= "user" (gethash "dtype" document))
-                    "user JSON dtype is incorrect")
-             (check (string= "alice" (gethash "username" data))
-                    "user JSON data.username is missing")
-             (check (string= "github" (gethash "platform" data))
-                    "user JSON data.platform is missing")
+                    "GitHub graph actor did not complete")
+             (check (= 12 (github-run-result-documents-written result))
+                    "GitHub graph actor wrote the wrong number of documents")
+
+             (dolist (pathname
+                      (list org-file repo-file alice-file
+                            member-relation contributor-relation star-relation
+                            follower-relation following-relation))
+               (check (probe-file pathname)
+                      (format nil "expected graph file missing: ~A" pathname)))
+
+             (check-v090-document (parse-json-file org-file) "org")
+             (check-v090-document (parse-json-file repo-file) "product")
+
+             (let* ((alice (parse-json-file alice-file))
+                    (data (gethash "data" alice))
+                    (misc (first-json-item (gethash "misc" data))))
+               (check-v090-document alice "user")
+               (check (string= "alice" (gethash "username" data))
+                      "user data.username is missing")
+               (check (string= "github" (gethash "platform" data))
+                      "user data.platform is missing")
+               (check (= 1 (gethash "followers_count" misc))
+                      "followers_count was not recorded in v0.9 data.misc")
+               (check (= 1 (gethash "following_count" misc))
+                      "following_count was not recorded in v0.9 data.misc"))
+
+             (dolist (pathname
+                      (list member-relation contributor-relation star-relation
+                            follower-relation following-relation))
+               (check-v090-document (parse-json-file pathname) "relation"))
+
+             (let* ((follower (parse-json-file follower-relation))
+                    (data (gethash "data" follower)))
+               (check (string= "follows" (gethash "predicate" data))
+                      "follower edge does not use canonical relation data")
+               (check (string= "github-user-104" (gethash "subject" data))
+                      "follower relation subject is incorrect")
+               (check (string= "github-user-101" (gethash "object" data))
+                      "follower relation object is incorrect"))
+
              (check (null (directory (merge-pathnames "target-runs/*.json" root)))
                     "actor must not invent target-run documents"))
+
            (check (legacy-target-rejected-p runtime)
                   "legacy flat 0.8 target unexpectedly passed strict v0.9 validation"))
       (when (probe-file root)
         (uiop:delete-directory-tree root :validate t :if-does-not-exist :ignore))))
-  (format t "~&star-github tests passed~%")
+  (format t "~&star-github graph tests passed~%")
   t)
