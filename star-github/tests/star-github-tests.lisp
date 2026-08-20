@@ -37,6 +37,7 @@
             "enumerate-repositories"
             "enumerate-contributors"
             "enumerate-stargazers"
+            "enumerate-stargazer-identities"
             "enumerate-followers"
             "enumerate-following"))
     document))
@@ -68,7 +69,8 @@
   (list (list :id "201"
               :name "repo"
               :full-name "example-org/repo"
-              :html-url "https://example.invalid/example-org/repo")))
+              :html-url "https://example.invalid/example-org/repo"
+              :stargazers-count 19)))
 
 (defun fixture-contributors (repository)
   (declare (ignore repository))
@@ -175,7 +177,13 @@
                       (format nil "expected graph file missing: ~A" pathname)))
 
              (check-v090-document (parse-json-file org-file) "org")
-             (check-v090-document (parse-json-file repo-file) "product")
+
+             (let* ((repo (parse-json-file repo-file))
+                    (data (gethash "data" repo))
+                    (technical (gethash "technical" data)))
+               (check-v090-document repo "product")
+               (check (= 19 (gethash "stargazers_count" technical))
+                      "repository star count missing from v0.9 product.data.technical"))
 
              (let* ((alice (parse-json-file alice-file))
                     (data (gethash "data" alice))

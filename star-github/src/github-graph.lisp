@@ -39,12 +39,13 @@
           :contributions (parse-integer contributions))))
 
 (defun parse-github-repository-line (line)
-  (destructuring-bind (id name full-name html-url)
-      (split-tsv line 4)
+  (destructuring-bind (id name full-name html-url stargazers-count)
+      (split-tsv line 5)
     (list :id id
           :name name
           :full-name full-name
-          :html-url html-url)))
+          :html-url html-url
+          :stargazers-count (parse-integer stargazers-count))))
 
 (defun require-github-credential ()
   (unless (nonempty-string-p (uiop:getenv "STARINTEL_GITHUB_TOKEN"))
@@ -72,7 +73,7 @@
    #'parse-github-repository-line
    (github-api-lines
     (format nil "/orgs/~A/repos?type=public&per_page=100" organization)
-    ".[] | [(.id|tostring), .name, .full_name, .html_url] | @tsv")))
+    ".[] | [(.id|tostring), .name, .full_name, .html_url, (.stargazers_count|tostring)] | @tsv")))
 
 (defun github-cli-contributors (repository)
   (mapcar
@@ -203,7 +204,12 @@
        "manufacturer_id" (github-organization-id organization)
        "external_ids"
        (canonical-array
-        (github-identifier "github-repository-id" (getf repository :id))))))))
+        (github-identifier "github-repository-id" (getf repository :id)))
+       "technical"
+       (canonical-object
+        "stargazers_count" (getf repository :stargazers-count)
+        "stargazer_identities_access"
+        "restricted_by_github_unless_repository_admin_or_collaborator"))))))
 
 (defun user-misc (user followers-count following-count)
   (let ((entries
