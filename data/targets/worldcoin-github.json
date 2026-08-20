@@ -1,0 +1,32 @@
+{
+  "_id": "b3db3362c225dd3a48590b96f27ff3f8",
+  "dataset": "worldcoin",
+  "dtype": "target",
+  "schema_version": "0.9.0",
+  "version": 1,
+  "date_added": "2026-08-20T14:43:00Z",
+  "date_updated": "2026-08-20T16:56:00Z",
+  "sources": [
+    {
+      "kind": "human",
+      "name": "manual",
+      "notes": "Worldcoin GitHub organization graph enumeration target"
+    }
+  ],
+  "evidence": [],
+  "data": {
+    "actor": "github",
+    "target": "worldcoin",
+    "target_type": "github-organization",
+    "delay": 86400,
+    "recurring": true,
+    "options": [
+      "enumerate-members",
+      "enumerate-repositories",
+      "enumerate-contributors",
+      "enumerate-stargazers",
+      "enumerate-followers",
+      "enumerate-following"
+    ]
+  }
+}
