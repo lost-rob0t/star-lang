@@ -5,10 +5,10 @@
   "sources": ["manual"],
   "version": "0.8.0",
   "dateAdded": 1787233740,
-  "dateUpdated": 1787233800,
+  "dateUpdated": 1787233920,
   "actor": "github",
   "target": "worldcoin",
   "delay": 86400,
   "recurring": true,
-  "options": ["enumerate-members"]
+  "options": ["enumerate-members", "run-now"]
 }
