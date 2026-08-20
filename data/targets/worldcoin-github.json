@@ -1,0 +1,14 @@
+{
+  "_id": "github-worldcoin",
+  "dataset": "worldcoin",
+  "dtype": "target",
+  "sources": ["manual"],
+  "version": "0.8.0",
+  "dateAdded": 1787233740,
+  "dateUpdated": 1787233740,
+  "actor": "github",
+  "target": "worldcoin",
+  "delay": 86400,
+  "recurring": true,
+  "options": []
+}
