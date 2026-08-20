@@ -12,7 +12,6 @@ star-http-port
 star-scrape
 star-process-port
 star-canonical-json
-star-github
 star-logic-protocol
 star-logic-ir
 star-logic-testing
