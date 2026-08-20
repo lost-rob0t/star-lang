@@ -13,5 +13,6 @@
   ((:module "src"
     :components
     ((:file "packages")
-     (:file "github-actor"))))
+     (:file "github-actor")
+     (:file "github-graph"))))
   :in-order-to ((test-op (test-op "star-github-tests"))))
