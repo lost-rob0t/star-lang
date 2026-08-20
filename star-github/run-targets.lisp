@@ -13,6 +13,9 @@
                 (stargithub:github-run-result-status result)
                 (stargithub:github-run-result-documents-written result)
                 (stargithub:github-run-result-run-id result))
+        (when (stargithub:github-run-result-error result)
+          (format t "github target error: ~A~%"
+                  (stargithub:github-run-result-error result)))
         result))))
 
 (defun main ()
