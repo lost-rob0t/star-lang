@@ -40,6 +40,128 @@
      user-index)
     written))
 
+(defun collect-member-graph
+    (runtime writer target-document organization members
+     user-index timestamp run-id)
+  (let ((written 0))
+    (dolist (github-user members)
+      (merge-github-user user-index github-user)
+      (incf written
+            (persist-graph-relation
+             runtime writer target-document
+             "member-of"
+             (github-user-id github-user)
+             (github-organization-id organization)
+             timestamp run-id
+             (format nil "github:org-members:~A" organization)
+             (format nil "https://api.github.com/orgs/~A/members" organization)
+             "github-public-org-member")))
+    written))
+
+(defun collect-repository-graph
+    (runtime writer target-document organization repositories
+     user-index timestamp run-id contributors-enumerator stargazers-enumerator)
+  (let ((written 0))
+    (dolist (repository repositories)
+      (multiple-value-bind (id document)
+          (repository-document
+           target-document repository organization timestamp run-id)
+        (persist-json-document runtime writer "documents-product" id document)
+        (incf written))
+
+      (when (target-option-p target-document "enumerate-contributors")
+        (dolist (contributor
+                 (funcall contributors-enumerator
+                          (getf repository :full-name)))
+          (merge-github-user user-index contributor)
+          (incf written
+                (persist-graph-relation
+                 runtime writer target-document
+                 "contributed-to"
+                 (github-user-id contributor)
+                 (github-repository-id repository)
+                 timestamp run-id
+                 (format nil "github:contributors:~A" (getf repository :id))
+                 (format nil "https://api.github.com/repos/~A/contributors"
+                         (getf repository :full-name))
+                 "github-repository-contributor"
+                 (canonical-object
+                  "contributions" (getf contributor :contributions))))))
+
+      (when (target-option-p target-document "enumerate-stargazers")
+        (dolist (stargazer
+                 (funcall stargazers-enumerator
+                          (getf repository :full-name)))
+          (merge-github-user user-index stargazer)
+          (incf written
+                (persist-graph-relation
+                 runtime writer target-document
+                 "stars"
+                 (github-user-id stargazer)
+                 (github-repository-id repository)
+                 timestamp run-id
+                 (format nil "github:stargazers:~A" (getf repository :id))
+                 (format nil "https://api.github.com/repos/~A/stargazers"
+                         (getf repository :full-name))
+                 "github-repository-stargazer")))))
+    written))
+
+(defun collect-member-social-graph
+    (runtime writer target-document members user-index user-counts
+     timestamp run-id followers-enumerator following-enumerator)
+  (let ((written 0)
+        (collect-followers
+          (target-option-p target-document "enumerate-followers"))
+        (collect-following
+          (target-option-p target-document "enumerate-following")))
+    (dolist (github-user members)
+      (let ((followers
+              (if collect-followers
+                  (funcall followers-enumerator (getf github-user :login))
+                  '()))
+            (following
+              (if collect-following
+                  (funcall following-enumerator (getf github-user :login))
+                  '())))
+        (set-github-user-counts
+         user-counts github-user
+         (and collect-followers (length followers))
+         (and collect-following (length following)))
+
+        (dolist (follower followers)
+          (merge-github-user user-index follower)
+          (incf written
+                (persist-graph-relation
+                 runtime writer target-document
+                 "follows"
+                 (github-user-id follower)
+                 (github-user-id github-user)
+                 timestamp run-id
+                 (format nil "github:followers:~A" (getf github-user :id))
+                 (format nil "https://api.github.com/users/~A/followers"
+                         (getf github-user :login))
+                 "github-user-follower")))
+
+        (dolist (followed following)
+          (merge-github-user user-index followed)
+          (incf written
+                (persist-graph-relation
+                 runtime writer target-document
+                 "follows"
+                 (github-user-id github-user)
+                 (github-user-id followed)
+                 timestamp run-id
+                 (format nil "github:following:~A" (getf github-user :id))
+                 (format nil "https://api.github.com/users/~A/following"
+                         (getf github-user :login))
+                 "github-user-following")))))
+    written))
+
+(defun repositories-required-p (target-document)
+  (or (target-option-p target-document "enumerate-repositories")
+      (target-option-p target-document "enumerate-contributors")
+      (target-option-p target-document "enumerate-stargazers")))
+
 (defun run-github-target
     (runtime writer target-document
      &key
@@ -59,128 +181,41 @@
          (user-counts (make-hash-table :test #'equal))
          (written 0))
     (handler-case
-        (let* ((members
-                 (if (target-option-p target-document "enumerate-members")
-                     (funcall enumerator organization)
-                     '()))
-               (want-repositories
-                 (or (target-option-p target-document "enumerate-repositories")
-                     (target-option-p target-document "enumerate-contributors")
-                     (target-option-p target-document "enumerate-stargazers")))
-               (repositories
-                 (if want-repositories
-                     (funcall repository-enumerator organization)
-                     '())))
+        (let ((members
+                (if (target-option-p target-document "enumerate-members")
+                    (funcall enumerator organization)
+                    '()))
+              (repositories
+                (if (repositories-required-p target-document)
+                    (funcall repository-enumerator organization)
+                    '())))
           (multiple-value-bind (id document)
-              (organization-document target-document organization timestamp run-id)
+              (organization-document
+               target-document organization timestamp run-id)
             (persist-json-document runtime writer "documents-org" id document)
             (incf written))
 
-          (dolist (member members)
-            (merge-github-user user-index member)
-            (incf written
-                  (persist-graph-relation
-                   runtime writer target-document
-                   "member-of"
-                   (github-user-id member)
-                   (github-organization-id organization)
-                   timestamp run-id
-                   (format nil "github:org-members:~A" organization)
-                   (format nil "https://api.github.com/orgs/~A/members" organization)
-                   "github-public-org-member")))
+          (incf written
+                (collect-member-graph
+                 runtime writer target-document organization members
+                 user-index timestamp run-id))
 
-          (dolist (repository repositories)
-            (multiple-value-bind (id document)
-                (repository-document
-                 target-document repository organization timestamp run-id)
-              (persist-json-document runtime writer "documents-product" id document)
-              (incf written))
+          (incf written
+                (collect-repository-graph
+                 runtime writer target-document organization repositories
+                 user-index timestamp run-id
+                 contributors-enumerator stargazers-enumerator))
 
-            (when (target-option-p target-document "enumerate-contributors")
-              (dolist (contributor
-                       (funcall contributors-enumerator
-                                (getf repository :full-name)))
-                (merge-github-user user-index contributor)
-                (incf written
-                      (persist-graph-relation
-                       runtime writer target-document
-                       "contributed-to"
-                       (github-user-id contributor)
-                       (github-repository-id repository)
-                       timestamp run-id
-                       (format nil "github:contributors:~A" (getf repository :id))
-                       (format nil "https://api.github.com/repos/~A/contributors"
-                               (getf repository :full-name))
-                       "github-repository-contributor"
-                       (canonical-object
-                        "contributions" (getf contributor :contributions)))))))
-
-            (when (target-option-p target-document "enumerate-stargazers")
-              (dolist (stargazer
-                       (funcall stargazers-enumerator
-                                (getf repository :full-name)))
-                (merge-github-user user-index stargazer)
-                (incf written
-                      (persist-graph-relation
-                       runtime writer target-document
-                       "stars"
-                       (github-user-id stargazer)
-                       (github-repository-id repository)
-                       timestamp run-id
-                       (format nil "github:stargazers:~A" (getf repository :id))
-                       (format nil "https://api.github.com/repos/~A/stargazers"
-                               (getf repository :full-name))
-                       "github-repository-stargazer")))))
-
-          (dolist (member members)
-            (let* ((collect-followers
-                     (target-option-p target-document "enumerate-followers"))
-                   (collect-following
-                     (target-option-p target-document "enumerate-following"))
-                   (followers
-                     (if collect-followers
-                         (funcall followers-enumerator (getf member :login))
-                         '()))
-                   (following
-                     (if collect-following
-                         (funcall following-enumerator (getf member :login))
-                         '())))
-              (set-github-user-counts
-               user-counts member
-               (and collect-followers (length followers))
-               (and collect-following (length following)))
-
-              (dolist (follower followers)
-                (merge-github-user user-index follower)
-                (incf written
-                      (persist-graph-relation
-                       runtime writer target-document
-                       "follows"
-                       (github-user-id follower)
-                       (github-user-id member)
-                       timestamp run-id
-                       (format nil "github:followers:~A" (getf member :id))
-                       (format nil "https://api.github.com/users/~A/followers"
-                               (getf member :login))
-                       "github-user-follower")))
-
-              (dolist (followed following)
-                (merge-github-user user-index followed)
-                (incf written
-                      (persist-graph-relation
-                       runtime writer target-document
-                       "follows"
-                       (github-user-id member)
-                       (github-user-id followed)
-                       timestamp run-id
-                       (format nil "github:following:~A" (getf member :id))
-                       (format nil "https://api.github.com/users/~A/following"
-                               (getf member :login))
-                       "github-user-following")))))
+          (incf written
+                (collect-member-social-graph
+                 runtime writer target-document members
+                 user-index user-counts timestamp run-id
+                 followers-enumerator following-enumerator))
 
           (incf written
                 (persist-github-users
-                 runtime writer target-document user-index user-counts timestamp run-id))
+                 runtime writer target-document user-index user-counts
+                 timestamp run-id))
 
           (%make-github-run-result
            :status :completed
