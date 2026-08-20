@@ -31,7 +31,7 @@ jobs:
     name: Run GitHub targets
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
     env:
       CL_SOURCE_REGISTRY: "${{ github.workspace }}//:"
       STARINTEL_GITHUB_TOKEN: "${{ secrets.STARINTEL_GITHUB_TOKEN || github.token }}"
@@ -84,7 +84,11 @@ jobs:
           set -euo pipefail
           git config user.name "starintel-github-actor"
           git config user.email "starintel-github-actor@users.noreply.github.com"
-          git add -- data/documents-user
+          git add -- \
+            data/documents-user \
+            data/documents-org \
+            data/documents-product \
+            data/documents-relation
           if git diff --cached --quiet; then
             echo "No actor output changed"
             exit 0
