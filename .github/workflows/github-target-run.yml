@@ -3,7 +3,7 @@ name: StarIntel GitHub target run
 on:
   push:
     branches:
-      - agent/json-file-output-actor
+      - main
     paths:
       - ".github/workflows/github-target-run.yml"
       - "star-github/**"
