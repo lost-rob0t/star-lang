@@ -14,5 +14,6 @@
     :components
     ((:file "packages")
      (:file "github-actor")
-     (:file "github-graph"))))
+     (:file "github-graph")
+     (:file "github-graph-runtime"))))
   :in-order-to ((test-op (test-op "star-github-tests"))))
