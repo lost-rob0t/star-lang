@@ -17,7 +17,7 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
         lib = pkgs.lib;
-        sbcl = pkgs.sbcl.withPackages (ps: [ ps.ironclad ]);
+        sbcl = pkgs.sbcl.withPackages (ps: [ ps.ironclad ps.yason ]);
 
         starLang = pkgs.stdenvNoCC.mkDerivation {
           pname = "star-lang";
@@ -76,11 +76,13 @@
               --eval '(require :asdf)' \
               --eval '(asdf:test-system :star-actor-protocol)' \
               --eval '(asdf:test-system :star-canonical-json)' \
+              --eval '(asdf:test-system :star-artifact)' \
               --eval '(asdf:test-system :star-journal)' \
               --eval '(asdf:test-system :star-lease)' \
               --eval '(asdf:test-system :starlang-runtime)' \
               --eval '(asdf:test-system :star-http-port)' \
               --eval '(asdf:test-system :star-scrape)' \
+              --eval '(asdf:test-system :star-github)' \
               --eval '(assert (null (find-package "STAR-LANG.PROTOTYPE")))' \
               --eval '(asdf:test-system :starlang-prototype)' \
               --eval '(sb-ext:quit)'
@@ -130,11 +132,13 @@
               --eval '(require :asdf)' \
               --eval '(asdf:test-system :star-actor-protocol)' \
               --eval '(asdf:test-system :star-canonical-json)' \
+              --eval '(asdf:test-system :star-artifact)' \
               --eval '(asdf:test-system :star-journal)' \
               --eval '(asdf:test-system :star-lease)' \
               --eval '(asdf:test-system :starlang-runtime)' \
               --eval '(asdf:test-system :star-http-port)' \
               --eval '(asdf:test-system :star-scrape)' \
+              --eval '(asdf:test-system :star-github)' \
               --eval '(assert (null (find-package "STAR-LANG.PROTOTYPE")))' \
               --eval '(asdf:test-system :starlang-prototype)' \
               --eval '(sb-ext:quit)'
@@ -177,6 +181,7 @@
           packages = [
             sbcl
             pkgs.git
+            pkgs.gh
             pkgs.python3
           ] ++ lib.optional (pkgs ? roswell) pkgs.roswell;
 
