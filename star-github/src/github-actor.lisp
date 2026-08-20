@@ -24,6 +24,13 @@
 (defun unix-time ()
   (- (get-universal-time) 2208988800))
 
+(defun rfc3339-now ()
+  (multiple-value-bind (second minute hour day month year)
+      (decode-universal-time (get-universal-time) 0)
+    (format nil
+            "~4,'0D-~2,'0D-~2,'0DT~2,'0D:~2,'0D:~2,'0DZ"
+            year month day hour minute second)))
+
 (defun nonempty-string-p (value)
   (and (stringp value) (> (length value) 0)))
 
@@ -42,12 +49,22 @@
       (gethash key object default)
       default))
 
-(defun target-field (document key &optional default)
-  (let ((direct (object-value document key :missing)))
-    (if (eq direct :missing)
-        (let ((data (object-value document "data" nil)))
-          (object-value data key default))
-        direct)))
+(defun object-has-key-p (object key)
+  (and (hash-table-p object)
+       (nth-value 1 (gethash key object))))
+
+(defun json-array-p (value)
+  (or (listp value) (vectorp value)))
+
+(defun target-data (document)
+  (object-value document "data" nil))
+
+(defun target-data-field (document key &optional default)
+  (object-value (target-data document) key default))
+
+(defun candidate-target-actor (document)
+  (or (target-data-field document "actor" nil)
+      (object-value document "actor" nil)))
 
 (defun read-starintel-json-document (pathname)
   (handler-case
@@ -67,28 +84,56 @@
 
 (defun github-target-document-p (document)
   (and (hash-table-p document)
-       (string= "target" (or (target-field document "dtype" "") ""))
-       (string-equal "github" (or (target-field document "actor" "") ""))
-       (github-org-slug-p (target-field document "target" nil))))
+       (string= "target" (or (object-value document "dtype" "") ""))
+       (string-equal "github" (or (candidate-target-actor document) ""))))
+
+(defun validate-required-v090-envelope (document)
+  (unless (nonempty-string-p (object-value document "_id" nil))
+    (fail-github 'github-target-validation-error
+                 "StarIntel 0.9 target requires non-empty _id."))
+  (unless (nonempty-string-p (object-value document "dataset" nil))
+    (fail-github 'github-target-validation-error
+                 "StarIntel 0.9 target requires non-empty dataset."))
+  (unless (string= "target" (or (object-value document "dtype" "") ""))
+    (fail-github 'github-target-validation-error
+                 "StarIntel 0.9 GitHub actor requires dtype=target."))
+  (unless (string= "0.9.0" (or (object-value document "schema_version" "") ""))
+    (fail-github 'github-target-validation-error
+                 "StarIntel GitHub target must use schema_version 0.9.0."))
+  (let ((version (object-value document "version" nil)))
+    (unless (and (integerp version) (>= version 1))
+      (fail-github 'github-target-validation-error
+                   "StarIntel 0.9 target requires integer version >= 1.")))
+  (dolist (field '("date_added" "date_updated"))
+    (unless (nonempty-string-p (object-value document field nil))
+      (fail-github 'github-target-validation-error
+                   "StarIntel 0.9 target requires ~A." field)))
+  (dolist (field '("sources" "evidence"))
+    (unless (and (object-has-key-p document field)
+                 (json-array-p (object-value document field nil)))
+      (fail-github 'github-target-validation-error
+                   "StarIntel 0.9 target requires array field ~A." field)))
+  (unless (hash-table-p (target-data document))
+    (fail-github 'github-target-validation-error
+                 "StarIntel 0.9 target requires a data object."))
+  document)
 
 (defun validate-github-target-document (document)
   (unless (hash-table-p document)
     (fail-github 'github-target-validation-error
                  "GitHub actor requires a StarIntel JSON document object."))
-  (unless (string= "target" (or (target-field document "dtype" "") ""))
+  (validate-required-v090-envelope document)
+  (unless (string-equal "github"
+                        (or (target-data-field document "actor" "") ""))
     (fail-github 'github-target-validation-error
-                 "GitHub actor requires dtype=target."))
-  (unless (string-equal "github" (or (target-field document "actor" "") ""))
+                 "StarIntel 0.9 target data.actor must be github."))
+  (unless (github-org-slug-p (target-data-field document "target" nil))
     (fail-github 'github-target-validation-error
-                 "Target actor must be github."))
-  (unless (nonempty-string-p
-           (or (target-field document "_id" nil)
-               (target-field document "id" nil)))
-    (fail-github 'github-target-validation-error
-                 "Target document requires _id or id."))
-  (unless (github-org-slug-p (target-field document "target" nil))
-    (fail-github 'github-target-validation-error
-                 "GitHub target must be an organization slug."))
+                 "StarIntel 0.9 target data.target must be a GitHub organization slug."))
+  (when (object-has-key-p (target-data document) "options")
+    (unless (json-array-p (target-data-field document "options" nil))
+      (fail-github 'github-target-validation-error
+                   "StarIntel 0.9 target data.options must be an array.")))
   document)
 
 (defun split-lines (text)
@@ -147,8 +192,18 @@ is set to the same repository secret by the workflow."
       value
       starcanonicaljson:+json-null+))
 
-(defun member-document (target-document member timestamp)
-  (let* ((dataset (or (target-field target-document "dataset" nil) "github"))
+(defun github-source (organization)
+  (canonical-object
+   "source_id" (format nil "github:org-members:~A" organization)
+   "kind" "api"
+   "name" "GitHub REST API"
+   "url" (format nil "https://api.github.com/orgs/~A/members" organization)
+   "access_method" "gh api"))
+
+(defun member-document (target-document member timestamp run-id)
+  (let* ((dataset (object-value target-document "dataset" "github"))
+         (target-id (object-value target-document "_id" ""))
+         (organization (target-data-field target-document "target" ""))
          (login (getf member :login))
          (github-id (getf member :id))
          (document-id (format nil "github-user-~A" github-id)))
@@ -158,44 +213,34 @@ is set to the same repository secret by the workflow."
       "_id" document-id
       "dataset" dataset
       "dtype" "user"
-      "sources" (canonical-array "github:org-members")
-      "version" "0.8.0"
-      "dateAdded" timestamp
-      "dateUpdated" timestamp
-      "url" (getf member :html-url)
-      "name" login
-      "platform" "github"
-      "bio" ""
-      "misc"
-      (canonical-array
-       (canonical-object
-        "githubId" github-id
-        "avatarUrl" (canonical-null-if-empty (getf member :avatar-url))
-        "accountType" (getf member :account-type)))))))
-
-(defun target-run-document
-    (target-document run-id status started-at completed-at documents-written error)
-  (let ((target-id
-          (or (target-field target-document "_id" nil)
-              (target-field target-document "id" nil)))
-        (dataset (or (target-field target-document "dataset" nil) "github"))
-        (target (target-field target-document "target" "")))
-    (canonical-object
-     "_id" run-id
-     "dataset" dataset
-     "dtype" "target-run"
-     "sources" (canonical-array "star-github")
-     "version" "0.8.0"
-     "dateAdded" started-at
-     "dateUpdated" completed-at
-     "targetId" target-id
-     "actor" "github"
-     "target" target
-     "status" status
-     "startedAt" started-at
-     "completedAt" completed-at
-     "documentsWritten" documents-written
-     "error" (if error error starcanonicaljson:+json-null+))))
+      "schema_version" "0.9.0"
+      "version" 1
+      "date_added" timestamp
+      "date_updated" timestamp
+      "sources" (canonical-array (github-source organization))
+      "evidence" (canonical-array)
+      "provenance"
+      (canonical-object
+       "collector" "star-github"
+       "actor" "github"
+       "run_id" run-id
+       "method" "github-org-members")
+      "lineage"
+      (canonical-object
+       "source_document_ids" (canonical-array target-id))
+      "data"
+      (canonical-object
+       "url" (getf member :html-url)
+       "username" login
+       "name" login
+       "platform" "github"
+       "bio" ""
+       "misc"
+       (canonical-array
+        (canonical-object
+         "github_id" github-id
+         "avatar_url" (canonical-null-if-empty (getf member :avatar-url))
+         "account_type" (getf member :account-type))))))))
 
 (defun persist-json-document (runtime writer collection id document)
   (starlangruntime:invoke-actor
@@ -207,44 +252,32 @@ is set to the same repository secret by the workflow."
     (runtime writer target-document &key (enumerator #'github-cli-enumerator))
   (validate-github-target-document target-document)
   (let* ((started-at (unix-time))
-         (target-id
-           (or (target-field target-document "_id" nil)
-               (target-field target-document "id" nil)))
-         (organization (target-field target-document "target" nil))
+         (timestamp (rfc3339-now))
+         (target-id (object-value target-document "_id" ""))
+         (organization (target-data-field target-document "target" nil))
          (run-id (format nil "github-run-~A-~D" organization started-at)))
     (handler-case
         (let ((members (funcall enumerator organization))
               (written 0))
           (dolist (member members)
             (multiple-value-bind (document-id document)
-                (member-document target-document member started-at)
+                (member-document target-document member timestamp run-id)
               (persist-json-document
                runtime writer "documents-user" document-id document)
               (incf written)))
-          (let ((completed-at (unix-time)))
-            (persist-json-document
-             runtime writer "target-runs" run-id
-             (target-run-document
-              target-document run-id "completed" started-at completed-at written nil))
-            (%make-github-run-result
-             :status :completed
-             :run-id run-id
-             :target-id target-id
-             :documents-written written
-             :error nil)))
-      (github-enumeration-error (condition)
-        (let* ((completed-at (unix-time))
-               (message (princ-to-string condition)))
-          (persist-json-document
-           runtime writer "target-runs" run-id
-           (target-run-document
-            target-document run-id "failed" started-at completed-at 0 message))
           (%make-github-run-result
-           :status :failed
+           :status :completed
            :run-id run-id
            :target-id target-id
-           :documents-written 0
-           :error message))))))
+           :documents-written written
+           :error nil))
+      (github-enumeration-error (condition)
+        (%make-github-run-result
+         :status :failed
+         :run-id run-id
+         :target-id target-id
+         :documents-written 0
+         :error (princ-to-string condition))))))
 
 (defun github-contract-valid-p (contract value)
   (case contract
