@@ -11,6 +11,16 @@ on:
       - "star-artifact/**"
       - "star-canonical-json/**"
       - "starlang-runtime/**"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/github-target-run.yml"
+      - "star-github/**"
+      - "data/targets/**"
+      - "star-artifact/**"
+      - "star-canonical-json/**"
+      - "starlang-runtime/**"
   workflow_dispatch:
 
 permissions:
@@ -19,37 +29,56 @@ permissions:
 jobs:
   run-targets:
     name: Run GitHub targets
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
       CL_SOURCE_REGISTRY: "${{ github.workspace }}//:"
       STARINTEL_GITHUB_TOKEN: "${{ secrets.STARINTEL_GITHUB_TOKEN }}"
       GH_TOKEN: "${{ secrets.STARINTEL_GITHUB_TOKEN }}"
+      TARGET_BRANCH: "${{ github.head_ref || github.ref_name }}"
     steps:
       - name: Checkout target database
         uses: actions/checkout@v4
         with:
+          ref: "${{ env.TARGET_BRANCH }}"
           token: "${{ secrets.STARINTEL_GITHUB_TOKEN }}"
           fetch-depth: 0
 
+      - name: Guard actor output commit
+        id: guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git log -1 --format=%s | grep -Fq '[github-target-run]'; then
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "Actor output commit detected; skipping recursive run"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Install actor runtime dependencies
+        if: steps.guard.outputs.run == 'true'
         run: |
           sudo apt-get update
           sudo apt-get install --yes sbcl cl-ironclad cl-yason gh
 
       - name: Require configured actor credential
+        if: steps.guard.outputs.run == 'true'
         shell: bash
         run: |
           set -euo pipefail
           test -n "$STARINTEL_GITHUB_TOKEN"
 
       - name: Run StarLang GitHub actor
+        if: steps.guard.outputs.run == 'true'
         shell: bash
         run: |
           set -euo pipefail
           sbcl --script star-github/run-targets.lisp data
 
       - name: Commit durable actor output
+        if: steps.guard.outputs.run == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -61,4 +90,4 @@ jobs:
             exit 0
           fi
           git commit -m "data: record GitHub target run [github-target-run]"
-          git push origin "HEAD:${GITHUB_REF_NAME}"
+          git push origin "HEAD:${TARGET_BRANCH}"
