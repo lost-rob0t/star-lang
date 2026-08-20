@@ -1,0 +1,64 @@
+name: StarIntel GitHub target run
+
+on:
+  push:
+    branches:
+      - agent/json-file-output-actor
+    paths:
+      - ".github/workflows/github-target-run.yml"
+      - "star-github/**"
+      - "data/targets/**"
+      - "star-artifact/**"
+      - "star-canonical-json/**"
+      - "starlang-runtime/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  run-targets:
+    name: Run GitHub targets
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CL_SOURCE_REGISTRY: "${{ github.workspace }}//:"
+      STARINTEL_GITHUB_TOKEN: "${{ secrets.STARINTEL_GITHUB_TOKEN }}"
+      GH_TOKEN: "${{ secrets.STARINTEL_GITHUB_TOKEN }}"
+    steps:
+      - name: Checkout target database
+        uses: actions/checkout@v4
+        with:
+          token: "${{ secrets.STARINTEL_GITHUB_TOKEN }}"
+          fetch-depth: 0
+
+      - name: Install actor runtime dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes sbcl cl-ironclad cl-yason gh
+
+      - name: Require configured actor credential
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$STARINTEL_GITHUB_TOKEN"
+
+      - name: Run StarLang GitHub actor
+        shell: bash
+        run: |
+          set -euo pipefail
+          sbcl --script star-github/run-targets.lisp data
+
+      - name: Commit durable actor output
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "starintel-github-actor"
+          git config user.email "starintel-github-actor@users.noreply.github.com"
+          git add -- data/documents-user data/target-runs
+          if git diff --cached --quiet; then
+            echo "No actor output changed"
+            exit 0
+          fi
+          git commit -m "data: record GitHub target run [github-target-run]"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
