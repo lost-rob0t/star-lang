@@ -5,12 +5,12 @@
   "schema_version": "0.9.0",
   "version": 1,
   "date_added": "2026-08-20T14:43:00Z",
-  "date_updated": "2026-08-20T14:43:00Z",
+  "date_updated": "2026-08-20T16:56:00Z",
   "sources": [
     {
       "kind": "human",
       "name": "manual",
-      "notes": "Worldcoin GitHub organization enumeration target"
+      "notes": "Worldcoin GitHub organization graph enumeration target"
     }
   ],
   "evidence": [],
@@ -21,7 +21,12 @@
     "delay": 86400,
     "recurring": true,
     "options": [
-      "enumerate-members"
+      "enumerate-members",
+      "enumerate-repositories",
+      "enumerate-contributors",
+      "enumerate-stargazers",
+      "enumerate-followers",
+      "enumerate-following"
     ]
   }
 }
