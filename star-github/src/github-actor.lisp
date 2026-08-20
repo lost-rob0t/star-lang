@@ -171,7 +171,7 @@ is set to the same repository secret by the workflow."
        (canonical-object
         "githubId" github-id
         "avatarUrl" (canonical-null-if-empty (getf member :avatar-url))
-        "accountType" (getf member :account-type))))))))
+        "accountType" (getf member :account-type)))))))
 
 (defun target-run-document
     (target-document run-id status started-at completed-at documents-written error)
