@@ -65,7 +65,10 @@
 
 (defun normalize-root-directory (root)
   (handler-case
-      (uiop:ensure-directory-pathname (pathname root))
+      (uiop:ensure-directory-pathname
+       (merge-pathnames
+        (uiop:ensure-directory-pathname (pathname root))
+        (uiop:getcwd)))
     (error (condition)
       (fail-json-file
        'invalid-json-file-record-error
