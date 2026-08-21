@@ -97,7 +97,13 @@ jobs:
       - name: Install SBCL and Common Lisp dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes sbcl cl-ironclad cl-fiveam
+          sudo apt-get install --yes \
+            sbcl \
+            cl-babel \
+            cl-fiveam \
+            cl-ironclad \
+            cl-usocket \
+            cl-yason
 
       - name: Load starlang-prototype ASDF system
         shell: bash

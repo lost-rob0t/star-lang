@@ -15,6 +15,7 @@ star-canonical-json
 star-logic-protocol
 star-logic-ir
 star-logic-testing
+star-logic-adapter-swi
 star-xlsx
 starlang-compiler
 starlang-runtime

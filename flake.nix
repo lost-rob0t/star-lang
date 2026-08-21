@@ -17,7 +17,14 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
         lib = pkgs.lib;
-        sbcl = pkgs.sbcl.withPackages (ps: [ ps.ironclad ]);
+        swipl = pkgs.swiProlog;
+        sbcl = pkgs.sbcl.withPackages (ps: [
+          ps.babel
+          ps.fiveam
+          ps.ironclad
+          ps.usocket
+          ps.yason
+        ]);
 
         starLang = pkgs.stdenvNoCC.mkDerivation {
           pname = "star-lang";
@@ -27,6 +34,7 @@
           strictDeps = true;
           nativeBuildInputs = [
             sbcl
+            swipl
             pkgs.python3
           ];
 
@@ -40,6 +48,7 @@
             # sbcl.withPackages prepends the dependency registry and its own
             # ASDF inheritance marker; do not add a second trailing colon here.
             export CL_SOURCE_REGISTRY="$PWD//"
+            export STARLANG_SWI_EXECUTABLE="${swipl}/bin/swipl"
 
             sbcl --non-interactive \
               --eval '(require :asdf)' \
@@ -71,6 +80,7 @@
             export HOME="$test_root/home"
             mkdir -p "$HOME"
             export CL_SOURCE_REGISTRY="$source_root//"
+            export STARLANG_SWI_EXECUTABLE="${swipl}/bin/swipl"
 
             sbcl --non-interactive \
               --eval '(require :asdf)' \
@@ -81,9 +91,16 @@
               --eval '(asdf:test-system :starlang-runtime)' \
               --eval '(asdf:test-system :star-http-port)' \
               --eval '(asdf:test-system :star-scrape)' \
+              --eval '(asdf:test-system :star-process-port)' \
+              --eval '(asdf:test-system :star-logic-protocol)' \
+              --eval '(asdf:test-system :star-logic-ir)' \
+              --eval '(asdf:test-system :starlang-compiler)' \
+              --eval '(asdf:test-system :star-logic-adapter-swi)' \
               --eval '(assert (null (find-package "STAR-LANG.PROTOTYPE")))' \
               --eval '(asdf:test-system :starlang-prototype)' \
               --eval '(sb-ext:quit)'
+
+            bash "$source_root/ci/check-swi-adapter-contracts.sh"
 
             sbcl --script "$source_root/prototype/run-star.lisp" \
               load "$source_root/fixtures/star-cl-constructors.star" \
@@ -101,7 +118,7 @@
             mkdir -p "$source_root" "$out/bin"
             cp -R "$src"/. "$source_root/"
 
-            cat > "$out/bin/starlang" <<EOF
+            cat > "$out/bin/starlang" <<EOF_SCRIPT
             #!${pkgs.runtimeShell}
             set -euo pipefail
 
@@ -111,9 +128,9 @@
             exec ${sbcl}/bin/sbcl \
               --script "\$source_root/prototype/run-star.lisp" \
               "\$@"
-            EOF
+            EOF_SCRIPT
 
-            cat > "$out/bin/starlang-test" <<EOF
+            cat > "$out/bin/starlang-test" <<EOF_SCRIPT
             #!${pkgs.runtimeShell}
             set -euo pipefail
 
@@ -124,6 +141,7 @@
             export HOME="\$test_root/home"
             ${pkgs.coreutils}/bin/mkdir -p "\$HOME"
             export CL_SOURCE_REGISTRY="\$source_root//"
+            export STARLANG_SWI_EXECUTABLE="${swipl}/bin/swipl"
             cd "\$test_root"
 
             ${sbcl}/bin/sbcl --non-interactive \
@@ -135,10 +153,17 @@
               --eval '(asdf:test-system :starlang-runtime)' \
               --eval '(asdf:test-system :star-http-port)' \
               --eval '(asdf:test-system :star-scrape)' \
+              --eval '(asdf:test-system :star-process-port)' \
+              --eval '(asdf:test-system :star-logic-protocol)' \
+              --eval '(asdf:test-system :star-logic-ir)' \
+              --eval '(asdf:test-system :starlang-compiler)' \
+              --eval '(asdf:test-system :star-logic-adapter-swi)' \
               --eval '(assert (null (find-package "STAR-LANG.PROTOTYPE")))' \
               --eval '(asdf:test-system :starlang-prototype)' \
               --eval '(sb-ext:quit)'
-            EOF
+
+            ${pkgs.bash}/bin/bash "\$source_root/ci/check-swi-adapter-contracts.sh"
+            EOF_SCRIPT
 
             chmod +x "$out/bin/starlang" "$out/bin/starlang-test"
 
@@ -176,13 +201,16 @@
         devShells.default = pkgs.mkShell {
           packages = [
             sbcl
+            swipl
             pkgs.git
             pkgs.python3
           ] ++ lib.optional (pkgs ? roswell) pkgs.roswell;
 
           shellHook = ''
             export CL_SOURCE_REGISTRY="$PWD//"
+            export STARLANG_SWI_EXECUTABLE="${swipl}/bin/swipl"
             echo "star-lang dev shell: $(sbcl --version)"
+            echo "SWI: $($STARLANG_SWI_EXECUTABLE --version)"
             echo "Build: nix build"
             echo "Run: nix run"
             echo "Test: nix run .#tests"
