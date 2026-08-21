@@ -17,7 +17,7 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
         lib = pkgs.lib;
-        swipl = pkgs.swiProlog;
+        swipl = pkgs.swi-prolog;
         sbcl = pkgs.sbcl.withPackages (ps: [
           ps.babel
           ps.fiveam
