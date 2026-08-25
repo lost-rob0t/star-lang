@@ -5,12 +5,12 @@ macro-expander-prototype	starlang-compiler	prototype	Move hygienic bounded expan
 actor-wire-prototype	star-actor-protocol+starlang-compiler+starlang-runtime	partial	Protocol/runtime subsets are final; source lowering remains.
 core-semantics-prototype	starlang-compiler	prototype	Compiler semantic validation remains prototype-owned.
 canonical-json-prototype	star-actor-protocol+star-canonical-json	compat	Compatibility forwarding only.
-message-lifecycle-prototype	star-actor-protocol	partial	Wire lifecycle contract still needs final extraction.
+message-lifecycle-prototype	star-actor-protocol+star-canonical-json	compat	Lifecycle construction, validation, canonicalization, and outcome helpers forward to final systems; only generic compatibility helpers remain.
 message-lifecycle-bindings-prototype	star-actor-protocol+starlang-compiler	prototype	Generated lifecycle bindings remain prototype-owned.
 binding-generator-prototype	starlang-compiler	prototype	Portable binding generation remains prototype-owned.
-deterministic-dispatcher-prototype	starlang-runtime	partial	Final wire dispatcher exists; remaining prototype behavior must be reconciled.
-deferred-dispatch-completion-prototype	starlang-runtime	prototype	Deferred completion remains prototype-owned.
-dispatcher-idempotency-identity-prototype	starlang-runtime+star-journal	prototype	Idempotency identity remains prototype-owned.
+deterministic-dispatcher-prototype	starlang-runtime	compat	Dispatcher state and operations forward to final starlang-runtime; prototype retains condition translation/accessors only.
+deferred-dispatch-completion-prototype	starlang-runtime	compat	Deferred status/completion forward directly to final runtime.
+dispatcher-idempotency-identity-prototype	starlang-runtime	compat	Idempotency identity forwards directly to final runtime.
 transport-port-prototype	star-adapter-sdk	prototype	Transport abstraction remains prototype-owned.
 rabbitmq-transport-binding-prototype	star-adapter-sdk	prototype	RabbitMQ binding remains prototype-owned.
 dispatcher-transport-adapter-prototype	star-adapter-sdk+starlang-runtime	prototype	Dispatcher transport composition remains prototype-owned.
