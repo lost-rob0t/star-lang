@@ -1,0 +1,68 @@
+name: SWI logic adapter
+
+on:
+  pull_request:
+    paths:
+      - "star-logic-adapter-swi/**"
+      - "star-process-port/**"
+      - "star-logic-protocol/**"
+      - "star-logic-ir/**"
+      - "starlang-compiler/**"
+      - "ci/target-systems.txt"
+      - "ci/check-swi-adapter-contracts.sh"
+      - "flake.nix"
+      - ".github/workflows/logic-swi.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "star-logic-adapter-swi/**"
+      - "star-process-port/**"
+      - "star-logic-protocol/**"
+      - "star-logic-ir/**"
+      - "starlang-compiler/**"
+      - "ci/target-systems.txt"
+      - "ci/check-swi-adapter-contracts.sh"
+      - "flake.nix"
+      - ".github/workflows/logic-swi.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  real-swi-mqi:
+    name: Real SWI MQI adapter
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/determinate-nix-action@v3
+
+      - name: Run final adapter and surrounding conformance
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 600 nix develop --command bash -lc '
+            set -euo pipefail
+            test -x "$STARLANG_SWI_EXECUTABLE"
+            "$STARLANG_SWI_EXECUTABLE" --version
+            bash ci/check-swi-adapter-contracts.sh
+            sbcl --non-interactive \
+              --eval "(require :asdf)" \
+              --eval "(asdf:test-system :star-process-port)" \
+              --eval "(asdf:test-system :star-logic-adapter-swi)" \
+              --eval "(asdf:test-system :star-logic-protocol)" \
+              --eval "(asdf:test-system :star-logic-ir)" \
+              --eval "(asdf:test-system :starlang-compiler)" \
+              --eval "(assert (null (find-package \"STAR-LANG.PROTOTYPE\")))" \
+              --eval "(sb-ext:quit)"
+          ' 2>&1 | tee real-swi-mqi.log
+
+      - name: Upload SWI integration diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-swi-mqi-log
+          path: real-swi-mqi.log
+          if-no-files-found: warn

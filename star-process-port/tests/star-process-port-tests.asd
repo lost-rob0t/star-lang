@@ -5,5 +5,7 @@
   :depends-on ("star-process-port" "fiveam")
   :components
   ((:file "star-process-port-tests"))
-  :perform (test-op (op c)
-             (symbol-call :fiveam '#:run! 'starprocessport-tests)))
+  :perform
+  (test-op (operation component)
+    (declare (ignore operation component))
+    (uiop:symbol-call :starprocessport-tests :run-tests)))
