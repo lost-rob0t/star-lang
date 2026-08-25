@@ -16,7 +16,6 @@
   socket
   stream
   endpoint
-  password
   mqi-major
   mqi-minor
   communication-thread-id
@@ -160,8 +159,6 @@
                   (swi-worker-mqi-minor worker) minor
                   (swi-worker-communication-thread-id worker) comm-thread
                   (swi-worker-goal-thread-id worker) goal-thread
-                  ;; Do not retain the generated secret after authentication.
-                  (swi-worker-password worker) nil
                   (swi-worker-state worker) :ready))))
     (swi-adapter-error (cause)
       (error cause))
@@ -195,8 +192,7 @@
             (swi-worker-stream worker) nil))
     (when (swi-worker-process worker)
       (ignore-errors (dispose-process (swi-worker-process worker))))
-    (setf (swi-worker-password worker) nil
-          (swi-worker-state worker) :closed))
+    (setf (swi-worker-state worker) :closed))
   worker)
 
 (defun %open-swi-worker (executable version-triplet bootstrap-path)
@@ -215,7 +211,6 @@
                    (%parse-startup-values port-line password-line)
                  (setf (swi-worker-endpoint worker)
                        (list :host "127.0.0.1" :port port)
-                       (swi-worker-password worker) password
                        (swi-worker-socket worker)
                        (%connect-loopback process port)
                        (swi-worker-stream worker)
@@ -260,8 +255,7 @@
              (setf failure cause)))
       (unless (and (swi-worker-process worker)
                    (process-reaped-p (swi-worker-process worker)))
-        (%dispose-worker worker))
-      (setf (swi-worker-password worker) nil))
+        (%dispose-worker worker)))
     (when failure
       (if (typep failure 'swi-adapter-error)
           (error failure)
