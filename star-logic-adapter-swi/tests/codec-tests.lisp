@@ -19,6 +19,9 @@
 (defun ascii-octets (string)
   (babel:string-to-octets string :encoding :ascii))
 
+(defun mqi-line (control &rest arguments)
+  (apply #'format nil (concatenate 'string control "~%") arguments))
+
 (defun chunked-source (&rest chunks)
   (let ((chunks (copy-list chunks))
         (current nil)
@@ -42,7 +45,7 @@
          (header (babel:octets-to-string (subseq frame 0 separator)
                                          :encoding :ascii))
          (payload (babel:string-to-octets
-                   (concatenate 'string message ".\n")
+                   (mqi-line "~A." message)
                    :encoding :utf-8)))
     (is (string= header (format nil "~D." (length payload))))
     (is (> (length payload) (+ (length message) 2)))))
@@ -51,12 +54,12 @@
   (let* ((frame (starlogicadapterswi::%encode-mqi-frame "close"))
          (payload (starlogicadapterswi::%decode-mqi-frame
                    (chunked-source frame))))
-    (is (string= "close.\n"
+    (is (string= (mqi-line "close.")
                  (babel:octets-to-string payload :encoding :utf-8)))))
 
 (test zero-length-frame-is-framed-data
   (let ((payload (starlogicadapterswi::%decode-mqi-frame
-                  (chunked-source (ascii-octets "0.\n")))))
+                  (chunked-source (ascii-octets (mqi-line "0."))))))
     (is (= 0 (length payload)))))
 
 (test fragmented-frame-across-many-chunks
@@ -64,7 +67,7 @@
          (chunks (loop for byte across frame collect (octets byte)))
          (payload (starlogicadapterswi::%decode-mqi-frame
                    (apply #'chunked-source chunks))))
-    (is (string= "quit.\n"
+    (is (string= (mqi-line "quit.")
                  (babel:octets-to-string payload :encoding :utf-8)))))
 
 (test heartbeat-bytes-are-discarded-before-header
@@ -73,24 +76,24 @@
                    (chunked-source (ascii-octets "...")
                                    (subseq frame 0 2)
                                    (subseq frame 2)))))
-    (is (string= "close.\n"
+    (is (string= (mqi-line "close.")
                  (babel:octets-to-string payload :encoding :utf-8)))))
 
 (test malformed-length-is-rejected
   (signals starlogicadapterswi:swi-mqi-malformed-frame-error
     (starlogicadapterswi::%decode-mqi-frame
-     (chunked-source (ascii-octets "x.\n")))))
+     (chunked-source (ascii-octets (mqi-line "x."))))))
 
 (test oversized-length-is-rejected-before-allocation
   (signals starlogicadapterswi:swi-mqi-malformed-frame-error
     (starlogicadapterswi::%decode-mqi-frame
-     (chunked-source (ascii-octets "99999999.\n"))
+     (chunked-source (ascii-octets (mqi-line "99999999.")))
      :max-frame-bytes 1024)))
 
 (test truncated-payload-is-unexpected-eof
   (signals starlogicadapterswi:swi-unexpected-eof-error
     (starlogicadapterswi::%decode-mqi-frame
-     (chunked-source (ascii-octets "5.\nab")))))
+     (chunked-source (ascii-octets (format nil "5.~%ab"))))))
 
 (test invalid-json-response-is-rejected
   (signals starlogicadapterswi:swi-mqi-malformed-response-error
@@ -98,7 +101,7 @@
      (chunked-source (frame-for-json "not-json")))))
 
 (test short-response-without-term-terminator-is-rejected
-  (let ((frame (ascii-octets "1.\nx")))
+  (let ((frame (ascii-octets (format nil "1.~%x"))))
     (signals starlogicadapterswi:swi-mqi-malformed-response-error
       (starlogicadapterswi::%parse-mqi-json-response
        (chunked-source frame)))))
@@ -140,4 +143,8 @@
       (is (not (member (symbol-name symbol) forbidden :test #'string=))))))
 
 (defun run-tests ()
-  (run! 'starlogicadapterswi-tests))
+  (let ((results (run 'starlogicadapterswi-tests)))
+    (explain! results)
+    (unless (results-status results)
+      (error "star-logic-adapter-swi unit tests failed."))
+    t))
