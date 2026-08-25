@@ -125,12 +125,28 @@ it. JSON parsing remains authoritative for the response body."
         (subseq payload 0 (- length 2))
         payload)))
 
+(defun %json-whitespace-p (char)
+  (member char '(#\Space #\Tab #\Newline #\Return) :test #'char=))
+
+(defun %parse-json-whole (json)
+  "Parse exactly one JSON value and reject any non-whitespace tail."
+  (with-input-from-string (stream json)
+    (let ((value (let ((yason:*parse-json-arrays-as-vectors* nil))
+                   (yason:parse stream))))
+      (loop for char = (read-char stream nil nil)
+            while char
+            unless (%json-whitespace-p char)
+              do (%swi-fail 'swi-mqi-malformed-response-error
+                            "MQI JSON response contains trailing data."))
+      value)))
+
 (defun %parse-mqi-json-response (source)
   (let* ((payload (%decode-mqi-payload-string source))
          (json (%json-response-text payload)))
     (handler-case
-        (let ((yason:*parse-json-arrays-as-vectors* nil))
-          (yason:parse json))
+        (%parse-json-whole json)
+      (swi-adapter-error (cause)
+        (error cause))
       (error (cause)
         (%swi-fail-diagnostic
          'swi-mqi-malformed-response-error
