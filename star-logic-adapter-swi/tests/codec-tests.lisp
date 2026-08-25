@@ -35,11 +35,14 @@
         (setf current (pop chunks)
               index 0)))))
 
+(defun inbound-octet-frame (payload-octets)
+  (let ((header (ascii-octets (format nil "~D.~%" (length payload-octets)))))
+    (starlogicadapterswi::%concat-octets header payload-octets)))
+
 (defun inbound-frame (payload)
   "Construct the receive-side framing SWI uses for JSON payloads."
-  (let* ((payload-octets (babel:string-to-octets payload :encoding :utf-8))
-         (header (ascii-octets (format nil "~D.~%" (length payload-octets)))))
-    (starlogicadapterswi::%concat-octets header payload-octets)))
+  (inbound-octet-frame
+   (babel:string-to-octets payload :encoding :utf-8)))
 
 (test utf8-byte-length-not-character-count
   (let* ((message "run(atom('λ'),-1)")
@@ -97,10 +100,22 @@
     (starlogicadapterswi::%decode-mqi-frame
      (chunked-source (ascii-octets (format nil "5.~%ab"))))))
 
+(test invalid-utf8-response-is-rejected
+  (signals starlogicadapterswi:swi-mqi-malformed-response-error
+    (starlogicadapterswi::%parse-mqi-json-response
+     (chunked-source (inbound-octet-frame (octets #xC3 #x28))))))
+
 (test invalid-json-response-is-rejected
   (signals starlogicadapterswi:swi-mqi-malformed-response-error
     (starlogicadapterswi::%parse-mqi-json-response
      (chunked-source (inbound-frame "not-json")))))
+
+(test trailing-json-data-is-rejected
+  (signals starlogicadapterswi:swi-mqi-malformed-response-error
+    (starlogicadapterswi::%parse-mqi-json-response
+     (chunked-source
+      (inbound-frame
+       "{\"args\":[[[]]],\"functor\":\"true\"}junk")))))
 
 (test raw-json-response-without-prolog-terminator-is-accepted
   (let ((response (starlogicadapterswi::%parse-mqi-json-response
