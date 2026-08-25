@@ -6,7 +6,7 @@ actor-wire-prototype	star-actor-protocol+starlang-compiler+starlang-runtime	part
 core-semantics-prototype	starlang-compiler	prototype	Compiler semantic validation remains prototype-owned.
 canonical-json-prototype	star-actor-protocol+star-canonical-json	compat	Compatibility forwarding only.
 message-lifecycle-prototype	star-actor-protocol+star-canonical-json	compat	Lifecycle construction, validation, canonicalization, and outcome helpers forward to final systems; only generic compatibility helpers remain.
-message-lifecycle-bindings-prototype	star-actor-protocol+starlang-compiler	prototype	Generated lifecycle bindings remain prototype-owned.
+message-lifecycle-bindings-prototype	starlang-compiler	compat	Python and TypeScript lifecycle binding generation now forwards to final starlang-compiler.
 binding-generator-prototype	starlang-compiler	prototype	Portable binding generation remains prototype-owned.
 deterministic-dispatcher-prototype	starlang-runtime	compat	Dispatcher state and operations forward to final starlang-runtime; prototype retains condition translation/accessors only.
 deferred-dispatch-completion-prototype	starlang-runtime	compat	Deferred status/completion forward directly to final runtime.
