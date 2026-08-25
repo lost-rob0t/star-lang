@@ -3,7 +3,8 @@
   (:import-from :starlogicadapterswi
                 #:make-swi-backend
                 #:swi-authentication-error
-                #:swi-bootstrap-handshake-error)
+                #:swi-bootstrap-handshake-error
+                #:swi-bootstrap-package-mismatch-error)
   (:import-from :starlogicprotocol
                 #:logic-backend-descriptor-of
                 #:logic-backend-descriptor-id
@@ -102,6 +103,15 @@
                (is (process-reaped-p second-process)))))
       (when first
         (ignore-errors (close-logic-session backend first))))))
+
+(test bootstrap-digest-mismatch-fails-before-worker-launch
+  (let ((backend (fresh-backend))
+        (starlogicadapterswi::*last-owned-process* nil))
+    (setf (starlogicadapterswi::swi-backend-bootstrap-digest backend)
+          "sha256:0000000000000000000000000000000000000000000000000000000000000000")
+    (signals swi-bootstrap-package-mismatch-error
+      (open-logic-session backend "bad-bootstrap-digest"))
+    (is (null starlogicadapterswi::*last-owned-process*))))
 
 (test authentication-failure-reaps-worker
   (let ((backend (fresh-backend)))
