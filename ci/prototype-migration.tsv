@@ -1,0 +1,39 @@
+# component	final-owner	state	note
+core-surface-prototype	starlang-compiler	partial	Syntax/parser/compiler core still lives in prototype.
+service-uri-prototype	star-actor-protocol	compat	Compatibility forwarding only.
+macro-expander-prototype	starlang-compiler	prototype	Move hygienic bounded expansion into final compiler.
+actor-wire-prototype	star-actor-protocol+starlang-compiler+starlang-runtime	partial	Protocol/runtime subsets are final; source lowering remains.
+core-semantics-prototype	starlang-compiler	prototype	Compiler semantic validation remains prototype-owned.
+canonical-json-prototype	star-actor-protocol+star-canonical-json	compat	Compatibility forwarding only.
+message-lifecycle-prototype	star-actor-protocol+star-canonical-json	compat	Lifecycle construction, validation, canonicalization, and outcome helpers forward to final systems; only generic compatibility helpers remain.
+message-lifecycle-bindings-prototype	starlang-compiler	compat	Python and TypeScript lifecycle binding generation now forwards to final starlang-compiler.
+binding-generator-prototype	starlang-compiler	prototype	Portable binding generation remains prototype-owned.
+deterministic-dispatcher-prototype	starlang-runtime	compat	Dispatcher state and operations forward to final starlang-runtime; prototype retains condition translation/accessors only.
+deferred-dispatch-completion-prototype	starlang-runtime	compat	Deferred status/completion forward directly to final runtime.
+dispatcher-idempotency-identity-prototype	starlang-runtime	compat	Idempotency identity forwards directly to final runtime.
+transport-port-prototype	star-adapter-sdk	prototype	Transport abstraction remains prototype-owned.
+rabbitmq-transport-binding-prototype	star-adapter-sdk	prototype	RabbitMQ binding remains prototype-owned.
+dispatcher-transport-adapter-prototype	star-adapter-sdk+starlang-runtime	prototype	Dispatcher transport composition remains prototype-owned.
+runtime-directory-prototype	starlang-runtime	compat	Compatibility forwarding only.
+domain-server-core-prototype	starlang-runtime	prototype	Domain server runtime remains prototype-owned.
+bbp-domain-server-prototype	starlang-runtime	prototype	BBP-specific compatibility must cease being implementation authority.
+bbp-run-idempotency-prototype	star-journal+starlang-runtime	prototype	Run idempotency remains prototype-owned.
+runtime-journal-port-prototype	star-journal	compat	All journal port construction, append, replay, memory, and file behavior forwards to final star-journal; prototype retains condition translation only.
+domain-remoting-prototype	star-sento-compat+starlang-runtime	prototype	Remote orchestration remains prototype-owned.
+bbp-remote-reconnect-prototype	star-sento-compat	prototype	Reconnect behavior remains prototype-owned.
+domain-remoting-runtime-port-prototype	star-sento-compat	prototype	Remoting runtime port remains prototype-owned.
+domain-remoting-lease-prototype	star-lease	prototype	Remote lease semantics remain prototype-owned.
+domain-remoting-journal-prototype	star-journal	prototype	Remoting journal integration remains prototype-owned.
+domain-remoting-config-prototype	star-sento-compat+starlang-runtime	prototype	Remoting configuration remains prototype-owned.
+cl-gserver-runtime-facade-prototype	star-sento-compat	partial	Base port is final; concrete integration PR must finish the move.
+compiler-ir-prototype	starlang-compiler	prototype	Main normalized IR compiler remains prototype-owned.
+spec-domain-prototype	starlang-compiler	prototype	Specification domain compilation remains prototype-owned.
+digest-lock-hardening-prototype	starlang-compiler	prototype	Digest/import hardening remains prototype-owned.
+prototype	starlang-compiler+starlang-runtime	prototype	Legacy actor/dataflow implementation remains authoritative in places.
+star-loader	starlang-compiler	prototype	Product source loader remains prototype-owned.
+resolver-shell-effects-prototype	starlang-compiler	partial	Effect protocol is final; compatibility curl fetch adapter remains.
+resolver-ironclad-digest-prototype	starlang-compiler	partial	Native digest adapter still installs into prototype loader state.
+document-runtime	starlang-runtime	prototype	Document runtime remains prototype-owned.
+relation-compatibility	starlang-compiler+starlang-runtime	prototype	Relation compatibility remains prototype-owned.
+constructor-runtime	starlang-runtime	prototype	Constructor materialization remains prototype-owned.
+star-lang-api	starlang-compiler+starlang-runtime	prototype	Public product API remains prototype-owned.

@@ -110,6 +110,67 @@
                  (starlangcompiler:logic-policy-compiler-error-source-span
                   condition))))))
 
+(test resolver-effects-are-final-compiler-owned
+  "Digest effects execute through the final compiler-owned effect protocol."
+  (let ((seen nil)
+        (effects
+          (star-lang.loader.effects:make-resolver-effects
+           :digest-file
+           (lambda (pathname)
+             (setf seen pathname)
+             "sha256:test"))))
+    (is (string= "sha256:test"
+                 (star-lang.loader.effects:digest-file-through-effects
+                  effects #p"/tmp/spec.star")))
+    (is (equal #p"/tmp/spec.star" seen))))
+
+(test resolver-effects-forward-fetch-bounds
+  "Fetch effects preserve every compiler-supplied resource bound."
+  (let ((seen nil)
+        (effects
+          (star-lang.loader.effects:make-resolver-effects
+           :fetch-to-file
+           (lambda (url destination &rest arguments)
+             (setf seen (list url destination arguments))
+             :ok))))
+    (is (eq :ok
+            (star-lang.loader.effects:fetch-to-file-through-effects
+             effects
+             "https://example.invalid/spec.star"
+             #p"/tmp/spec.star"
+             :maximum-bytes 1024
+             :maximum-redirects 2
+             :connect-timeout 3
+             :read-timeout 4
+             :deadline 5
+             :proxy nil)))
+    (destructuring-bind (url destination arguments) seen
+      (is (string= "https://example.invalid/spec.star" url))
+      (is (equal #p"/tmp/spec.star" destination))
+      (is (= 1024 (getf arguments :maximum-bytes)))
+      (is (= 2 (getf arguments :maximum-redirects)))
+      (is (= 3 (getf arguments :connect-timeout)))
+      (is (= 4 (getf arguments :read-timeout)))
+      (is (= 5 (getf arguments :deadline))))))
+
+(test resolver-effects-require-explicit-capability
+  "A compiler effect is unavailable unless an adapter explicitly supplies it."
+  (signals error
+    (star-lang.loader.effects:digest-file-through-effects
+     (star-lang.loader.effects:make-resolver-effects)
+     #p"/tmp/spec.star")))
+
+(test lifecycle-bindings-are-final-compiler-owned
+  "Portable lifecycle bindings are emitted by the final compiler and preserve lower camelCase."
+  (let ((python (starlangcompiler:generate-python-lifecycle-bindings))
+        (typescript (starlangcompiler:generate-typescript-lifecycle-bindings)))
+    (is (search "messageId: str" python))
+    (is (search "correlationId: str" python))
+    (is (search "messageId: string" typescript))
+    (is (search "correlationId: string" typescript))
+    (is (null (search "message_id" python)))
+    (is (null (search "message_id" typescript)))))
+
 (test final-compiler-logic-path-does-not-load-prototype
   "The final compiler logic compatibility path stays prototype-independent."
   (is (null (find-package "STAR-LANG.PROTOTYPE")))

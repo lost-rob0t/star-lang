@@ -9,5 +9,7 @@
   ((:module "src"
     :components
     ((:file "packages")
+     (:file "resolver-effects")
+     (:file "lifecycle-bindings")
      (:file "logic-policy"))))
   :in-order-to ((test-op (test-op "starlang-compiler-tests"))))

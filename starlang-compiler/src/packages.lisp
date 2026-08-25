@@ -21,4 +21,6 @@
    #:logic-policy-compiler-error-source-span
    #:logic-policy-compiler-error-cause
    #:compile-logic-call
-   #:materialize-compiled-logic-call))
+   #:materialize-compiled-logic-call
+   #:generate-python-lifecycle-bindings
+   #:generate-typescript-lifecycle-bindings))
