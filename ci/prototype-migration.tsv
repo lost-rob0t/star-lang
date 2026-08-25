@@ -18,7 +18,7 @@ runtime-directory-prototype	starlang-runtime	compat	Compatibility forwarding onl
 domain-server-core-prototype	starlang-runtime	prototype	Domain server runtime remains prototype-owned.
 bbp-domain-server-prototype	starlang-runtime	prototype	BBP-specific compatibility must cease being implementation authority.
 bbp-run-idempotency-prototype	star-journal+starlang-runtime	prototype	Run idempotency remains prototype-owned.
-runtime-journal-port-prototype	star-journal	prototype	Runtime journal port remains prototype-owned.
+runtime-journal-port-prototype	star-journal	compat	All journal port construction, append, replay, memory, and file behavior forwards to final star-journal; prototype retains condition translation only.
 domain-remoting-prototype	star-sento-compat+starlang-runtime	prototype	Remote orchestration remains prototype-owned.
 bbp-remote-reconnect-prototype	star-sento-compat	prototype	Reconnect behavior remains prototype-owned.
 domain-remoting-runtime-port-prototype	star-sento-compat	prototype	Remoting runtime port remains prototype-owned.
