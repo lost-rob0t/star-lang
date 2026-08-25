@@ -35,3 +35,12 @@
                "--write_connection_values=true"
                "--pending_connections=1")
              starlogicadapterswi::+swi-mqi-launch-argv+)))
+
+(test worker-state-has-no-generated-password-slot
+  ;; The generated MQI password is authentication-local data. A clean load of
+  ;; the worker structure must not intern a DEFSTRUCT accessor that can retain
+  ;; or expose it through session/health state.
+  (multiple-value-bind (symbol status)
+      (find-symbol "SWI-WORKER-PASSWORD" :starlogicadapterswi)
+    (declare (ignore symbol))
+    (is (null status))))
