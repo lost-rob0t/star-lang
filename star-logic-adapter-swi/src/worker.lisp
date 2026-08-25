@@ -1,5 +1,7 @@
 (in-package :starlogicadapterswi)
 
+(defparameter +max-mqi-startup-line-chars+ 4096)
+
 (defstruct (swi-worker (:constructor %make-swi-worker))
   process
   socket
@@ -19,10 +21,18 @@
   (+ (get-internal-real-time)
      (ceiling (* seconds internal-time-units-per-second))))
 
-(defun %read-startup-line (process &key (timeout 10.0d0))
+(defun %read-startup-line (process
+                           &key
+                             (timeout 10.0d0)
+                             (max-chars +max-mqi-startup-line-chars+))
+  "Read one bounded pre-authentication line from SWI's startup stdout."
+  (unless (and (integerp max-chars) (plusp max-chars))
+    (%swi-fail 'swi-malformed-startup-data-error
+               "MQI startup line bound must be a positive integer."))
   (let ((deadline (%monotonic-deadline timeout))
         (stream (process-stdout process))
-        (buffer (make-string-output-stream)))
+        (buffer (make-string-output-stream))
+        (length 0))
     (loop
       (let ((char (read-char-no-hang stream nil :eof)))
         (cond
@@ -34,7 +44,12 @@
              ((char= char #\Newline)
               (return (get-output-stream-string buffer)))
              ((char= char #\Return))
-             (t (write-char char buffer))))
+             (t
+              (incf length)
+              (when (> length max-chars)
+                (%swi-fail 'swi-malformed-startup-data-error
+                           "SWI MQI startup line exceeds the configured bound."))
+              (write-char char buffer))))
           ((not (process-alive-p process))
            (%swi-fail 'swi-worker-exited-during-startup-error
                       "SWI worker exited while emitting MQI startup data."))
