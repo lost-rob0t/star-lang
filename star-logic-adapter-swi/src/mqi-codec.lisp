@@ -22,7 +22,7 @@
 
 (defun %encode-mqi-frame (message)
   "Encode one private MQI term/string using the protocol's UTF-8 byte count."
-  (let* ((wire-string (concatenate 'string message ".\n"))
+  (let* ((wire-string (format nil "~A.~%" message))
          (payload (babel:string-to-octets wire-string :encoding :utf-8))
          (header (babel:string-to-octets
                   (format nil "~D.~%" (length payload))
@@ -90,7 +90,7 @@ Raw heartbeat '.' bytes preceding a response header are discarded."
       (unless (= (%next-byte source 'swi-unexpected-eof-error)
                  (char-code #\Newline))
         (%swi-fail 'swi-mqi-malformed-frame-error
-                   "MQI frame length terminator is not '.\\n'."))
+                   "MQI frame length terminator is not dot + newline."))
       (let ((payload (make-array length-value :element-type '(unsigned-byte 8))))
         (dotimes (index length-value)
           (setf (aref payload index)
@@ -117,7 +117,7 @@ Raw heartbeat '.' bytes preceding a response header are discarded."
       (%swi-fail-diagnostic
        'swi-mqi-malformed-response-error
        (%bounded-diagnostic payload)
-       "MQI response payload does not end in '.\\n'."))
+       "MQI response payload does not end in dot + newline."))
     (subseq payload 0 (- length 2))))
 
 (defun %parse-mqi-json-response (source)
