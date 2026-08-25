@@ -2,6 +2,15 @@
 
 (defparameter +max-mqi-startup-line-chars+ 4096)
 
+(defparameter +swi-mqi-launch-argv+
+  '("-f" "none"
+    "-F" "none"
+    "--no-packs"
+    "--no-pce"
+    "mqi"
+    "--write_connection_values=true"
+    "--pending_connections=1"))
+
 (defstruct (swi-worker (:constructor %make-swi-worker))
   process
   socket
@@ -195,11 +204,7 @@
         (succeeded nil))
     (unwind-protect
          (handler-case
-             (let* ((process (launch-process
-                              executable
-                              '("mqi"
-                                "--write_connection_values=true"
-                                "--pending_connections=1")))
+             (let* ((process (launch-process executable +swi-mqi-launch-argv+))
                     (port-line nil)
                     (password-line nil))
                (setf *last-owned-process* process
