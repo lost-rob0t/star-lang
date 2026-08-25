@@ -26,13 +26,20 @@
 (defun %non-empty-string-p (value)
   (and (stringp value) (plusp (length value))))
 
+(defun %proper-list-p (value)
+  ;; LIST-LENGTH returns NIL for circular lists and signals TYPE-ERROR for an
+  ;; improper dotted tail. Both are invalid argv containers.
+  (handler-case
+      (integerp (list-length value))
+    (type-error () nil)))
+
 (defun %validate-command (executable argv)
   (unless (%non-empty-string-p executable)
     (%fail 'invalid-process-command-error
            "Executable must be a non-empty string, got ~S." executable))
-  (unless (listp argv)
+  (unless (%proper-list-p argv)
     (%fail 'invalid-process-command-error
-           "ARGV must be a proper list of strings, got ~S." argv))
+           "ARGV must be a proper finite list of strings, got ~S." argv))
   (dolist (argument argv)
     (unless (stringp argument)
       (%fail 'invalid-process-command-error
@@ -45,7 +52,7 @@
                          (external-format :utf-8))
   "Launch EXECUTABLE with exact ARGV without shell interpolation.
 
-STDIN, STDOUT, and STDERR are separate streams.  The returned process must be
+STDIN, STDOUT, and STDERR are separate streams. The returned process must be
 reaped with WAIT-PROCESS or DISPOSE-PROCESS."
   (let ((command (%validate-command executable argv)))
     (handler-case
@@ -94,7 +101,7 @@ reaped with WAIT-PROCESS or DISPOSE-PROCESS."
 (defun wait-process (process &key timeout (poll-interval 0.01d0))
   "Wait for PROCESS and reap it.
 
-Returns EXIT-CODE and :EXITED.  With TIMEOUT, returns NIL and :TIMEOUT if the
+Returns EXIT-CODE and :EXITED. With TIMEOUT, returns NIL and :TIMEOUT if the
 child is still running when the bounded wait expires."
   (check-type process managed-process)
   (when (managed-process-reaped-p process)
@@ -130,7 +137,7 @@ child is still running when the bounded wait expires."
 (defun dispose-process (process &key (terminate-timeout 1.0d0))
   "Unconditionally dispose of PROCESS, escalating to an urgent termination.
 
-This is the error-path primitive.  Orderly protocol shutdown should happen
+This is the error-path primitive. Orderly protocol shutdown should happen
 before calling it; regardless, the child is reaped before this function returns."
   (check-type process managed-process)
   (unless (managed-process-reaped-p process)
