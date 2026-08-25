@@ -14,6 +14,16 @@
   (signals invalid-process-command-error
     (launch-process "/definitely/not/launched" '("ok" 42))))
 
+(test rejects-improper-argv
+  (signals invalid-process-command-error
+    (launch-process "/definitely/not/launched" (cons "ok" "bad-tail"))))
+
+(test rejects-circular-argv
+  (let ((argv (list "ok")))
+    (setf (cdr argv) argv)
+    (signals invalid-process-command-error
+      (launch-process "/definitely/not/launched" argv))))
+
 (test rejects-empty-executable
   (signals invalid-process-command-error
     (launch-process "" '())))
