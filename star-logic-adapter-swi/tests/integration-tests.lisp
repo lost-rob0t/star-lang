@@ -110,7 +110,7 @@
       (signals swi-authentication-error
         (open-logic-session backend "bad-auth")))
     (let ((process starlogicadapterswi::*last-owned-process*))
-      (is process)
+      (is (not (null process)))
       (is (process-reaped-p process))
       (is (not (process-alive-p process))))))
 
@@ -120,7 +120,7 @@
       (signals swi-bootstrap-handshake-error
         (open-logic-session backend "bad-bootstrap")))
     (let ((process starlogicadapterswi::*last-owned-process*))
-      (is process)
+      (is (not (null process)))
       (is (process-reaped-p process))
       (is (not (process-alive-p process))))))
 
@@ -135,4 +135,8 @@
     (is (not (process-alive-p process)))))
 
 (defun run-tests ()
-  (run! 'starlogicadapterswi-integration-tests))
+  (let ((results (run 'starlogicadapterswi-integration-tests)))
+    (explain! results)
+    (unless (results-status results)
+      (error "star-logic-adapter-swi integration tests failed."))
+    t))
