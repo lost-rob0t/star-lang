@@ -160,6 +160,17 @@
      (star-lang.loader.effects:make-resolver-effects)
      #p"/tmp/spec.star")))
 
+(test lifecycle-bindings-are-final-compiler-owned
+  "Portable lifecycle bindings are emitted by the final compiler and preserve lower camelCase."
+  (let ((python (starlangcompiler:generate-python-lifecycle-bindings))
+        (typescript (starlangcompiler:generate-typescript-lifecycle-bindings)))
+    (is (search "messageId: str" python))
+    (is (search "correlationId: str" python))
+    (is (search "messageId: string" typescript))
+    (is (search "correlationId: string" typescript))
+    (is (null (search "message_id" python)))
+    (is (null (search "message_id" typescript)))))
+
 (test final-compiler-logic-path-does-not-load-prototype
   "The final compiler logic compatibility path stays prototype-independent."
   (is (null (find-package "STAR-LANG.PROTOTYPE")))
