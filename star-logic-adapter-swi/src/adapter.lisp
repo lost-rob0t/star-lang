@@ -20,7 +20,7 @@
 (defun make-swi-backend (&key swipl-executable)
   "Create a SWI backend pinned to one exact executable path.
 
-There is deliberately no PATH lookup fallback.  BUILD-ID is SHA-256 over the
+There is deliberately no PATH lookup fallback. BUILD-ID is SHA-256 over the
 resolved executable bytes; under Nix the exact store executable is also retained
 in descriptor metadata."
   (multiple-value-bind (executable version-banner version-triplet build-id)
@@ -75,13 +75,23 @@ in descriptor metadata."
                 "This slice accepts only the exact trusted StarLang SWI bootstrap package."))
     (t t)))
 
+(defun %validate-bootstrap-identity (backend)
+  "Re-hash the exact trusted bootstrap immediately before worker launch."
+  (let ((observed-digest (%sha256-file (swi-backend-bootstrap-path backend))))
+    (unless (string= observed-digest (swi-backend-bootstrap-digest backend))
+      (%swi-fail 'swi-bootstrap-package-mismatch-error
+                 "Trusted SWI bootstrap bytes changed after backend construction.")))
+  t)
+
 (defmethod open-logic-session ((backend swi-backend) session-id
                                &key package-id package-digest)
   (%validate-package-expectation backend package-id package-digest)
   (unless (and (stringp session-id) (plusp (length session-id)))
     (%swi-fail 'swi-bootstrap-handshake-error
                "Logic session ID must be a non-empty string."))
-  ;; Fail closed if the exact executable changed after backend construction.
+  ;; Fail closed if either executable or trusted package bytes changed after
+  ;; backend construction. Both checks happen before any worker is spawned.
+  (%validate-bootstrap-identity backend)
   (multiple-value-bind (executable banner triplet build-id)
       (%identify-executable (swi-backend-executable backend))
     (declare (ignore banner))
@@ -146,7 +156,9 @@ in descriptor metadata."
                (identity-ok
                  (and (string= executable (swi-backend-executable backend))
                       (equal triplet (swi-backend-version-triplet backend))
-                      (string= build-id (swi-backend-build-id backend))))
+                      (string= build-id (swi-backend-build-id backend))
+                      (string= (%sha256-file (swi-backend-bootstrap-path backend))
+                               (swi-backend-bootstrap-digest backend))))
                (workers-ok
                  (every (lambda (entry) (getf entry :worker-alive)) sessions)))
           (list :status (if (and identity-ok workers-ok) :usable :unusable)
