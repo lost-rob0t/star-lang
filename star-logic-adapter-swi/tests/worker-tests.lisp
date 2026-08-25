@@ -25,3 +25,13 @@
            :stdout (make-string-input-stream (format nil "12345~%")))))
     (signals starlogicadapterswi:swi-malformed-startup-data-error
       (starlogicadapterswi::%read-startup-line process :max-chars 4))))
+
+(test mqi-launch-argv-suppresses-ambient-prolog-configuration
+  (is (equal '("-f" "none"
+               "-F" "none"
+               "--no-packs"
+               "--no-pce"
+               "mqi"
+               "--write_connection_values=true"
+               "--pending_connections=1")
+             starlogicadapterswi::+swi-mqi-launch-argv+)))
