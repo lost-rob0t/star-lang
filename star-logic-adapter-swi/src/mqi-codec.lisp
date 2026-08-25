@@ -21,7 +21,7 @@
       (incf offset (length vector)))))
 
 (defun %encode-mqi-frame (message)
-  "Encode one private MQI term/string using the protocol's UTF-8 byte count."
+  "Encode one outbound MQI Prolog message using its UTF-8 byte count."
   (let* ((wire-string (format nil "~A.~%" message))
          (payload (babel:string-to-octets wire-string :encoding :utf-8))
          (header (babel:string-to-octets
@@ -56,7 +56,9 @@
                                    (max-frame-bytes +default-max-mqi-frame-bytes+))
   "Read one MQI frame from SOURCE, a function returning BYTE,PRESENT-P.
 
-Raw heartbeat '.' bytes preceding a response header are discarded."
+Raw heartbeat '.' bytes preceding a response header are discarded. The
+returned octets are exactly the byte-counted payload; interpretation of that
+payload is direction/message-specific."
   (let ((first nil))
     (loop
       (setf first (%next-byte source 'swi-unexpected-eof-error))
@@ -109,20 +111,23 @@ Raw heartbeat '.' bytes preceding a response header are discarded."
          (%bounded-diagnostic cause)
          "MQI payload is not valid UTF-8.")))))
 
-(defun %strip-mqi-term-terminator (payload)
+(defun %json-response-text (payload)
+  "Return JSON text from an inbound MQI response payload.
+
+SWI's JSON response body is parsed as the exact byte-counted payload. Some MQI
+representations include the generic Prolog term dot/newline suffix in that
+count; accept that exact suffix when present, but never require or synthesize
+it. JSON parsing remains authoritative for the response body."
   (let ((length (length payload)))
-    (unless (and (>= length 2)
-                 (char= (char payload (- length 2)) #\.)
-                 (char= (char payload (1- length)) #\Newline))
-      (%swi-fail-diagnostic
-       'swi-mqi-malformed-response-error
-       (%bounded-diagnostic payload)
-       "MQI response payload does not end in dot + newline."))
-    (subseq payload 0 (- length 2))))
+    (if (and (>= length 2)
+             (char= (char payload (- length 2)) #\.)
+             (char= (char payload (1- length)) #\Newline))
+        (subseq payload 0 (- length 2))
+        payload)))
 
 (defun %parse-mqi-json-response (source)
   (let* ((payload (%decode-mqi-payload-string source))
-         (json (%strip-mqi-term-terminator payload)))
+         (json (%json-response-text payload)))
     (handler-case
         (let ((yason:*parse-json-arrays-as-vectors* nil))
           (yason:parse json))
