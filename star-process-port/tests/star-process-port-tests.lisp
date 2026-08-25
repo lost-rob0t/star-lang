@@ -17,3 +17,10 @@
 (test rejects-empty-executable
   (signals invalid-process-command-error
     (launch-process "" '())))
+
+(defun run-tests ()
+  (let ((results (run 'starprocessport-tests)))
+    (explain! results)
+    (unless (results-status results)
+      (error "star-process-port tests failed."))
+    t))
