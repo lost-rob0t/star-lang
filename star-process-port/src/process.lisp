@@ -38,8 +38,9 @@
     (%fail 'invalid-process-command-error
            "Executable must be a non-empty string, got ~S." executable))
   (unless (%proper-list-p argv)
+    ;; Do not print ARGV here: an invalid container may itself be circular.
     (%fail 'invalid-process-command-error
-           "ARGV must be a proper finite list of strings, got ~S." argv))
+           "ARGV must be a proper finite list of strings."))
   (dolist (argument argv)
     (unless (stringp argument)
       (%fail 'invalid-process-command-error
