@@ -35,8 +35,11 @@
         (setf current (pop chunks)
               index 0)))))
 
-(defun frame-for-json (json)
-  (starlogicadapterswi::%encode-mqi-frame json))
+(defun inbound-frame (payload)
+  "Construct the receive-side framing SWI uses for JSON payloads."
+  (let* ((payload-octets (babel:string-to-octets payload :encoding :utf-8))
+         (header (ascii-octets (format nil "~D.~%" (length payload-octets)))))
+    (starlogicadapterswi::%concat-octets header payload-octets)))
 
 (test utf8-byte-length-not-character-count
   (let* ((message "run(atom('λ'),-1)")
@@ -71,13 +74,12 @@
                  (babel:octets-to-string payload :encoding :utf-8)))))
 
 (test heartbeat-bytes-are-discarded-before-header
-  (let* ((frame (starlogicadapterswi::%encode-mqi-frame "close"))
-         (payload (starlogicadapterswi::%decode-mqi-frame
-                   (chunked-source (ascii-octets "...")
-                                   (subseq frame 0 2)
-                                   (subseq frame 2)))))
-    (is (string= (mqi-line "close.")
-                 (babel:octets-to-string payload :encoding :utf-8)))))
+  (let* ((frame (inbound-frame "{\"args\":[[[]]],\"functor\":\"true\"}"))
+         (response (starlogicadapterswi::%parse-mqi-json-response
+                    (chunked-source (ascii-octets "...")
+                                    (subseq frame 0 2)
+                                    (subseq frame 2)))))
+    (is (starlogicadapterswi::%simple-true-response-p response))))
 
 (test malformed-length-is-rejected
   (signals starlogicadapterswi:swi-mqi-malformed-frame-error
@@ -98,18 +100,29 @@
 (test invalid-json-response-is-rejected
   (signals starlogicadapterswi:swi-mqi-malformed-response-error
     (starlogicadapterswi::%parse-mqi-json-response
-     (chunked-source (frame-for-json "not-json")))))
+     (chunked-source (inbound-frame "not-json")))))
 
-(test short-response-without-term-terminator-is-rejected
-  (let ((frame (ascii-octets (format nil "1.~%x"))))
-    (signals starlogicadapterswi:swi-mqi-malformed-response-error
-      (starlogicadapterswi::%parse-mqi-json-response
-       (chunked-source frame)))))
+(test raw-json-response-without-prolog-terminator-is-accepted
+  (let ((response (starlogicadapterswi::%parse-mqi-json-response
+                   (chunked-source
+                    (inbound-frame "{\"args\":[[[]]],\"functor\":\"true\"}")))))
+    (is (starlogicadapterswi::%simple-true-response-p response))))
+
+(test generic-mqi-terminated-json-response-is-also-accepted
+  (let* ((json "{\"args\":[[[]]],\"functor\":\"true\"}")
+         (response (starlogicadapterswi::%parse-mqi-json-response
+                    (chunked-source (inbound-frame (mqi-line "~A." json))))))
+    (is (starlogicadapterswi::%simple-true-response-p response))))
+
+(test short-invalid-json-response-is-rejected
+  (signals starlogicadapterswi:swi-mqi-malformed-response-error
+    (starlogicadapterswi::%parse-mqi-json-response
+     (chunked-source (inbound-frame "x")))))
 
 (test documented-authentication-shape-is-parsed
   (let* ((json "{\"args\":[[[{\"args\":[\"comm\",\"goal\"],\"functor\":\"threads\"},{\"args\":[\"1\",\"0\"],\"functor\":\"version\"}]]],\"functor\":\"true\"}")
          (response (starlogicadapterswi::%parse-mqi-json-response
-                    (chunked-source (frame-for-json json)))))
+                    (chunked-source (inbound-frame json)))))
     (multiple-value-bind (major minor comm goal)
         (starlogicadapterswi::%extract-authentication-metadata response)
       (is (string= "1" major))
