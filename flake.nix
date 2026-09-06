@@ -17,14 +17,48 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
         lib = pkgs.lib;
-        # Sento is supplied by the flake-locked nixpkgs Common Lisp snapshot.
-        # Production star-sento-compat still resolves it softly at runtime;
-        # only the integration environment hard-loads the backend.
-        sbcl = pkgs.sbcl.withPackages (ps: [
-          ps.fiveam
-          ps.ironclad
-          ps.sento
-        ]);
+
+        # The nixpkgs Common Lisp snapshot currently carries an older Sento
+        # source tree that does not include the separate `sento-remoting` ASDF
+        # system.  Pin the backend source explicitly so real remoting tests use
+        # the same public API that star-sento-compat supports.
+        sentoSource = pkgs.fetchFromGitHub {
+          owner = "mdbergmann";
+          repo = "cl-gserver";
+          rev = "013ab6370042686e65943568b0d97e33319c0f54";
+          hash = lib.fakeHash;
+        };
+
+        sbcl = pkgs.sbcl.withPackages (ps:
+          let
+            sentoPinned = pkgs.sbcl.buildASDFSystem {
+              pname = "sento";
+              version = "3.4.4";
+              src = sentoSource;
+              systems = [
+                "sento"
+                "sento-remoting"
+              ];
+              lispLibs = [
+                ps.alexandria
+                ps.atomics
+                ps.binding-arrows
+                ps.bordeaux-threads
+                ps.cl-speedy-queue
+                ps.flexi-streams
+                ps.local-time-duration
+                ps.log4cl
+                ps.pure-tls
+                ps.str
+                ps.timer-wheel
+                ps.usocket
+              ];
+            };
+          in [
+            ps.fiveam
+            ps.ironclad
+            sentoPinned
+          ]);
 
         starLang = pkgs.stdenvNoCC.mkDerivation {
           pname = "star-lang";
