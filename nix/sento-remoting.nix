@@ -1,13 +1,11 @@
 { pkgs }:
 ps:
 let
-  lib = pkgs.lib;
-
   clCancelSource = pkgs.fetchFromGitHub {
     owner = "atgreen";
     repo = "cl-cancel";
     rev = "bec34fb37fe713746bdeefaf542f578d174d9ffa";
-    hash = lib.fakeHash;
+    hash = "sha256-M+cV1t6ZYcRoSVGIExu/KYyUlw3wQ694/NfXlTlJUOI=";
   };
 
   pureTlsSource = pkgs.fetchFromGitHub {
