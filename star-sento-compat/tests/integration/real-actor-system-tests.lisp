@@ -1,5 +1,7 @@
 (in-package :starsentocompat-integration-tests)
 
+(define-condition deliberate-fixture-body-error (error) ())
+
 (defun spawn-probe (port system)
   (runtime-spawn
    port system (unique-actor-name "probe")
@@ -126,6 +128,6 @@
            :destroy (lambda (actor)
                       (declare (ignore actor))
                       (setf destroyed-p t)))
-          (error "deliberate fixture body failure"))
-      (error () nil))
+          (error 'deliberate-fixture-body-error))
+      (deliberate-fixture-body-error () nil))
     (is destroyed-p)))
