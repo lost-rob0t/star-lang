@@ -18,10 +18,23 @@
         pkgs = nixpkgs.legacyPackages.${system};
         lib = pkgs.lib;
 
-        # The nixpkgs Common Lisp snapshot currently carries an older Sento
-        # source tree that does not include the separate `sento-remoting` ASDF
-        # system.  Pin the backend source explicitly so real remoting tests use
-        # the same public API that star-sento-compat supports.
+        # The nixpkgs Common Lisp snapshot predates Sento's current remoting
+        # stack. Pin the small missing closure explicitly so CI exercises the
+        # public Sento 3.4.4 + TLS-backed remoting API reproducibly.
+        clCancelSource = pkgs.fetchFromGitHub {
+          owner = "atgreen";
+          repo = "cl-cancel";
+          rev = "bec34fb37fe713746bdeefaf542f578d174d9ffa";
+          hash = lib.fakeHash;
+        };
+
+        pureTlsSource = pkgs.fetchFromGitHub {
+          owner = "atgreen";
+          repo = "pure-tls";
+          rev = "79230b1489242e955476ff7185bb46ed043cfdea";
+          hash = lib.fakeHash;
+        };
+
         sentoSource = pkgs.fetchFromGitHub {
           owner = "mdbergmann";
           repo = "cl-gserver";
@@ -31,6 +44,36 @@
 
         sbcl = pkgs.sbcl.withPackages (ps:
           let
+            clCancelPinned = pkgs.sbcl.buildASDFSystem {
+              pname = "cl-cancel";
+              version = "0.1.0";
+              src = clCancelSource;
+              lispLibs = [
+                ps.atomics
+                ps.bordeaux-threads
+                ps.precise-time
+              ];
+            };
+
+            pureTlsPinned = pkgs.sbcl.buildASDFSystem {
+              pname = "pure-tls";
+              version = "1.13.0";
+              src = pureTlsSource;
+              systems = [ "pure-tls" ];
+              lispLibs = [
+                ps.alexandria
+                ps.bordeaux-threads
+                ps.cl-base64
+                clCancelPinned
+                ps.flexi-streams
+                ps.idna
+                ps.ironclad
+                ps.trivial-features
+                ps.trivial-gray-streams
+                ps.usocket
+              ];
+            };
+
             sentoPinned = pkgs.sbcl.buildASDFSystem {
               pname = "sento";
               version = "3.4.4";
@@ -48,7 +91,7 @@
                 ps.flexi-streams
                 ps.local-time-duration
                 ps.log4cl
-                ps.pure-tls
+                pureTlsPinned
                 ps.str
                 ps.timer-wheel
                 ps.usocket
