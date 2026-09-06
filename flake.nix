@@ -19,89 +19,13 @@
         lib = pkgs.lib;
 
         # The nixpkgs Common Lisp snapshot predates Sento's current remoting
-        # stack. Pin the small missing closure explicitly so CI exercises the
-        # public Sento 3.4.4 + TLS-backed remoting API reproducibly.
-        clCancelSource = pkgs.fetchFromGitHub {
-          owner = "atgreen";
-          repo = "cl-cancel";
-          rev = "bec34fb37fe713746bdeefaf542f578d174d9ffa";
-          hash = lib.fakeHash;
-        };
-
-        pureTlsSource = pkgs.fetchFromGitHub {
-          owner = "atgreen";
-          repo = "pure-tls";
-          rev = "79230b1489242e955476ff7185bb46ed043cfdea";
-          hash = "sha256-qbTAd6iHbErLP1HRAdQ+2vso4NEBB8lYLUUULlecY1w=";
-        };
-
-        sentoSource = pkgs.fetchFromGitHub {
-          owner = "mdbergmann";
-          repo = "cl-gserver";
-          rev = "013ab6370042686e65943568b0d97e33319c0f54";
-          hash = lib.fakeHash;
-        };
-
-        sbcl = pkgs.sbcl.withPackages (ps:
-          let
-            clCancelPinned = pkgs.sbcl.buildASDFSystem {
-              pname = "cl-cancel";
-              version = "0.1.0";
-              src = clCancelSource;
-              lispLibs = [
-                ps.atomics
-                ps.bordeaux-threads
-                ps.precise-time
-              ];
-            };
-
-            pureTlsPinned = pkgs.sbcl.buildASDFSystem {
-              pname = "pure-tls";
-              version = "1.13.0";
-              src = pureTlsSource;
-              systems = [ "pure-tls" ];
-              lispLibs = [
-                ps.alexandria
-                ps.bordeaux-threads
-                ps.cl-base64
-                clCancelPinned
-                ps.flexi-streams
-                ps.idna
-                ps.ironclad
-                ps.trivial-features
-                ps.trivial-gray-streams
-                ps.usocket
-              ];
-            };
-
-            sentoPinned = pkgs.sbcl.buildASDFSystem {
-              pname = "sento";
-              version = "3.4.4";
-              src = sentoSource;
-              systems = [
-                "sento"
-                "sento-remoting"
-              ];
-              lispLibs = [
-                ps.alexandria
-                ps.atomics
-                ps.binding-arrows
-                ps.bordeaux-threads
-                ps.cl-speedy-queue
-                ps.flexi-streams
-                ps.local-time-duration
-                ps.log4cl
-                pureTlsPinned
-                ps.str
-                ps.timer-wheel
-                ps.usocket
-              ];
-            };
-          in [
-            ps.fiveam
-            ps.ironclad
-            sentoPinned
-          ]);
+        # stack. Keep the pinned backend closure in one focused module.
+        sentoRemoting = import ./nix/sento-remoting.nix { inherit pkgs; };
+        sbcl = pkgs.sbcl.withPackages (ps: [
+          ps.fiveam
+          ps.ironclad
+          (sentoRemoting ps)
+        ]);
 
         starLang = pkgs.stdenvNoCC.mkDerivation {
           pname = "star-lang";
