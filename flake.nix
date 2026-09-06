@@ -32,7 +32,7 @@
           owner = "atgreen";
           repo = "pure-tls";
           rev = "79230b1489242e955476ff7185bb46ed043cfdea";
-          hash = lib.fakeHash;
+          hash = "sha256-qbTAd6iHbErLP1HRAdQ+2vso4NEBB8lYLUUULlecY1w=";
         };
 
         sentoSource = pkgs.fetchFromGitHub {
