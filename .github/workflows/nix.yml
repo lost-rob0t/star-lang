@@ -36,7 +36,7 @@ permissions:
 
 jobs:
   actor-integration:
-    name: Real Sento actor-system integration
+    name: Real Sento actor/remoting integration
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -52,12 +52,21 @@ jobs:
               --eval '(asdf:test-system :star-sento-compat-integration-tests)' \
               --eval '(sb-ext:quit)' \
             2>&1 | tee real-sento-integration.log
+      - name: Run two-process remoting smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180 nix develop --command \
+            bash ci/run-real-sento-remoting-smoke.sh
       - name: Upload integration diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: real-sento-integration-log
-          path: real-sento-integration.log
+          name: real-sento-integration-logs
+          path: |
+            real-sento-integration.log
+            real-sento-remoting-main.log
+            real-sento-remoting-worker.log
           if-no-files-found: warn
 
   flake:
