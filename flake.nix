@@ -216,7 +216,11 @@
         };
 
         checks.default = starLang;
-        hydraJobs.default = starLang;
+        hydraJobs =
+          if builtins.match ".*-linux" system != null then
+            { default = starLang; }
+          else
+            { };
 
         devShells.default = pkgs.mkShell {
           packages = [
