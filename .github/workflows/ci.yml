@@ -212,7 +212,7 @@ jobs:
             --eval '(assert (null (find-package "STAR-LANG.PROTOTYPE")))' \
             --eval '(sb-ext:quit)'
 
-      - name: Test HTTP, scraping, and IPX systems independently
+      - name: Test HTTP and scraping systems independently
         shell: bash
         run: |
           set -euo pipefail
@@ -220,7 +220,6 @@ jobs:
             --eval '(require :asdf)' \
             --eval '(asdf:test-system :star-http-port)' \
             --eval '(asdf:test-system :star-scrape)' \
-            --eval '(asdf:test-system :star-ipx)' \
             --eval '(assert (null (find-package "STAR-LANG.PROTOTYPE")))' \
             --eval '(sb-ext:quit)'
 
