@@ -10,6 +10,7 @@ star-verification
 star-adapter-sdk
 star-http-port
 star-scrape
+star-ipx
 star-process-port
 star-canonical-json
 star-logic-protocol
