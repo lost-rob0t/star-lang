@@ -216,6 +216,7 @@
         };
 
         checks.default = starLang;
+        hydraJobs.default = starLang;
 
         devShells.default = pkgs.mkShell {
           packages = [
