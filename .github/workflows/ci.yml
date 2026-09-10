@@ -11,6 +11,7 @@ on:
       - "flake.nix"
       - ".github/workflows/ci.yml"
       - "README.md"
+      - "AGENTS.md"
       - "SECURITY.md"
       - "CHANGELOG.md"
       - "CONTRIBUTING.md"
@@ -25,6 +26,7 @@ on:
       - "**/*.lisp"
       - "flake.nix"
       - ".github/workflows/ci.yml"
+      - "AGENTS.md"
   workflow_dispatch:
 
 permissions:
@@ -39,6 +41,10 @@ jobs:
       CL_SOURCE_REGISTRY: "${{ github.workspace }}//:"
     steps:
       - uses: actions/checkout@v4
+
+      - name: Enforce repository ownership and agent contracts
+        shell: bash
+        run: bash ci/check-repository-contracts.sh
 
       - name: Report prototype migration LOC
         shell: bash

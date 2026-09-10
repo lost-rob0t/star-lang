@@ -21,6 +21,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added a flake-locked real Sento actor-system integration suite covering a
+  multi-actor topology, asynchronous ask/reply, lookup/liveness, blocking
+  teardown, mapped failures, and concurrent serialized state mutation.
+- Added matching `AGENTS.md` and README execution contracts with CI consistency
+  and direct-backend-boundary guards.
+
 - Added bounded declarative format-1 macros with deterministic pattern matching,
   tail repetition, fresh introduction scopes, cycle/ambiguity detection, and
   resource limits.
@@ -48,6 +54,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added a dedicated Nix GitHub Actions workflow.
 
 ### Changed
+
+- Moved claimed concrete Sento operations behind `star-sento-compat`, made ask
+  explicitly future-based, and reduced prototype remoting code to compatibility
+  composition over the final boundary.
 
 - Replaced the macro-rejecting expansion boundary with an explicit
   read → collect locked macro environment → bounded expand → validate → compile

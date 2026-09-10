@@ -37,8 +37,14 @@
      (declare (ignore options))
      (funcall actor-of context name receive))
    :tell tell
-   :stop stop
-   :shutdown shutdown))
+   :stop
+   (lambda (context actor &key wait)
+     (declare (ignore wait))
+     (funcall stop context actor))
+   :shutdown
+   (lambda (context &key wait)
+     (declare (ignore wait))
+     (funcall shutdown context))))
 
 (defstruct (cl-gserver-runtime-job
             (:constructor make-cl-gserver-runtime-job

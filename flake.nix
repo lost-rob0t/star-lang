@@ -17,7 +17,15 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
         lib = pkgs.lib;
-        sbcl = pkgs.sbcl.withPackages (ps: [ ps.ironclad ]);
+
+        # The nixpkgs Common Lisp snapshot predates Sento's current remoting
+        # stack. Keep the pinned backend closure in one focused module.
+        sentoRemoting = import ./nix/sento-remoting.nix { inherit pkgs; };
+        sbcl = pkgs.sbcl.withPackages (ps: [
+          ps.fiveam
+          ps.ironclad
+          (sentoRemoting ps)
+        ]);
 
         starLang = pkgs.stdenvNoCC.mkDerivation {
           pname = "star-lang";
@@ -79,10 +87,16 @@
               --eval '(asdf:test-system :star-journal)' \
               --eval '(asdf:test-system :star-lease)' \
               --eval '(asdf:test-system :starlang-runtime)' \
+              --eval '(asdf:test-system :star-sento-compat)' \
               --eval '(asdf:test-system :star-http-port)' \
               --eval '(asdf:test-system :star-scrape)' \
               --eval '(assert (null (find-package "STAR-LANG.PROTOTYPE")))' \
               --eval '(asdf:test-system :starlang-prototype)' \
+              --eval '(sb-ext:quit)'
+
+            timeout 120 sbcl --non-interactive \
+              --eval '(require :asdf)' \
+              --eval '(asdf:test-system :star-sento-compat-integration-tests)' \
               --eval '(sb-ext:quit)'
 
             sbcl --script "$source_root/prototype/run-star.lisp" \
@@ -133,10 +147,16 @@
               --eval '(asdf:test-system :star-journal)' \
               --eval '(asdf:test-system :star-lease)' \
               --eval '(asdf:test-system :starlang-runtime)' \
+              --eval '(asdf:test-system :star-sento-compat)' \
               --eval '(asdf:test-system :star-http-port)' \
               --eval '(asdf:test-system :star-scrape)' \
               --eval '(assert (null (find-package "STAR-LANG.PROTOTYPE")))' \
               --eval '(asdf:test-system :starlang-prototype)' \
+              --eval '(sb-ext:quit)'
+
+            ${pkgs.coreutils}/bin/timeout 120 ${sbcl}/bin/sbcl --non-interactive \
+              --eval '(require :asdf)' \
+              --eval '(asdf:test-system :star-sento-compat-integration-tests)' \
               --eval '(sb-ext:quit)'
             EOF
 

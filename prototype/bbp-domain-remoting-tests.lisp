@@ -422,18 +422,19 @@
             while line
             do (write-line line output)))))
 
-(defun test-sento-remoting-adapter-contract ()
+(defun test-final-sento-remoting-boundary-contract ()
   (let ((source
           (file-string
            (merge-pathnames "sento-remoting-domain-adapter.lisp"
                             *bbp-test-directory*))))
-    (dolist (needle '("rem:enable-remoting"
-                      "rem:make-remote-ref"
-                      "ac:actor-of"
-                      "act:tell"))
+    (dolist (needle '("starsentocompat:sento-enable-remoting"
+                      "starsentocompat:sento-make-remote-ref"
+                      "starsentocompat:sento-actor-of"
+                      "starsentocompat:sento-tell"))
       (bbp-test-assert-true
        (search needle source)
-       (format nil "Sento adapter contains ~A" needle)))))
+       (format nil "transitional remoting wrapper delegates through ~A"
+               needle)))))
 
 (defun run-bbp-domain-remoting-tests ()
   (test-bbp-domain-compilation)
@@ -441,7 +442,7 @@
   (test-bbp-remoting-round-trip)
   (test-bbp-out-of-scope-is-terminal)
   (test-bbp-no-node-retries)
-  (test-sento-remoting-adapter-contract)
+  (test-final-sento-remoting-boundary-contract)
   (format t "Star-Lang BBP domain remoting tests passed.~%")
   t)
 

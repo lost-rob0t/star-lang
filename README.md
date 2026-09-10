@@ -9,6 +9,24 @@ released runtime systems from this repository.
 
 [research]: https://github.com/lost-rob0t/starintel-auto-research
 
+## Coding-agent contract
+
+BEGIN STARLANG AGENT INSTRUCTIONS
+- `main` is canonical; every change is reviewed through a pull request.
+- Common Lisp is the sole runtime and compiler implementation language.
+- The StarLang research/design repository is semantic design authority.
+- Executable ASDF, Nix, CI, and runtime state outranks stale status prose.
+- Add no new authoritative behavior under `prototype/`.
+- Migration means move, delegate, or delete behavior; never duplicate it.
+- Use test-driven development and run focused, surrounding, and full gates.
+- Actor-semantic tests must execute the real runtime boundary they claim to verify.
+- Mocks may replace external-effect ports, never actor semantics evidence.
+- Keep the final-system dependency graph acyclic.
+- Commit no secrets, credentials, private datasets, or private evidence.
+- Complete the applicable ASDF, CI, and `nix flake check -L` gates before declaring completion.
+- Update ownership and migration documentation whenever executable ownership moves.
+END STARLANG AGENT INSTRUCTIONS
+
 ## Research conformance
 
 The implementation is being hardened against the approved Star-Lang research
@@ -105,9 +123,10 @@ boundaries but do not implement StarLang.
 
 ## Transitional architecture
 
-`prototype/` is the authoritative working implementation. The
-`starlang-prototype` ASDF system owns that implementation while final `star-*`
-and `starlang-*` systems are extracted incrementally.
+`prototype/` is migration debt, not a license for new runtime development. The
+installed CLI and broad compatibility suite still compose through
+`starlang-prototype`, while final `star-*` and `starlang-*` systems own the
+semantics already extracted from it.
 
 The target systems must not duplicate or shadow prototype source files. A file
 moves only when its package ownership and dependencies can be represented by an
@@ -135,6 +154,22 @@ dependency errors cannot hide behind the prototype system.
 Mailbox, supervision, capability, artifact, HTTP, process, and XLSX ownership is
 filled as those APIs are extracted. Their target systems are load-checked now;
 that does not make placeholder packages authoritative over `prototype/`.
+
+### Current actor-runtime migration state
+
+- `star-actor-protocol`, `star-mailbox`, and `starlang-runtime` own the final
+  deterministic actor contract and execution path.
+- `star-sento-compat` owns concrete local Sento construction, spawn, tell,
+  asynchronous ask/reply translation, lookup, liveness, stop, and shutdown.
+- Real Sento integration tests hard-load the backend only in the test system;
+  the production compatibility system keeps a soft backend dependency.
+- Prototype domain-remoting code is a transitional composition wrapper over
+  final compatibility entry points. It no longer owns direct backend calls.
+- `starlang-prototype` remains in the product load graph, and
+  `prototype/run-star.lisp` remains the installed CLI. The overall prototype
+  migration is therefore not complete.
+- Split-phase nested actor ask, final supervision policy, and later durable
+  distributed-runtime extraction remain separate follow-up work.
 
 ## Validation
 
@@ -207,9 +242,9 @@ flake.nix                Package, apps, checks, and development shell
 
 ## Status
 
-The real StarLang implementation remains in `prototype/`. The transitional
-`starlang-prototype` system is authoritative until source ownership is moved
-into final systems without duplication, circular dependencies, or lost test
-coverage. SBCL CI and `nix flake check -L` enforce the same ASDF load and test
-contract. Research 000–009 compliance remains an active hardening gate tracked
-in the implementation ledger.
+`prototype/` remains in the product and CLI composition paths, but ownership is
+component-specific. Final systems are authoritative for the actor protocol,
+mailbox, deterministic runtime, and concrete Sento adapter described above;
+remaining prototype components stay migration debt until moved without
+duplication, dependency cycles, or lost coverage. Research 000–009 compliance
+remains an active hardening gate tracked in the implementation ledger.

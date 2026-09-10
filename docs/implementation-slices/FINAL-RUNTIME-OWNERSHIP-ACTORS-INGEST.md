@@ -2,7 +2,12 @@
 
 ## Problem
 
-`prototype/` is still the authoritative StarLang implementation even though the repository already exposes final `star-*` and `starlang-*` ASDF systems. In particular, `starlang-runtime` currently contains only a package placeholder while actor compilation, actor runtime behavior, service URI dispatch, runtime-directory logic, and domain-server behavior remain owned by `starlang-prototype`.
+This document began as the extraction plan for a repository whose final runtime
+was only a package placeholder. That statement is no longer current:
+`star-actor-protocol`, `star-mailbox`, and `starlang-runtime` now own the
+deterministic local actor path, and `star-sento-compat` owns the claimed
+concrete Sento operations. Runtime-directory, wire dispatch, ingest-server, and
+CLI composition still depend on `prototype/` and remain migration debt.
 
 This slice exists to make that transitional state end for the runtime path. The target is not a second implementation layered beside `prototype/`; source ownership must move into final systems and the prototype system must become a compatibility/test shell over those final systems until it can be deleted.
 
