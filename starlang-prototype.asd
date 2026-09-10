@@ -8,6 +8,7 @@
                "star-journal"
                "star-lease"
                "star-sento-compat"
+               "starlang-compiler"
                "starlang-runtime"
                "ironclad")
   :serial t
@@ -51,7 +52,6 @@
      (:file "prototype")
      ;; Loader / document / constructor / api chain
      (:file "star-loader")
-     (:file "resolver-effect-ports-prototype")
      (:file "resolver-shell-effects-prototype")
      (:file "resolver-ironclad-digest-prototype")
      (:file "document-runtime")

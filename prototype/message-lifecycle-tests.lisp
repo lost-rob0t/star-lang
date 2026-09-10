@@ -1,3 +1,6 @@
+(require :asdf)
+(asdf:load-system :starlang-compiler)
+
 (load (merge-pathnames "core-surface-prototype.lisp" *load-truename*))
 (load (merge-pathnames "actor-wire-prototype.lisp" *load-truename*))
 (load (merge-pathnames "core-semantics-prototype.lisp" *load-truename*))
