@@ -1,0 +1,46 @@
+name: StarLang artifact writer
+
+on:
+  pull_request:
+    paths:
+      - "star-artifact/**"
+      - "star-canonical-json/**"
+      - "starlang-runtime/**"
+      - ".github/workflows/artifact.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "star-artifact/**"
+      - "star-canonical-json/**"
+      - "starlang-runtime/**"
+      - ".github/workflows/artifact.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: JSON file writer actor
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CL_SOURCE_REGISTRY: "${{ github.workspace }}//:"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install SBCL and FiveAM
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes sbcl cl-fiveam
+
+      - name: Run artifact actor tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          sbcl --non-interactive \
+            --eval '(require :asdf)' \
+            --eval '(asdf:test-system :star-artifact)' \
+            --eval '(assert (null (find-package "STAR-LANG.PROTOTYPE")))' \
+            --eval '(sb-ext:quit)'
