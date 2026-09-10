@@ -97,7 +97,6 @@
               --eval '(asdf:test-system :star-sento-compat)' \
               --eval '(asdf:test-system :star-http-port)' \
               --eval '(asdf:test-system :star-scrape)' \
-              --eval '(asdf:test-system :star-ipx)' \
               --eval '(asdf:test-system :star-process-port)' \
               --eval '(asdf:test-system :star-logic-protocol)' \
               --eval '(asdf:test-system :star-logic-ir)' \
@@ -166,7 +165,6 @@
               --eval '(asdf:test-system :star-sento-compat)' \
               --eval '(asdf:test-system :star-http-port)' \
               --eval '(asdf:test-system :star-scrape)' \
-              --eval '(asdf:test-system :star-ipx)' \
               --eval '(asdf:test-system :star-process-port)' \
               --eval '(asdf:test-system :star-logic-protocol)' \
               --eval '(asdf:test-system :star-logic-ir)' \
