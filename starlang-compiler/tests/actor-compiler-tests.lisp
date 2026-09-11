@@ -20,7 +20,7 @@
   '(:kind :actor
     :name "enrichment-worker"
     :runtime :native
-    :service-uri "star://starintel:localhost:enrichment-worker"
+    :service-uri "star://starlang.starintel.actor/actor/enrichment-worker"
     :accepts ("org.starintel/person@1")
     :produces ("org.starintel/person@1")
     :restart :permanent
@@ -59,18 +59,75 @@
   (is (data-only-p (starlangcompiler:compile-actor-file (actor-fixture)))))
 
 (test actor-service-uri-is-canonical
-  "star://domain:address:actor-name survives lowering unchanged."
+  "Canonical RFC actor URIs (STAR-SERVER-041) survive lowering unchanged."
   (let ((ir (starlangcompiler:compile-actor-file (actor-fixture))))
-    (is (string= "star://starintel:localhost:enrichment-worker"
+    (is (string= "star://starlang.starintel.actor/actor/enrichment-worker"
+                 (getf ir :service-uri)))))
+
+(test actor-service-uri-canonicalizes-noncanonical-input
+  "A canonicalizable RFC actor URI normalizes to canonical form in the IR."
+  (let ((ir (starlangcompiler:compile-actor-source
+             "(actor enrichment-worker
+                (:runtime native
+                 :service-uri \"STAR://StarLang.StarIntel.Actor/actor/enrichment-worker\"
+                 :accepts (org.starintel/person@1)
+                 :produces (org.starintel/person@1)
+                 :handler enrichment-worker-handler
+                 :restart permanent
+                 :mailbox (bounded 128)))")))
+    (is (string= "star://starlang.starintel.actor/actor/enrichment-worker"
+                 (getf ir :service-uri)))))
+
+(test multi-segment-canonical-actor-path-compiles
+  "One- and multi-segment /actor/ resource paths are both valid without
+assigning fixed domain semantics to the leading segments."
+  (let ((ir (starlangcompiler:compile-actor-source
+             "(actor enrichment-worker
+                (:runtime native
+                 :service-uri \"star://starlang.starintel.actor/actor/quasar/enrichment-worker\"
+                 :accepts (org.starintel/person@1)
+                 :produces (org.starintel/person@1)
+                 :handler enrichment-worker-handler
+                 :restart permanent
+                 :mailbox (bounded 128)))")))
+    (is (string= "star://starlang.starintel.actor/actor/quasar/enrichment-worker"
                  (getf ir :service-uri)))))
 
 (test actor-service-uri-mismatch-is-rejected
-  "A service URI naming a different actor is rejected deterministically."
+  "A service URI whose terminal actor path segment names a different actor
+is rejected deterministically."
   (signals star-lang.compiler.core:invalid-star-service-uri-error
     (starlangcompiler:compile-actor-source
      "(actor enrichment-worker
         (:runtime native
-         :service-uri \"star://starintel:localhost:other-worker\"
+         :service-uri \"star://starlang.starintel.actor/actor/other-worker\"
+         :accepts (org.starintel/person@1)
+         :produces (org.starintel/person@1)
+         :handler enrichment-worker-handler
+         :restart permanent
+         :mailbox (bounded 128)))")))
+
+(test legacy-tuple-service-uri-is-rejected
+  "The legacy star://domain:address:actor-name tuple is compatibility
+input only; the final compiler does not accept it as canonical identity."
+  (signals star-lang.compiler.core:invalid-star-service-uri-error
+    (starlangcompiler:compile-actor-source
+     "(actor enrichment-worker
+        (:runtime native
+         :service-uri \"star://starintel:localhost:enrichment-worker\"
+         :accepts (org.starintel/person@1)
+         :produces (org.starintel/person@1)
+         :handler enrichment-worker-handler
+         :restart permanent
+         :mailbox (bounded 128)))")))
+
+(test non-actor-resource-kind-service-uri-is-rejected
+  "Service URIs that do not address an actor resource are rejected."
+  (signals star-lang.compiler.core:invalid-star-service-uri-error
+    (starlangcompiler:compile-actor-source
+     "(actor enrichment-worker
+        (:runtime native
+         :service-uri \"star://starlang.starintel.actor/service/enrichment-worker\"
          :accepts (org.starintel/person@1)
          :produces (org.starintel/person@1)
          :handler enrichment-worker-handler
@@ -112,27 +169,27 @@
 (test external-actor-compiles-through-the-closed-parser
   "An external actor keeps protocol and endpoint data."
   (let ((ir (starlangcompiler:compile-actor-source
-             "(actor fec-importer
-                (:runtime external
-                 :service-uri \"star://fec:localhost:fec-importer\"
-                 :protocol star-message-v1
-                 :endpoint \"rabbitmq:star.fec.ingest\"
-                 :accepts (ingest-page)
-                 :produces (candidate committee filing)
-                 :restart permanent
-                 :mailbox (bounded 1024)))")))
+              "(actor fec-importer
+                 (:runtime external
+                  :service-uri \"star://fec.starintel.actor/actor/fec-importer\"
+                  :protocol star-message-v1
+                  :endpoint \"rabbitmq:star.fec.ingest\"
+                  :accepts (ingest-page)
+                  :produces (candidate committee filing)
+                  :restart permanent
+                  :mailbox (bounded 1024)))")))
     (is (equal '(:kind :actor
-                 :name "fec-importer"
-                 :runtime :external
-                 :service-uri "star://fec:localhost:fec-importer"
-                 :accepts ("ingest-page")
-                 :produces ("candidate" "committee" "filing")
-                 :restart :permanent
-                 :mailbox (:kind :bounded :capacity 1024)
-                 :capabilities ()
-                 :protocol "star-message-v1"
-                 :endpoint "rabbitmq:star.fec.ingest")
-              ir))))
+                  :name "fec-importer"
+                  :runtime :external
+                  :service-uri "star://fec.starintel.actor/actor/fec-importer"
+                  :accepts ("ingest-page")
+                  :produces ("candidate" "committee" "filing")
+                  :restart :permanent
+                  :mailbox (:kind :bounded :capacity 1024)
+                  :capabilities ()
+                  :protocol "star-message-v1"
+                  :endpoint "rabbitmq:star.fec.ingest")
+               ir))))
 
 (test actor-metadata-round-trips-through-the-portable-manifest
   "Portable actor manifests carry service URI and metadata in camelCase JSON."
@@ -141,13 +198,15 @@
                     (minimal-test-library) (list ir)))
          (portable (first (getf manifest :actors)))
          (json (starcanonicaljson:canonical-manifest-json manifest)))
-    (is (string= "star://starintel:localhost:enrichment-worker"
+    (is (string= "star://starlang.starintel.actor/actor/enrichment-worker"
                  (getf portable :service-uri)))
     (is (equal '(("domain" . "starintel") ("team" . "enrichment"))
                (getf portable :metadata)))
-    (is (search "\"serviceUri\":\"star://starintel:localhost:enrichment-worker\"" json))
+    (is (search "\"serviceUri\":\"star://starlang.starintel.actor/actor/enrichment-worker\"" json))
     (is (search "\"metadata\":{\"domain\":\"starintel\",\"team\":\"enrichment\"}" json))
-    (is (null (search "service_uri" json)))))
+    (is (null (search "service_uri" json)))
+    (is (null (search "star://starintel:localhost" json))
+        "Portable manifests never emit the legacy tuple form.")))
 
 (test actor-compiler-path-does-not-load-prototype
   "The final actor compiler stays prototype-independent in-process."

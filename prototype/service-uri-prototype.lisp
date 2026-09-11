@@ -22,7 +22,9 @@
           star-service-uri-string
           star-service-uri-target-p
           ensure-star-service-uri
-          canonical-star-service-uri-for-actor))
+          canonical-star-service-uri-for-actor
+          legacy-star-actor-uri-p
+          migrate-legacy-star-uri))
 
 ;; The source-aware compiler condition invalid-star-service-uri-error is
 ;; final-owned by starlang-compiler and re-exported by
@@ -83,3 +85,15 @@
   (call-with-star-service-uri-compatibility
    (lambda ()
      (staractorprotocol:canonical-star-service-uri-for-actor actor-name value))))
+
+;; Legacy tuple migration is explicit compatibility input: the caller always
+;; supplies the canonical target (STAR-SERVER-041 / STAR-LANG-004).  The
+;; result normalizes immediately into the canonical RFC representation.
+(defun legacy-star-actor-uri-p (value)
+  (staractorprotocol:legacy-star-actor-uri-p value))
+
+(defun migrate-legacy-star-uri (legacy &key to map)
+  (handler-case
+      (staractorprotocol:migrate-legacy-star-uri legacy :to to :map map)
+    (staractorprotocol:invalid-star-uri (condition)
+      (fail 'invalid-star-service-uri-error "~A" condition))))

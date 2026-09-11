@@ -1,7 +1,7 @@
 (defpackage :staractorprotocol-wire-tests
   (:use :cl)
   (:import-from :staractorprotocol
-                #:invalid-star-service-uri-error
+                #:invalid-star-uri
                 #:invalid-wire-envelope-error
                 #:make-wire-envelope
                 #:validate-wire-envelope
@@ -34,13 +34,13 @@
           :fields
           (list (list :name "target" :type "string" :required t)
                 (list :name "limit" :type "integer" :required nil))))
-   :actors
-   (list
-    (list :name "worker"
-          :service-uri "star://test:localhost:worker"
-          :runtime :external
-          :accepts '("org.starintel/test@1/run")
-          :produces '()))))
+:actors
+    (list
+     (list :name "worker"
+           :service-uri "star://starlang.starintel.actor/actor/worker"
+           :runtime :external
+           :accepts '("org.starintel/test@1/run")
+           :produces '()))))
 
 (defun test-wire-envelope-construction-and-required-fields ()
   (let* ((manifest (portable-manifest-fixture))
@@ -87,9 +87,9 @@
          (by-name (portable-manifest-actor-contract manifest "worker"))
          (by-uri
            (portable-manifest-actor-contract
-            manifest "star://test:localhost:worker")))
+            manifest "star://starlang.starintel.actor/actor/worker")))
     (check (equal by-name by-uri)
-           "Actor name and exact STAR URI did not resolve the same contract.")
+           "Actor name and exact canonical STAR URI did not resolve the same contract.")
     (check
      (portable-actor-accepts-message-p
       by-uri "org.starintel/test@1/run")
@@ -102,14 +102,21 @@
     (check
      (null
       (portable-manifest-actor-contract
-       manifest "star://test:localhost:other"))
-     "Exact STAR URI lookup matched a different actor.")
+       manifest "star://starlang.starintel.actor/actor/other"))
+     "Exact canonical STAR URI lookup matched a different actor.")
     (check
      (signals-p
-      'invalid-star-service-uri-error
+      'invalid-star-uri
       (lambda ()
         (portable-manifest-actor-contract manifest "star://bad")))
-     "Malformed STAR actor target was not typed by the protocol boundary.")))
+     "Malformed canonical STAR actor target was not typed by the protocol boundary.")
+    (check
+     (signals-p
+      'invalid-star-uri
+      (lambda ()
+        (portable-manifest-actor-contract
+         manifest "star://test:localhost:worker")))
+     "Legacy tuple target is not accepted as canonical manifest dispatch.")))
 
 (defun test-wire-validation-failures-are-typed ()
   (let* ((manifest (portable-manifest-fixture))

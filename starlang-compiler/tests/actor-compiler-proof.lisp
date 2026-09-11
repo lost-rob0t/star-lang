@@ -40,7 +40,7 @@
   '(:kind :actor
     :name "enrichment-worker"
     :runtime :native
-    :service-uri "star://starintel:localhost:enrichment-worker"
+    :service-uri "star://starlang.starintel.actor/actor/enrichment-worker"
     :accepts ("org.starintel/person@1")
     :produces ("org.starintel/person@1")
     :restart :permanent
@@ -65,24 +65,43 @@
                 "compilation must be deterministic")
   (proof-assert (proof-data-only-p first)
                 "actor IR must be data-only and runtime-neutral")
-  ;; The service URI stays canonical under the final protocol authority.
-  (proof-assert (string= "star://starintel:localhost:enrichment-worker"
+  ;; The service URI stays canonical under the final protocol authority:
+  ;; STAR-SERVER-041 RFC 3986 actor identity, never the legacy tuple.
+  (proof-assert (string= "star://starlang.starintel.actor/actor/enrichment-worker"
                          (getf first :service-uri))
                 "service URI must be canonical"))
 
-;; Actor name / service-name mismatch is rejected deterministically.
+;; Actor name / actor-URI terminal segment mismatch is rejected deterministically.
 (handler-case
     (progn
       (starlangcompiler:compile-actor-source
        "(actor enrichment-worker
           (:runtime native
-           :service-uri \"star://starintel:localhost:other-worker\"
+           :service-uri \"star://starlang.starintel.actor/actor/other-worker\"
            :accepts (org.starintel/person@1)
            :produces (org.starintel/person@1)
            :handler enrichment-worker-handler
            :restart permanent
            :mailbox (bounded 128)))")
       (proof-fail "proof failed: mismatched service URI was accepted"))
+  (star-lang.compiler.core:invalid-star-service-uri-error ()
+    ;; expected deterministic rejection
+    ))
+
+;; The legacy star://domain:address:actor-name tuple is compatibility input
+;; only; the final compiler rejects it as canonical actor identity.
+(handler-case
+    (progn
+      (starlangcompiler:compile-actor-source
+       "(actor enrichment-worker
+          (:runtime native
+           :service-uri \"star://starintel:localhost:enrichment-worker\"
+           :accepts (org.starintel/person@1)
+           :produces (org.starintel/person@1)
+           :handler enrichment-worker-handler
+           :restart permanent
+           :mailbox (bounded 128)))")
+      (proof-fail "proof failed: legacy tuple service URI was accepted"))
   (star-lang.compiler.core:invalid-star-service-uri-error ()
     ;; expected deterministic rejection
     ))

@@ -31,7 +31,7 @@
    (list
     (list :name "worker"
           :runtime :external
-          :service-uri "star://test:localhost:worker"
+          :service-uri "star://starlang.starintel.actor/actor/worker"
           :accepts '("test/run@1")
           :produces '()
           :capabilities '()))))

@@ -45,7 +45,7 @@
                    runtime
                    "json-file-writer"
                    root
-                   :service-uri "star://artifact:localhost:json-file-writer"
+                   :service-uri "star://artifact.starintel.actor/actor/json-file-writer"
                    :metadata '(:purpose :test)))
                 (write
                   (make-json-file-write

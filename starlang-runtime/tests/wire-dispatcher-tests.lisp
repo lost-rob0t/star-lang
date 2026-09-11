@@ -49,13 +49,13 @@
           :name "test/result@1"
           :fields
           (list (list :name "value" :type "string" :required t))))
-   :actors
-   (list
-    (list :name "worker"
-          :service-uri "star://test:localhost:worker"
-          :runtime :external
-          :accepts '("test/run@1")
-          :produces '("test/result@1")))))
+:actors
+    (list
+     (list :name "worker"
+           :service-uri "star://starlang.starintel.actor/actor/worker"
+           :runtime :external
+           :accepts '("test/run@1")
+           :produces '("test/result@1")))))
 
 (defun dispatcher-command
     (&key
@@ -248,7 +248,25 @@
       (check
        (signals-p 'wire-dispatcher-invalid-actor-error
                   (lambda () (run-dispatcher-next dispatcher)))
-       "Unknown command route was accepted."))))
+       "Unknown command route was accepted."))
+    (let ((command
+            (dispatcher-command
+             :actor "star://starlang.starintel.actor/actor/worker"
+             :message-id "canonical-uri-1"
+             :idempotency-key "canonical-uri-key")))
+      (submit-dispatch-envelope dispatcher command)
+      (check (eq :completed (run-dispatcher-next dispatcher))
+             "Canonical manifest actor URI route was rejected."))
+    (let ((command
+            (dispatcher-command
+             :actor "star://test:localhost:worker"
+             :message-id "legacy-tuple-1"
+             :idempotency-key "legacy-tuple-key")))
+      (submit-dispatch-envelope dispatcher command)
+      (check
+       (signals-p 'wire-dispatcher-invalid-actor-error
+                  (lambda () (run-dispatcher-next dispatcher)))
+       "Legacy tuple actor route was accepted."))))
 
 (defun test_final_dispatcher_is_prototype_independent ()
   (check

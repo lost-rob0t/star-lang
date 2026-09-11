@@ -146,12 +146,12 @@
             "page-scraper"
             client
             adapter
-            :service-uri "star://scrape:localhost:page-scraper"
+            :service-uri "star://scrape.starintel.actor/actor/page-scraper"
             :metadata '(:purpose :fixture)))
          (result
            (invoke-actor
             runtime
-            "star://scrape:localhost:page-scraper"
+            "star://scrape.starintel.actor/actor/page-scraper"
             (make-fixture-plan))))
     (check (eq actor (resolve-actor runtime "page-scraper"))
            "Scraper actor was not registered by name.")

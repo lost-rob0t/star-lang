@@ -33,7 +33,7 @@
   (compile-actor
    '(actor user-hunt
      (:runtime external
-      :service-uri "star://quasar:localhost:user-hunt"
+      :service-uri "star://quasar.starintel.actor/actor/user-hunt"
       :protocol star-message-v1
       :endpoint "fake:user-hunt"
       :accepts (ingest-page)
@@ -49,23 +49,40 @@
     (emit-portable-manifest library (list actor))))
 
 (defun test-service-uri-round-trip ()
+  ;; Legacy tuple parsing is bounded compatibility input and round-trips
+  ;; through the explicit compatibility API unchanged (STAR-LANG-004).
   (dolist (value '("star://quasar:localhost:user-hunt"
                    "star://bbp:localhost:nmap"))
     (let ((uri (parse-star-service-uri value)))
       (service-uri-assert-equal value
                                 (star-service-uri-string uri)
-                                "STAR service URI canonical round trip")))
+                                "legacy STAR service URI round trip")))
   (let ((uri (parse-star-service-uri
               "star://quasar:localhost:user-hunt")))
     (service-uri-assert-equal "quasar"
                               (star-service-uri-domain uri)
-                              "service domain")
+                              "legacy service domain")
     (service-uri-assert-equal "localhost"
                               (star-service-uri-address uri)
-                              "service address")
+                              "legacy service address")
     (service-uri-assert-equal "user-hunt"
                               (star-service-uri-actor-name uri)
-                              "service actor name")))
+                              "legacy service actor name"))
+  (service-uri-assert-true
+   (legacy-star-actor-uri-p "star://quasar:localhost:user-hunt")
+   "legacy tuple recognized as compatibility input")
+  (service-uri-assert-true
+   (service-uri-condition-signaled-p
+    'invalid-star-service-uri-error
+    (lambda ()
+      (migrate-legacy-star-uri "star://quasar:localhost:user-hunt")))
+   "legacy migration requires an explicit canonical target")
+  (service-uri-assert-equal
+   "star://quasar.starintel.actor/actor/user-hunt"
+   (migrate-legacy-star-uri
+    "star://quasar:localhost:user-hunt"
+    :to "star://quasar.starintel.actor/actor/user-hunt")
+   "legacy migration normalizes immediately into the canonical representation"))
 
 (defun test-service-uri-invalid-input ()
   (dolist (value '("http://quasar:localhost:user-hunt"
@@ -86,13 +103,13 @@
          (manifest (emit-portable-manifest library (list actor)))
          (portable (first (getf manifest :actors))))
     (service-uri-assert-equal
-     "star://quasar:localhost:user-hunt"
+     "star://quasar.starintel.actor/actor/user-hunt"
      (getf actor :service-uri)
-     "compiled actor service URI")
+     "compiled actor service URI is canonical RFC identity")
     (service-uri-assert-equal
-     "star://quasar:localhost:user-hunt"
+     "star://quasar.starintel.actor/actor/user-hunt"
      (getf portable :service-uri)
-     "portable actor service URI")
+     "portable actor service URI is canonical RFC identity")
     (service-uri-assert-equal
      '("username-search" "social-account-discovery")
      (getf portable :capabilities)
@@ -104,7 +121,7 @@
         (compile-actor
          '(actor user-hunt
            (:runtime external
-            :service-uri "star://quasar:localhost:nmap"
+            :service-uri "star://quasar.starintel.actor/actor/nmap"
             :protocol star-message-v1
             :endpoint "fake:user-hunt"
             :accepts (ingest-page)
@@ -112,7 +129,23 @@
             :restart permanent
             :mailbox (bounded 128)))
          library)))
-     "manifest actor/service mismatch rejected")))
+     "manifest actor/service mismatch rejected")
+    (service-uri-assert-true
+     (service-uri-condition-signaled-p
+      'invalid-star-service-uri-error
+      (lambda ()
+        (compile-actor
+         '(actor user-hunt
+           (:runtime external
+            :service-uri "star://quasar:localhost:user-hunt"
+            :protocol star-message-v1
+            :endpoint "fake:user-hunt"
+            :accepts (ingest-page)
+            :produces (index-fec-record)
+            :restart permanent
+            :mailbox (bounded 128)))
+         library)))
+     "legacy tuple URI rejected as canonical actor identity")))
 
 (defun live-service-directory ()
   (make-runtime-directory-port
@@ -121,17 +154,19 @@
      (declare (ignore context))
      (list
       (list :name "user-hunt"
-            :service-uri "star://quasar:localhost:user-hunt"
-            :domain "quasar"
-            :address "localhost"
+            :service-uri "star://quasar.starintel.actor/actor/user-hunt"
+            :authority "quasar.starintel.actor"
+            :resource-kind "actor"
+            :resource-path '("user-hunt")
             :runtime :cl-gserver
             :alive t
             :capabilities '("username-search" "social-account-discovery")
             :ref :user-hunt-ref)
       (list :name "nmap"
-            :service-uri "star://bbp:localhost:nmap"
-            :domain "bbp"
-            :address "localhost"
+            :service-uri "star://bbpd.starintel.actor/actor/nmap"
+            :authority "bbpd.starintel.actor"
+            :resource-kind "actor"
+            :resource-path '("nmap")
             :runtime :cl-gserver
             :alive nil
             :capabilities '("port-scan")
@@ -141,7 +176,7 @@
   (let* ((directory (live-service-directory))
          (entry
            (resolve-star-service-uri
-            directory nil "star://quasar:localhost:user-hunt")))
+            directory nil "star://quasar.starintel.actor/actor/user-hunt")))
     (service-uri-assert-equal "user-hunt" (getf entry :name)
                               "runtime directory resolves actor name")
     (service-uri-assert-equal :user-hunt-ref (getf entry :ref)
@@ -151,21 +186,21 @@
       'star-service-unavailable-error
       (lambda ()
         (resolve-star-service-uri
-         directory nil "star://bbp:localhost:nmap")))
-     "stopped STAR service distinguished from missing")
+         directory nil "star://bbpd.starintel.actor/actor/nmap")))
+      "stopped STAR service distinguished from missing")
     (service-uri-assert-true
      (service-uri-condition-signaled-p
       'star-service-not-found-error
       (lambda ()
         (resolve-star-service-uri
-         directory nil "star://quasar:localhost:missing")))
-     "missing STAR service rejected")))
+         directory nil "star://quasar.starintel.actor/actor/missing")))
+      "missing STAR service rejected")))
 
 (defun service-uri-test-command ()
   (make-command-envelope
    :message-id "service-uri-command-0001"
    :message-type "org.starintel/fec@1/ingest-page"
-   :actor "star://quasar:localhost:user-hunt"
+   :actor "star://quasar.starintel.actor/actor/user-hunt"
    :sender "service-uri-test"
    :idempotency-key "service-uri:test:0001"
    :dataset "fec-2026"
@@ -184,7 +219,7 @@
      (lambda (runtime envelope)
        (declare (ignore runtime))
        (service-uri-assert-equal
-        "star://quasar:localhost:user-hunt"
+        "star://quasar.starintel.actor/actor/user-hunt"
         (getf envelope :actor)
         "handler receives logical STAR target")
        (complete-dispatch)))
@@ -194,7 +229,7 @@
                               "STAR URI command completes")
     (service-uri-assert-equal
      1
-     (gethash "star://quasar:localhost:user-hunt"
+     (gethash "star://quasar.starintel.actor/actor/user-hunt"
               (deterministic-dispatcher-handler-count dispatcher))
      "STAR URI handler invocation counted")
     (let ((outcomes (drain-dispatcher-emitted dispatcher)))
@@ -202,7 +237,7 @@
                                 (mapcar (lambda (entry) (getf entry :kind)) outcomes)
                                 "STAR URI dispatch emits accepted/completed")
       (service-uri-assert-equal
-       "star://quasar:localhost:user-hunt"
+       "star://quasar.starintel.actor/actor/user-hunt"
        (getf (first outcomes) :sender)
        "acknowledgement preserves logical STAR sender"))))
 

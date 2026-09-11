@@ -1,6 +1,6 @@
 (actor enrichment-worker
   (:runtime native
-   :service-uri "star://starintel:localhost:enrichment-worker"
+   :service-uri "star://starlang.starintel.actor/actor/enrichment-worker"
    :accepts (org.starintel/person@1)
    :produces (org.starintel/person@1)
    :handler enrichment-worker-handler

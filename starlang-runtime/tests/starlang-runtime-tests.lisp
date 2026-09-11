@@ -249,37 +249,47 @@
              (lambda (message state actor-runtime)
                (declare (ignore state actor-runtime))
                message))))
-      (check (eq counter (resolve-actor runtime "counter"))
-             "Actor name did not resolve.")
+(check (eq counter (resolve-actor runtime "counter"))
+              "Actor name did not resolve.")
       (check (eq counter
-                 (resolve-actor runtime "star://local:localhost:counter"))
-             "Canonical local STAR URI did not resolve."))
+                  (resolve-actor runtime "star://local/actor/counter"))
+              "Canonical local STAR URI did not resolve."))
     (let ((user-hunt
-            (create-external-actor
-             runtime "user-hunt" "star://quasar:localhost:user-hunt"))
-          (nmap
-            (create-external-actor
-             runtime "nmap" "star://bbp:localhost:nmap")))
+             (create-external-actor
+              runtime "user-hunt" "star://quasar.starintel.actor/actor/user-hunt"))
+           (nmap
+             (create-external-actor
+              runtime "nmap" "star://bbpd.starintel.actor/actor/nmap")))
       (check (eq user-hunt
-                 (resolve-actor runtime "star://quasar:localhost:user-hunt"))
-             "Quasar user-hunt service URI did not resolve.")
+                  (resolve-actor runtime
+                                 "star://quasar.starintel.actor/actor/user-hunt"))
+              "Quasar user-hunt service URI did not resolve.")
       (check (eq nmap
-                 (resolve-actor runtime "star://bbp:localhost:nmap"))
-             "BBP nmap service URI did not resolve independently.")
+                  (resolve-actor runtime
+                                 "star://bbpd.starintel.actor/actor/nmap"))
+              "BBPD nmap service URI did not resolve independently.")
       (check (signals-p 'actor-external-dispatch-required-error
                         (lambda ()
                           (ask runtime
-                               "star://quasar:localhost:user-hunt"
+                               "star://quasar.starintel.actor/actor/user-hunt"
                                :fixture)))
-             "External actor ASK bypassed the transport boundary."))
+              "External actor ASK bypassed the transport boundary."))
     (check
-     (signals-p
-      'actor-definition-error
-      (lambda ()
-        (make-external-actor-definition
-         "other-name"
-         "star://quasar:localhost:user-hunt")))
-     "Actor name/service URI mismatch was not rejected.")
+      (signals-p
+       'actor-definition-error
+       (lambda ()
+         (make-external-actor-definition
+          "other-name"
+          "star://quasar.starintel.actor/actor/user-hunt")))
+      "Actor name/service URI mismatch was not rejected.")
+    (check
+      (signals-p
+       'actor-definition-error
+       (lambda ()
+         (make-external-actor-definition
+          "user-hunt"
+          "star://quasar:localhost:user-hunt")))
+      "Legacy tuple service URI was accepted as canonical runtime identity.")
     (check
      (signals-p
       'actor-already-registered-error
@@ -291,7 +301,7 @@
            (declare (ignore state actor-runtime))
            message))))
      "Duplicate actor registration was not rejected.")
-    (unregister-actor runtime "star://bbp:localhost:nmap")
+    (unregister-actor runtime "star://bbpd.starintel.actor/actor/nmap")
     (check (= 2 (runtime-actor-count runtime))
            "Actor unregister did not remove both name and URI indexes.")))
 
@@ -317,25 +327,28 @@
      (declare (ignore context))
      (list
       (list :name "user-hunt"
-            :service-uri "star://quasar:localhost:user-hunt"
-            :domain "quasar"
-            :address "localhost"
+            :service-uri "star://gserver.starintel.actor/actor/quasar/user-hunt"
+            :authority "gserver.starintel.actor"
+            :resource-kind "actor"
+            :resource-path '("quasar" "user-hunt")
             :runtime :cl-gserver
             :alive t
             :capabilities '("username-search")
             :ref :user-hunt-ref)
       (list :name "nmap"
-            :service-uri "star://bbp:localhost:nmap"
-            :domain "bbp"
-            :address "localhost"
+            :service-uri "star://bbpd.starintel.actor/actor/nmap"
+            :authority "bbpd.starintel.actor"
+            :resource-kind "actor"
+            :resource-path '("nmap")
             :runtime :cl-gserver
             :alive nil
             :capabilities '("port-scan")
             :ref :nmap-ref)
       (list :name "unknown-health"
-            :service-uri "star://ops:localhost:unknown-health"
-            :domain "ops"
-            :address "localhost"
+            :service-uri "star://ops.starintel.actor/actor/unknown-health"
+            :authority "ops.starintel.actor"
+            :resource-kind "actor"
+            :resource-path '("unknown-health")
             :runtime :external
             :alive :unknown
             :ref :unknown-ref)))))
@@ -344,7 +357,8 @@
   (let* ((directory (runtime-directory-fixture))
          (entry
            (resolve-star-service-uri
-            directory :context "star://quasar:localhost:user-hunt")))
+            directory :context
+            "star://gserver.starintel.actor/actor/quasar/user-hunt")))
     (check (string= "user-hunt" (getf entry :name))
            "Runtime directory resolved the wrong actor name.")
     (check (eq :user-hunt-ref (getf entry :ref))
@@ -353,7 +367,7 @@
     (check (eq t
                (getf (resolve-star-service-uri
                       directory :context
-                      "star://quasar:localhost:user-hunt")
+                      "star://gserver.starintel.actor/actor/quasar/user-hunt")
                      :alive))
            "Runtime directory result was not defensively copied.")
     (check
@@ -361,63 +375,104 @@
       'runtime-directory-service-unavailable-error
       (lambda ()
         (resolve-star-service-uri
-         directory :context "star://bbp:localhost:nmap")))
+         directory :context "star://bbpd.starintel.actor/actor/nmap")))
      "Runtime directory did not distinguish unavailable from missing service.")
     (check
      (signals-p
       'runtime-directory-service-not-found-error
       (lambda ()
         (resolve-star-service-uri
-         directory :context "star://quasar:localhost:missing")))
+         directory :context
+         "star://gserver.starintel.actor/actor/quasar/missing")))
      "Runtime directory did not report a missing service.")
     (check
      (eq :unknown-ref
          (getf (resolve-star-service-uri
-                directory :context "star://ops:localhost:unknown-health")
+                directory :context
+                "star://ops.starintel.actor/actor/unknown-health")
                :ref))
-     "Unknown liveness was incorrectly treated as unavailable.")))
+     "Unknown liveness was incorrectly treated as unavailable.")
+    (check
+     (signals-p
+      'staractorprotocol:invalid-star-uri
+      (lambda ()
+        (resolve-star-service-uri
+         directory :context "star://quasar:localhost:user-hunt")))
+     "Legacy tuple lookup was accepted by the runtime directory.")))
 
 (defun test-runtime-directory-validation-and-duplicates ()
   (let ((duplicates
-          (make-runtime-directory-port
-           :snapshot
-           (lambda (context)
-             (declare (ignore context))
-             (list
-              (list :name "nmap"
-                    :service-uri "star://bbp:localhost:nmap"
-                    :runtime :external
-                    :alive t)
-              (list :name "nmap"
-                    :service-uri "star://bbp:localhost:nmap"
-                    :runtime :external
-                    :alive t)))))
+           (make-runtime-directory-port
+            :snapshot
+            (lambda (context)
+              (declare (ignore context))
+              (list
+               (list :name "nmap"
+                     :service-uri "star://bbpd.starintel.actor/actor/nmap"
+                     :runtime :external
+                     :alive t)
+               (list :name "nmap"
+                     :service-uri "star://bbpd.starintel.actor/actor/nmap"
+                     :runtime :external
+                     :alive t)))))
         (bad-capabilities
-          (make-runtime-directory-port
-           :snapshot
-           (lambda (context)
-             (declare (ignore context))
-             (list
-              (list :name "bad"
-                    :runtime :external
-                    :alive t
-                    :capabilities '(:not-a-string))))))
+           (make-runtime-directory-port
+            :snapshot
+            (lambda (context)
+              (declare (ignore context))
+              (list
+               (list :name "bad"
+                     :runtime :external
+                     :alive t
+                     :capabilities '(:not-a-string))))))
         (bad-service-uri
-          (make-runtime-directory-port
-           :snapshot
-           (lambda (context)
-             (declare (ignore context))
-             (list
-              (list :name "other"
-                    :service-uri "star://bbp:localhost:nmap"
-                    :runtime :external
-                    :alive t))))))
-    (check
+           (make-runtime-directory-port
+            :snapshot
+            (lambda (context)
+              (declare (ignore context))
+              (list
+(list :name "other"
+                     :service-uri "star://bbpd.starintel.actor/actor/nmap"
+                     :runtime :external
+                     :alive t)))))
+         (legacy-tuple-entry
+            (make-runtime-directory-port
+             :snapshot
+             (lambda (context)
+               (declare (ignore context))
+               (list
+                (list :name "nmap"
+                      :service-uri "star://bbp:localhost:nmap"
+                      :runtime :external
+                      :alive t)))))
+         (bad-authority-metadata
+            (make-runtime-directory-port
+             :snapshot
+             (lambda (context)
+               (declare (ignore context))
+               (list
+                (list :name "nmap"
+                      :service-uri "star://bbpd.starintel.actor/actor/nmap"
+                      :authority "bbp"
+                      :runtime :external
+                      :alive t)))))
+         (bad-resource-path-metadata
+            (make-runtime-directory-port
+             :snapshot
+             (lambda (context)
+               (declare (ignore context))
+               (list
+                (list :name "nmap"
+                      :service-uri "star://bbpd.starintel.actor/actor/nmap"
+:resource-path '("nmap" "extra")
+                      :runtime :external
+                      :alive t))))))
+     (check
      (signals-p
       'runtime-directory-error
       (lambda ()
         (resolve-star-service-uri
-         duplicates :context "star://bbp:localhost:nmap")))
+         duplicates :context "star://bbpd.starintel.actor/actor/nmap")))
      "Duplicate runtime-directory registration was accepted.")
     (check
      (signals-p 'runtime-directory-error
@@ -428,7 +483,23 @@
      (signals-p 'runtime-directory-error
                 (lambda ()
                   (runtime-directory-snapshot bad-service-uri :context)))
-     "Runtime directory accepted actor/service URI mismatch.")))
+     "Runtime directory accepted actor/service URI mismatch.")
+    (check
+     (signals-p 'runtime-directory-error
+                (lambda ()
+                  (runtime-directory-snapshot legacy-tuple-entry :context)))
+     "Runtime directory accepted a legacy tuple service URI.")
+    (check
+     (signals-p 'runtime-directory-error
+                (lambda ()
+                  (runtime-directory-snapshot bad-authority-metadata :context)))
+     "Runtime directory accepted authority metadata that contradicts the URI.")
+    (check
+     (signals-p 'runtime-directory-error
+                (lambda ()
+                  (runtime-directory-snapshot
+                   bad-resource-path-metadata :context)))
+     "Runtime directory accepted resource-path metadata that contradicts the URI.")))
 
 (defun test-runtime-directory-boundary-errors ()
   (check
@@ -462,19 +533,19 @@
                (declare (ignore context))
                (list
                 (list :name "dynamic"
-                      :service-uri "star://test:localhost:dynamic"
+                      :service-uri "star://starlang.starintel.actor/actor/dynamic"
                       :runtime :external
                       :alive t
                       :ref state))))))
       (check (eq :first
                  (getf (resolve-star-service-uri
-                        directory nil "star://test:localhost:dynamic")
+                        directory nil "star://starlang.starintel.actor/actor/dynamic")
                        :ref))
              "Injected runtime directory did not use the first snapshot.")
       (setf state :second)
       (check (eq :second
                  (getf (resolve-star-service-uri
-                        directory nil "star://test:localhost:dynamic")
+                        directory nil "star://starlang.starintel.actor/actor/dynamic")
                        :ref))
              "Runtime directory cached global state instead of using its injected snapshot."))))
 
