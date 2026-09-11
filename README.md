@@ -104,6 +104,7 @@ acquisition implementation.
 | `star-xlsx` | XLSX reading and writing for structured ingest. |
 | `starlang-compiler` | The StarLang parser, IR, and compiler. |
 | `starlang-runtime` | The durable actor runtime that executes compiled StarLang. |
+| `starlang-cli` | The installed `starlang` command surface: version, check, compile, and run over final systems. |
 
 `star-verification` is authoritative only for the generic
 `star.verify.certificate/1` data contract and its closed vocabularies. It does
@@ -124,9 +125,9 @@ boundaries but do not implement StarLang.
 ## Transitional architecture
 
 `prototype/` is migration debt, not a license for new runtime development. The
-installed CLI and broad compatibility suite still compose through
-`starlang-prototype`, while final `star-*` and `starlang-*` systems own the
-semantics already extracted from it.
+installed `starlang` command's `load`/`load-url` commands and the broad
+compatibility suite still compose through `starlang-prototype`, while final
+`star-*` and `starlang-*` systems own the semantics already extracted from it.
 
 The target systems must not duplicate or shadow prototype source files. A file
 moves only when its package ownership and dependencies can be represented by an
@@ -169,9 +170,11 @@ that does not make placeholder packages authoritative over `prototype/`.
   the production compatibility system keeps a soft backend dependency.
 - Prototype domain-remoting code is a transitional composition wrapper over
   final compatibility entry points. It no longer owns direct backend calls.
-- `starlang-prototype` remains in the product load graph, and
-  `prototype/run-star.lisp` remains the installed CLI. The overall prototype
-  migration is therefore not complete.
+- `starlang-prototype` remains in the product load graph for the
+  `load`/`load-url` commands, but the installed `starlang` command now also
+  provides final-only `version`, `check`, `compile`, and `run` commands
+  through `starlang-cli`, which never loads `starlang-prototype`. The overall
+  prototype migration is therefore not complete.
 - Split-phase nested actor ask, final supervision policy, and later durable
   distributed-runtime extraction remain separate follow-up work.
 
@@ -213,8 +216,30 @@ nix flake check -L
 
 The installed package provides:
 
-- `bin/starlang`: starts SBCL with `starlang-prototype` loaded.
-- `bin/starlang-test`: runs `(asdf:test-system :starlang-prototype)`.
+- `bin/starlang`: dispatches on the first argument. `load` and `load-url`
+  delegate to the transitional prototype loader script
+  (`prototype/run-star.lisp`) as before. Every other invocation enters the
+  final `starlang-cli` entrypoint, which loads only final systems:
+  - `starlang version`: report the CLI and compiler versions.
+  - `starlang check FILE`: compile a single-actor `.star` unit through the
+    closed parser pipeline and report `ok: actor <name>`.
+  - `starlang compile FILE [--manifest FILE]`: emit a canonical JSON
+    portable manifest (to stdout, or to `--manifest FILE`) for the compiled
+    unit; until program-level compilation lands in the compiler, the
+    manifest wraps the compiled unit in a synthetic spec-library envelope
+    whose digest is the SHA-256 of the `.star` source octets.
+  - `starlang run FILE [--eval FORM]... [--load FILE]... [--package PKG]
+    [--manifest FILE]`: compile the unit, materialize it on the real
+    deterministic dispatcher, evaluate trusted host-side `--load`/`--eval`
+    forms in `--package`, resolve every native actor handler from that
+    package, and drain the dispatcher. Exit status is 0 on success, 1 for
+    runtime or diagnostic failures, and 2 for usage errors.
+  - `starlang load FILE [...]` and `starlang load-url URL ...`: delegate to
+    the transitional prototype loader (`prototype/run-star.lisp`); the
+    spec-library loader is still prototype-owned, so these commands still
+    load `starlang-prototype`.
+- `bin/starlang-test`: runs `(asdf:test-system :starlang-prototype)` and the
+  final target systems, including `starlang-cli`.
 - `share/common-lisp/source/star-lang`: ASDF-visible StarLang sources.
 
 ## Layout

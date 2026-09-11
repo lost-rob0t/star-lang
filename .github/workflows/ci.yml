@@ -212,6 +212,17 @@ jobs:
             --eval '(assert (null (find-package "STAR-LANG.PROTOTYPE")))' \
             --eval '(sb-ext:quit)'
 
+      - name: Test final CLI system independently
+        shell: bash
+        run: |
+          set -euo pipefail
+          sbcl --non-interactive \
+            --eval '(require :asdf)' \
+            --eval '(asdf:test-system :starlang-cli)' \
+            --eval '(assert (null (find-package "STAR-LANG.PROTOTYPE")))' \
+            --eval '(assert (null (find-package "STAR-LANG.LOADER")))' \
+            --eval '(sb-ext:quit)'
+
       - name: Test HTTP and scraping systems independently
         shell: bash
         run: |

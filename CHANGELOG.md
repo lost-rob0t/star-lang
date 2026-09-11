@@ -21,6 +21,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added the final `starlang-cli` system: the installed `starlang` command now
+  provides explicit `version`, `check`, `compile`, and `run` behavior with
+  deterministic exit codes and typed compiler/runtime diagnostics while
+  loading only final systems. `run` materializes the compiled unit on the
+  real deterministic dispatcher and resolves native actor handlers from the
+  requested package; program manifests wrap the compiled unit in a synthetic
+  spec-library envelope carrying the `.star` source digest until
+  program-level compilation lands in the compiler. `load`/`load-url` remain
+  delegated to the transitional prototype loader through the installed
+  wrapper.
 - Added a flake-locked real Sento actor-system integration suite covering a
   multi-actor topology, asynchronous ask/reply, lookup/liveness, blocking
   teardown, mapped failures, and concurrent serialized state mutation.
@@ -66,6 +76,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed a `sbcl --script prototype/run-star.lisp` crash
+  (`SB-EXT:PACKAGE-DOES-NOT-EXIST` for `:STAR-LANG.COMPILER.CORE`) on
+  machines with a stale star-lang checkout under an inherited ASDF source
+  registry (e.g. `~/common-lisp`): the core-surface compatibility shell now
+  registers the repository tree as a directory pathname `:tree` entry placed
+  before `:inherit-configuration`, so this checkout always wins over
+  inherited configuration and the fallback `load-asd`/`load-system` resolves
+  the real `starlang-compiler`. Added
+  `prototype/core-surface-load-tests.lisp`, which forces a hostile decoy
+  registry and asserts this checkout's `starlang-compiler` 0.1.0 wins.
 - Fixed two latent `starlang-compiler` resolver-effects tests that used a
   parallel `let` whose effect lambda captured the global binding instead of
   the intended local one (per CLHS, `let` init-forms are outside the scope
