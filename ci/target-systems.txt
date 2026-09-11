@@ -19,3 +19,4 @@ star-logic-adapter-swi
 star-xlsx
 starlang-compiler
 starlang-runtime
+starlang-cli
