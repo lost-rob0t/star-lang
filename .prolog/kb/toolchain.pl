@@ -3,7 +3,13 @@
 % ci/with-nix-sbcl.sh runs the flake-pinned SBCL with the repository first in
 % the source registry, the nix dependency stores after it, and --no-sysinit.
 gate_runner('ci/with-nix-sbcl.sh').
-gate_runner_usage('ci/with-nix-sbcl.sh --eval "(require :asdf)" --eval "(asdf:test-system :SYSTEM)" --eval "(sb-ext:quit)"').
+gate_runner_usage('ci/with-nix-sbcl.sh --non-interactive --eval "(require :asdf)" --eval "(asdf:test-system :SYSTEM)" --eval "(sb-ext:quit)"').
+% The runner execs SBCL without --non-interactive itself; without that flag a
+% failed --eval form drops into the REPL and SBCL exits 0 on EOF, so local
+% gates pass silently (verified 2026-09-11: RED suites recorded exit(0)
+% without the flag). Always pass --non-interactive; CI workflows and the
+% flake checkPhase already do.
+gate_runner_hazard(missing_non_interactive_exits_zero_after_failure).
 
 % The sbcl.withPackages wrapper prefixes store paths onto CL_SOURCE_REGISTRY
 % with a trailing ':', creating an empty registry entry; ASDF splices the

@@ -3,9 +3,25 @@
   (:nicknames :star-actor-protocol)
   (:export
    #:star-actor-protocol-error
+   #:invalid-star-uri
+   #:+star-uri-resource-kinds+
+   #:star-uri
+   #:star-uri-p
+   #:star-uri-authority
+   #:star-uri-path-segments
+   #:star-uri-resource-kind
+   #:star-uri-resource-path
+   #:parse-star-uri
+   #:serialize-star-uri
+   #:star-uri-string
+   #:canonicalize-star-uri
+   #:canonical-star-uri-p
+   #:valid-star-uri-p
+   #:actor-star-uri-p
+   #:star-uri-text-p
+   #:ensure-star-uri
+   #:canonical-star-actor-uri-for-actor
    #:invalid-star-service-uri-error
-   #:invalid-actor-reference-error
-   #:invalid-wire-envelope-error
    #:star-service-uri
    #:star-service-uri-p
    #:star-service-uri-domain
@@ -17,11 +33,14 @@
    #:star-service-uri-target-p
    #:ensure-star-service-uri
    #:canonical-star-service-uri-for-actor
+   #:legacy-star-actor-uri-p
+   #:migrate-legacy-star-uri
+   #:invalid-actor-reference-error
+   #:invalid-wire-envelope-error
    #:star-actor-reference
    #:star-actor-reference-p
-   #:star-actor-reference-domain-id
-   #:star-actor-reference-logical-path
-   #:star-actor-reference-node-id
+   #:star-actor-reference-authority
+   #:star-actor-reference-resource-path
    #:star-actor-reference-generation
    #:star-actor-reference-protocol-revision
    #:star-actor-reference-capability-set-hash

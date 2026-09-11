@@ -2,6 +2,13 @@
 
 ## Status of this document
 
+> **Superseded URI note (2026-09-11):** every `star://domain:address:actor-name`
+> actor-tuple example in this analysis predates the shared RFC 3986 STAR URI
+> model `star://<authority>/<resource-kind>/<resource-path>`
+> (STAR-SERVER-041 / STAR-LANG-004). The tuple form is bounded compatibility
+> input only; the examples are kept as the historical record of the gap
+> analysis.
+
 This is an **implementation-facing consumer gap analysis** for `lost-rob0t/star-funds`, not a replacement for the authoritative approved StarLang research corpus in `lost-rob0t/starintel-auto-research`.
 
 It records what the current `star-lang` repository/prototype can already express, which capabilities are only transitional/prototype-level, what Star Funds still needs, and what should remain ordinary Common Lisp until the language/runtime surface is stable.

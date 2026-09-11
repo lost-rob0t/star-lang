@@ -56,10 +56,9 @@
 
 (defun portable-manifest-actor-contract (manifest actor-target)
   (let ((actors (getf manifest :actors)))
-    (if (star-service-uri-target-p actor-target)
+    (if (star-uri-text-p actor-target)
         (let ((canonical
-                (star-service-uri-string
-                 (ensure-star-service-uri actor-target))))
+                (serialize-star-uri (ensure-star-uri actor-target))))
           (find-if
            (lambda (actor)
              (let ((service-uri (getf actor :service-uri)))

@@ -214,7 +214,15 @@
 
 (defun validate-command-route (dispatcher command)
   (let* ((actor-target (getf command :actor))
-         (contract (dispatcher-actor-contract dispatcher actor-target))
+         (contract
+           (handler-case
+               (dispatcher-actor-contract dispatcher actor-target)
+             ;; Malformed or legacy-tuple URI targets are deterministic
+             ;; route failures, never silently accepted identities.
+             (staractorprotocol:invalid-star-uri ()
+               (fail-actor 'wire-dispatcher-invalid-actor-error
+                           "Command targets unknown actor or STAR service ~A."
+                           actor-target))))
          (actor-name (and contract (getf contract :name)))
          (handler
            (and actor-name

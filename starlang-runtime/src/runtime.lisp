@@ -108,8 +108,15 @@
                 "StarLang runtime is shut down."))
   runtime)
 
+(defparameter *star-runtime-authority* "local"
+  "The stable logical STAR authority owned by this local runtime
+  (STAR-SERVER-041: authority identity is a stable logical namespace,
+  never a transport endpoint or process identity). Actors compiled
+  without an explicit :service-uri default to
+  star://<authority>/actor/<name> beneath this authority.")
+
 (defun default-local-service-uri (name)
-  (format nil "star://local:localhost:~A" name))
+  (format nil "star://~A/actor/~A" *star-runtime-authority* name))
 
 (defun ensure-actor-kind (kind)
   (unless (member kind '(:native :external) :test #'eq)
@@ -134,10 +141,10 @@
 
 (defun canonical-service-uri (name service-uri)
   (handler-case
-      (staractorprotocol:canonical-star-service-uri-for-actor
+      (staractorprotocol:canonical-star-actor-uri-for-actor
        name
        (or service-uri (default-local-service-uri name)))
-    (staractorprotocol:invalid-star-service-uri-error (condition)
+    (staractorprotocol:invalid-star-uri (condition)
       (fail-actor 'actor-definition-error "~A" condition))))
 
 (defun make-native-actor-definition
@@ -248,12 +255,10 @@
     (fail-actor 'actor-definition-error
                 "Expected an actor instance, received ~S."
                 actor))
-  (let ((uri (staractorprotocol:parse-star-service-uri
-              (actor-service-uri actor))))
+  (let ((uri (staractorprotocol:parse-star-uri (actor-service-uri actor))))
     (staractorprotocol:make-star-actor-reference
-     :domain-id (staractorprotocol:star-service-uri-domain uri)
-     :logical-path (staractorprotocol:star-service-uri-actor-name uri)
-     :node-id (staractorprotocol:star-service-uri-address uri)
+     :authority (staractorprotocol:star-uri-authority uri)
+     :resource-path (staractorprotocol:star-uri-resource-path uri)
      :generation (actor-instance-generation actor)
      :protocol-revision 1)))
 
@@ -306,14 +311,17 @@
      (gethash
       (staractorprotocol:star-actor-reference-service-uri target)
       (runtime-actors-by-uri runtime)))
+    ((staractorprotocol:star-uri-p target)
+     (gethash (staractorprotocol:serialize-star-uri target)
+              (runtime-actors-by-uri runtime)))
     ((and (stringp target)
-          (staractorprotocol:star-service-uri-target-p target))
+          (staractorprotocol:star-uri-text-p target))
      (handler-case
          (gethash
-          (staractorprotocol:star-service-uri-string
-           (staractorprotocol:parse-star-service-uri target))
+          (staractorprotocol:serialize-star-uri
+           (staractorprotocol:parse-star-uri target))
           (runtime-actors-by-uri runtime))
-       (staractorprotocol:invalid-star-service-uri-error () nil)))
+       (staractorprotocol:invalid-star-uri () nil)))
     ((stringp target)
      (gethash target (runtime-actors-by-name runtime)))
     (t nil)))

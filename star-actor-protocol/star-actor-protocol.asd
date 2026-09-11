@@ -9,6 +9,7 @@
   ((:module "src"
     :components
     ((:file "packages")
+     (:file "star-uri")
      (:file "service-uri")
      (:file "actor-reference")
      (:file "message-lifecycle")

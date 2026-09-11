@@ -2,7 +2,9 @@
 
 % Machine-recorded evidence: run every gate through prolog-verify observe so
 % argv, exit status, output digest, HEAD, and worktree digest are captured.
-observe_example('prolog-verify observe -- ./ci/with-nix-sbcl.sh --eval "(require :asdf)" --eval "(progn (asdf:test-system :starlang-compiler-tests) (format t \\"COMPILER-GATE-OK~%\\"))" --eval "(sb-ext:quit)"').
+% The --non-interactive flag is mandatory: without it a failed --eval drops
+% into the REPL and SBCL exits 0 on EOF (see toolchain.pl hazard facts).
+observe_example('prolog-verify observe -- ./ci/with-nix-sbcl.sh --non-interactive --eval "(require :asdf)" --eval "(progn (asdf:test-system :starlang-compiler-tests) (format t \\"COMPILER-GATE-OK~%\\"))" --eval "(sb-ext:quit)"').
 
 % Evidence is only current for the recorded HEAD and worktree digest; after
 % any file change or commit, re-run the observed gates before claiming

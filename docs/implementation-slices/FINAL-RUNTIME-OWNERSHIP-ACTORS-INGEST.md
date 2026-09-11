@@ -1,5 +1,13 @@
 # Final runtime ownership: actors and ingest servers
 
+> **Superseded URI note (2026-09-11):** the `star://domain:address:actor-name`
+> actor-tuple grammar described in this slice was later superseded by the
+> shared RFC 3986 STAR URI model
+> `star://<authority>/<resource-kind>/<resource-path>`; see STAR-SERVER-041,
+> the STAR-LANG-004 amendment, and `ACTOR-RUNTIME-MIGRATION-MATRIX.md`. The
+> tuple is bounded compatibility input only. The historical text below is
+> preserved as the record of this slice.
+
 ## Problem
 
 This document began as the extraction plan for a repository whose final runtime

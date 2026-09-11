@@ -141,7 +141,7 @@ dependency errors cannot hide behind the prototype system.
 
 | Prototype components | Intended final boundary |
 | --- | --- |
-| `core-surface-prototype`, `actor-wire-prototype`, message lifecycle files | `starlang-compiler` owns the closed parser, syntax model, validation, specification lowering, and actor lowering; `star-actor-protocol` owns the service-URI and wire contracts. `core-surface-prototype` is now a compatibility re-export shell. |
+| `core-surface-prototype`, `actor-wire-prototype`, message lifecycle files | `starlang-compiler` owns the closed parser, syntax model, validation, specification lowering, and actor lowering; `star-actor-protocol` owns the shared RFC 3986 STAR URI model (STAR-SERVER-041), the legacy-tuple compatibility API, and the wire contracts. `core-surface-prototype` is now a compatibility re-export shell. |
 | `canonical-json-prototype` | `star-canonical-json` |
 | `compiler-ir-prototype`, `spec-domain-prototype`, `binding-generator-prototype` | `starlang-compiler` |
 | dispatcher, runtime directory, loader, document, constructor, and API files | `starlang-runtime` |
@@ -162,7 +162,12 @@ that does not make placeholder packages authoritative over `prototype/`.
   actor declaration compiles into runtime-neutral IR without loading
   `starlang-prototype`.
 - `star-actor-protocol`, `star-mailbox`, and `starlang-runtime` own the final
-  deterministic actor contract and execution path.
+  deterministic actor contract and execution path. Actor identity uses the
+  shared RFC 3986 STAR URI model `star://<authority>/<resource-kind>/<resource-path>`
+  (STAR-SERVER-041 / STAR-LANG-004): canonical output is RFC-based only, and
+  the legacy `star://domain:address:actor-name` tuple is bounded
+  compatibility input behind the explicit legacy API in
+  `star-actor-protocol` that migrates it to an explicit canonical target.
 - `star-sento-compat` owns concrete local Sento construction, spawn, tell,
   asynchronous ask/reply translation, lookup, liveness, stop, and shutdown.
 - Real Sento integration tests hard-load the backend only in the test system;

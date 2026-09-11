@@ -485,7 +485,7 @@
                   (runtime-directory-snapshot bad-service-uri :context)))
      "Runtime directory accepted actor/service URI mismatch.")
     (check
-     (signals-p 'runtime-directory-error
+     (signals-p 'staractorprotocol:invalid-star-uri
                 (lambda ()
                   (runtime-directory-snapshot legacy-tuple-entry :context)))
      "Runtime directory accepted a legacy tuple service URI.")
@@ -514,15 +514,15 @@
           (error "backend boom")))
        :context)))
    "Runtime directory did not type a backend failure.")
-  (check
-   (signals-p
-    'staractorprotocol:invalid-star-service-uri-error
-    (lambda ()
-      (resolve-star-service-uri
-       (runtime-directory-fixture)
-       :context
-       "not-a-star-uri")))
-   "Malformed STAR URI was hidden behind a runtime-directory error."))
+(check
+    (signals-p
+     'staractorprotocol:invalid-star-uri
+     (lambda ()
+       (resolve-star-service-uri
+        (runtime-directory-fixture)
+        :context
+        "not-a-star-uri")))
+    "Malformed STAR URI was hidden behind a runtime-directory error."))
 
 (defun test-runtime-directory-is-injected-not-global ()
   (let ((state :first))

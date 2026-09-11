@@ -3,22 +3,28 @@
 ;;;; Moved from prototype/actor-wire-prototype.lisp; that file now forwards
 ;;;; here. The lowering accepts .star syntax objects in addition to trusted
 ;;;; raw forms, adds the optional :metadata contract, and canonicalizes
-;;;; service URIs through the final star-actor-protocol authority.
+;;;; service URIs through the shared RFC 3986 STAR URI model
+;;;; (STAR-SERVER-041 / STAR-LANG-004) owned by star-actor-protocol.
+;;;; The legacy star://domain:address:actor-name tuple is not accepted as
+;;;; canonical identity; it is compatibility input behind the explicit
+;;;; legacy migration API only.
 
 (in-package #:star-lang.compiler.core)
 
 (define-condition invalid-star-service-uri-error (star-lang-core-error) ())
 
 (defun canonical-service-uri-for-actor (actor-name value)
-  "Canonicalize a STAR service URI through the final protocol authority,
-translating protocol failures into source-aware compiler conditions."
+  "Canonicalize a canonical-model STAR actor URI through the final
+protocol authority, translating protocol failures into source-aware
+compiler conditions."
   (let ((datum (if (star-syntax-p value) (syntax-atom value) value)))
     (unless (stringp datum)
       (fail 'invalid-star-service-uri-error
             "Actor service URI must be a string, received ~S." datum))
     (handler-case
-        (staractorprotocol:canonical-star-service-uri-for-actor actor-name datum)
-      (staractorprotocol:invalid-star-service-uri-error (condition)
+        (staractorprotocol:canonical-star-actor-uri-for-actor
+         actor-name datum)
+      (staractorprotocol:invalid-star-uri (condition)
         (fail 'invalid-star-service-uri-error "~A" condition)))))
 
 (defun actor-option-elements (value)

@@ -19,6 +19,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Switched canonical actor identity to the approved shared RFC 3986 STAR URI
+  model `star://<authority>/<resource-kind>/<resource-path>` (STAR-SERVER-041,
+  STAR-LANG-004, issue #52). `star-actor-protocol` now owns the canonical
+  model in `src/star-uri.lisp`: RFC 3986 reg-name authority (lowercase, no
+  userinfo, no transport ports), pchar path segments with percent-encoding
+  normalization, reviewed resource kinds, and a fail-closed v1 profile.
+  Compiler actor lowering, portable manifests, the runtime registry,
+  runtime-directory resolution, and deterministic wire dispatch all emit and
+  resolve canonical RFC URIs; a declared actor URI must address an actor
+  resource and end its actor resource path with the actor contract name.
+  The runtime defaults undeclared actors to `star://local/actor/<name>`.
+- Demoted the legacy `star://domain:address:actor-name` tuple to bounded
+  compatibility input: the tuple grammar now lives behind the explicit
+  legacy API in `star-actor-protocol/src/service-uri.lisp`
+  (`parse-star-service-uri`, `migrate-legacy-star-uri` with an explicit
+  `:to` canonical target or `:map` migration map, and the prototype
+  compatibility shell). The canonical parser, the compiler, and the runtime
+  reject the tuple as identity; migration normalizes immediately into the
+  canonical representation and never reuses the legacy domain as an
+  authority. Actor references now carry `authority` and `resource-path`
+  instead of `domain-id`/`node-id`/`logical-path`. This is an incompatible
+  public contract change for anything that fed tuple URIs into final
+  systems.
+
 ### Added
 
 - Added a flake-locked real Sento actor-system integration suite covering a
@@ -60,9 +86,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `prototype/actor-wire-prototype.lisp` into `starlang-compiler`; the
   prototype file retains only cl-gserver binding composition and wire
   forwarders.
-- `starlang-compiler` now depends on `star-actor-protocol` for canonical
-  `star://domain:address:actor-name` service URIs; the dependency graph
-  stays acyclic.
+- `starlang-compiler` now depends on `star-actor-protocol` for service-URI
+  canonicalization; the dependency graph stays acyclic. (The
+  `star://domain:address:actor-name` grammar that dependency originally
+  served was superseded later in this same release cycle by the shared
+  RFC-based STAR URI model; see the Changed section above.)
 
 ### Fixed
 

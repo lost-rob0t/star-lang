@@ -402,7 +402,8 @@
       (migrate-legacy-star-uri
        "star://bbp:localhost:nmap"
        :map '(("star://quasar:localhost:user-hunt"
-               . "star://gserver.starintel.actor/actor/user-hunt"))))))
+               . "star://gserver.starintel.actor/actor/user-hunt")))))
+    "missing migration map entry signals")
   (assert-test
    (signals-invalid-star-uri-p
     (lambda ()
@@ -414,17 +415,21 @@
 
 (defun test-legacy-domain-is-never-mapped-to-an-authority ()
   ;; STAR-SERVER-041 forbids automatic domain->authority rewrites such as
-  ;; legacy.<domain> or domain -> first path segment. Only the explicit
-  ;; target is returned.
+  ;; legacy.<domain> or domain -> first path segment. Migration returns
+  ;; exactly the explicit target; the tuple fields never shape the result.
   (assert-equal
    "star://bbpd.starintel.actor/actor/subfinder"
    (migrate-legacy-star-uri
     "star://quasar:localhost:user-hunt"
     :to "star://bbpd.starintel.actor/actor/subfinder")
    "migration returns exactly the explicit canonical target")
-  (assert-test
-   (not (canonical-star-uri-p "star://legacy.quasar/actor/user-hunt"))
-   "invented legacy.<domain> authorities are not part of the model"))
+  (assert-equal
+   "star://bbpd.starintel.actor/actor/nmap"
+   (migrate-legacy-star-uri
+    "star://bbp:localhost:nmap"
+    :map '(("star://bbp:localhost:nmap"
+            . "star://bbpd.starintel.actor/actor/nmap")))
+   "migration never invents legacy.<domain> authorities"))
 
 ;;;; Generation-bearing actor references on the canonical value model.
 

@@ -58,32 +58,51 @@
 (defun validate-runtime-directory-service-uri (entry)
   (let ((service-uri (getf entry :service-uri)))
     (when service-uri
-      (let ((uri (staractorprotocol:ensure-star-service-uri service-uri)))
-        (unless (string= (getf entry :name)
-                         (staractorprotocol:star-service-uri-actor-name uri))
+      (let ((uri (staractorprotocol:ensure-star-uri service-uri)))
+        (unless (string= "actor" (staractorprotocol:star-uri-resource-kind uri))
           (fail-actor
            'runtime-directory-error
-           "Runtime directory actor ~A does not match STAR service URI actor name ~A."
+           "Runtime directory entry ~A requires an actor resource kind, received ~A."
            (getf entry :name)
-           (staractorprotocol:star-service-uri-actor-name uri)))
-        (let ((domain (getf entry :domain))
-              (address (getf entry :address)))
-          (when (and domain
-                     (not (string= domain
-                                   (staractorprotocol:star-service-uri-domain uri))))
+           service-uri))
+        (let ((resource-path (staractorprotocol:star-uri-resource-path uri)))
+          (unless (and resource-path
+                       (string= (getf entry :name)
+                                (car (last resource-path))))
             (fail-actor
              'runtime-directory-error
-             "Runtime directory service domain ~A does not match URI domain ~A."
-             domain
-             (staractorprotocol:star-service-uri-domain uri)))
-          (when (and address
-                     (not (string= address
-                                   (staractorprotocol:star-service-uri-address uri))))
+             "Runtime directory actor ~A does not match the terminal actor path segment of ~A."
+             (getf entry :name)
+             service-uri)))
+        ;; Portable URI/resource metadata is validated against the URI
+        ;; (STAR-LANG-004); :ref and transport data stay opaque.
+        (let ((authority (getf entry :authority))
+              (resource-kind (getf entry :resource-kind))
+              (resource-path (getf entry :resource-path)))
+          (when (and authority
+                     (not (string= authority
+                                    (staractorprotocol:star-uri-authority uri))))
             (fail-actor
              'runtime-directory-error
-             "Runtime directory service address ~A does not match URI address ~A."
-             address
-             (staractorprotocol:star-service-uri-address uri))))))))
+             "Runtime directory authority ~A does not match URI authority ~A."
+             authority
+             (staractorprotocol:star-uri-authority uri)))
+          (when (and resource-kind
+                     (not (string= resource-kind
+                                   (staractorprotocol:star-uri-resource-kind uri))))
+            (fail-actor
+             'runtime-directory-error
+             "Runtime directory resource kind ~A does not match URI resource kind ~A."
+             resource-kind
+             (staractorprotocol:star-uri-resource-kind uri)))
+          (when (and resource-path
+                     (not (equal resource-path
+                                (staractorprotocol:star-uri-resource-path uri))))
+            (fail-actor
+             'runtime-directory-error
+             "Runtime directory resource path ~S does not match URI resource path ~S."
+             resource-path
+             (staractorprotocol:star-uri-resource-path uri))))))))
 
 (defun validate-runtime-directory-entry (entry)
   (ensure-runtime-directory-plist entry "runtime directory entry")
@@ -119,6 +138,8 @@
         (mapcar #'validate-runtime-directory-entry entries))
     (runtime-directory-error (condition)
       (error condition))
+    (staractorprotocol:invalid-star-uri (condition)
+      (error condition))
     (staractorprotocol:invalid-star-service-uri-error (condition)
       (error condition))
     (error (condition)
@@ -127,8 +148,8 @@
                   condition))))
 
 (defun resolve-star-service-uri (port context uri-value)
-  (let* ((uri (staractorprotocol:ensure-star-service-uri uri-value))
-         (canonical (staractorprotocol:star-service-uri-string uri))
+  (let* ((uri (staractorprotocol:ensure-star-uri uri-value))
+         (canonical (staractorprotocol:serialize-star-uri uri))
          (matches
            (remove-if-not
             (lambda (entry)
