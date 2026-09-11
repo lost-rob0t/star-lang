@@ -24,11 +24,14 @@
           ensure-star-service-uri
           canonical-star-service-uri-for-actor))
 
-;; Source-aware compatibility conditions remain compiler-side.  The portable
-;; parser lives in STAR-ACTOR-PROTOCOL and signals its protocol-local condition;
-;; these wrappers translate that failure through FAIL so current syntax/span and
-;; import-origin context remain attached for legacy compiler callers.
-(define-condition invalid-star-service-uri-error (star-lang-core-error) ())
+;; The source-aware compiler condition invalid-star-service-uri-error is
+;; final-owned by starlang-compiler and re-exported by
+;; core-surface-prototype.lisp; defining it again here would create a second
+;; class. Source-aware compatibility conditions that remain compiler-side
+;; live below; the portable parser lives in STAR-ACTOR-PROTOCOL and signals
+;; its protocol-local condition, which these wrappers translate through FAIL
+;; so current syntax/span and import-origin context remain attached for
+;; legacy compiler callers.
 (define-condition star-service-not-found-error (star-lang-core-error) ())
 (define-condition star-service-unavailable-error (star-lang-core-error) ())
 
