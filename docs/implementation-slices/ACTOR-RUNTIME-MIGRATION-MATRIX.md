@@ -15,7 +15,7 @@ The one-authority rule applies to every row: after a behavior is migrated, the p
 
 | Behavior | Prototype owner before/remaining | Final target system | Dependencies | Tests proving behavior | Migration status | Next extraction action |
 | --- | --- | --- | --- | --- | --- | --- |
-| actor definition | `actor-wire-prototype.lisp` still owns source actor lowering; old `prototype.lisp` contains historical toy definitions | `starlang-runtime` for executable definition; `starlang-compiler` later for lowering | `star-actor-protocol` | `starlang-runtime-tests.lisp`; prototype actor/compiler tests | PARTIAL | Move portable actor IR/lowering out of prototype compiler code without moving runtime behavior into the compiler |
+| actor definition | legacy `prototype.lisp` contains historical toy definitions; cl-gserver binding composition remains in `actor-wire-prototype.lisp` | `starlang-compiler` for source lowering (FINAL); `starlang-runtime` for executable definition | `star-actor-protocol` | `starlang-compiler-tests.lisp`; `actor-compiler-tests.lisp` (closed-parser fixture, deterministic IR, fresh-SBCL proof); prototype actor/compiler tests | PARTIAL | Move cl-gserver runtime binding out of the prototype shell; runtime materialization stays with `starlang-runtime` |
 | actor reference | none in final before this slice; opaque refs appear in runtime-directory/remoting prototype code | `star-actor-protocol` | STAR service URI | `star-actor-protocol-tests.lisp`; stale-ref runtime test | **FINAL in this slice** | Reuse the same reference type from runtime directory and Sento/remoting adapters |
 | actor lifecycle | cl-gserver facade, domain gateway/remoting code | `starlang-runtime`, then `star-supervisor` | actor ref, mailbox | runtime spawn/stop/restart/shutdown tests | PARTIAL | Extract supervision-driven lifecycle and Sento lifecycle hooks |
 | actor registration | deterministic dispatcher, runtime directory, domain remoting prototype | `starlang-runtime` local; runtime directory target still to choose/finalize | actor ref | final runtime registry tests | PARTIAL | Extract runtime-directory registration and remote registration |
@@ -55,7 +55,14 @@ The one-authority rule applies to every row: after a behavior is migrated, the p
 
 ## Authority changes in this slice
 
-1. `star-actor-protocol` now owns the portable generation-bearing actor reference.
+1. `starlang-compiler` now owns the closed `.star` parser, syntax model,
+   expansion boundary, grammar validation, and specification lowering
+   (`star-lang.compiler.core`); `prototype/core-surface-prototype.lisp` is a
+   compatibility re-export shell.
+2. `starlang-compiler` owns actor source lowering (`compile-actor`) and
+   portable actor manifest emission; actor declarations are now real `.star`
+   source through the closed parser keyword vocabulary.
+3. `star-actor-protocol` owns the portable generation-bearing actor reference.
 2. `star-mailbox` now owns bounded FIFO queue mechanics and typed accepted/full/closed delivery results.
 3. `starlang-runtime` now owns deterministic local actor execution through those mailboxes. `tell` no longer executes a handler synchronously; `ask` uses the same enqueue/dispatch path.
 4. `starlang-runtime` now owns local spawn, stop, restart/generation, stale-reference rejection, serialized state mutation, rollback on handler/contract failure, and runtime shutdown.

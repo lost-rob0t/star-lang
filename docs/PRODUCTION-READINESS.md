@@ -44,7 +44,13 @@ Extraction order:
 7. generated portable manifests and Python/TypeScript bindings;
 8. public compile/check APIs and CLI entry points.
 
-The resolver effect protocol is the first loader-boundary item moved to the final compiler. Network and digest implementations remain adapters; compiler policy must not gain ambient shell/network authority.
+Items 1 and 2 are complete: the closed parser, syntax model, diagnostics,
+validation, and specification lowering are final-owned by `starlang-compiler`
+(`star-lang.compiler.core`), together with actor source lowering; the actor
+declaration is now real `.star` source. The resolver effect protocol is a
+loader-boundary item already moved to the final compiler. Network and digest
+implementations remain adapters; compiler policy must not gain ambient
+shell/network authority.
 
 Before a stable release, the research-conformance blocker must be closed with executable regression coverage for field casing, canonical numbers/JSON, complete digests, source spelling/spans, parser bounds, secure imports, and runtime-neutral IR.
 

@@ -141,7 +141,7 @@ dependency errors cannot hide behind the prototype system.
 
 | Prototype components | Intended final boundary |
 | --- | --- |
-| `core-surface-prototype`, `actor-wire-prototype`, message lifecycle files | `star-actor-protocol` and runtime-facing protocol packages |
+| `core-surface-prototype`, `actor-wire-prototype`, message lifecycle files | `starlang-compiler` owns the closed parser, syntax model, validation, specification lowering, and actor lowering; `star-actor-protocol` owns the service-URI and wire contracts. `core-surface-prototype` is now a compatibility re-export shell. |
 | `canonical-json-prototype` | `star-canonical-json` |
 | `compiler-ir-prototype`, `spec-domain-prototype`, `binding-generator-prototype` | `starlang-compiler` |
 | dispatcher, runtime directory, loader, document, constructor, and API files | `starlang-runtime` |
@@ -157,6 +157,10 @@ that does not make placeholder packages authoritative over `prototype/`.
 
 ### Current actor-runtime migration state
 
+- `starlang-compiler` owns the closed `.star` parser, syntax model, grammar
+  validation, specification lowering, and actor lowering. A real `.star`
+  actor declaration compiles into runtime-neutral IR without loading
+  `starlang-prototype`.
 - `star-actor-protocol`, `star-mailbox`, and `starlang-runtime` own the final
   deterministic actor contract and execution path.
 - `star-sento-compat` owns concrete local Sento construction, spawn, tell,
@@ -216,11 +220,11 @@ The installed package provides:
 ## Layout
 
 ```text
-prototype/               Authoritative StarLang implementation and test scripts
+prototype/               Compatibility composition over final systems; migration debt
 fixtures/                .star and .sexp test fixtures
 ci/target-systems.txt    Final systems loaded independently by CI and Nix
-<system>/                Incrementally populated target ASDF system directories
-starlang-prototype.asd   Transitional implementation and test ASDF systems
+<system>/                Final ASDF system directories
+starlang-prototype.asd   Transitional compatibility and test ASDF systems
 flake.nix                Package, apps, checks, and development shell
 .github/workflows/       SBCL and Nix CI
 ```
@@ -243,8 +247,9 @@ flake.nix                Package, apps, checks, and development shell
 ## Status
 
 `prototype/` remains in the product and CLI composition paths, but ownership is
-component-specific. Final systems are authoritative for the actor protocol,
-mailbox, deterministic runtime, and concrete Sento adapter described above;
-remaining prototype components stay migration debt until moved without
+component-specific. Final systems are authoritative for the closed compiler
+core (parser, syntax, validation, specification and actor lowering), the actor
+protocol, mailbox, deterministic runtime, and concrete Sento adapter described
+above; remaining prototype components stay migration debt until moved without
 duplication, dependency cycles, or lost coverage. Research 000–009 compliance
 remains an active hardening gate tracked in the implementation ledger.

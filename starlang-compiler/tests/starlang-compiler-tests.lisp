@@ -112,13 +112,15 @@
 
 (test resolver-effects-are-final-compiler-owned
   "Digest effects execute through the final compiler-owned effect protocol."
-  (let ((seen nil)
-        (effects
-          (star-lang.loader.effects:make-resolver-effects
-           :digest-file
-           (lambda (pathname)
-             (setf seen pathname)
-             "sha256:test"))))
+  ;; let* is required: the effect lambda must capture the seen binding, and a
+  ;; parallel let's init-forms are outside the scope of that let's bindings.
+  (let* ((seen nil)
+         (effects
+           (star-lang.loader.effects:make-resolver-effects
+            :digest-file
+            (lambda (pathname)
+              (setf seen pathname)
+              "sha256:test"))))
     (is (string= "sha256:test"
                  (star-lang.loader.effects:digest-file-through-effects
                   effects #p"/tmp/spec.star")))
@@ -126,13 +128,15 @@
 
 (test resolver-effects-forward-fetch-bounds
   "Fetch effects preserve every compiler-supplied resource bound."
-  (let ((seen nil)
-        (effects
-          (star-lang.loader.effects:make-resolver-effects
-           :fetch-to-file
-           (lambda (url destination &rest arguments)
-             (setf seen (list url destination arguments))
-             :ok))))
+  ;; let* is required: the effect lambda must capture the seen binding, and a
+  ;; parallel let's init-forms are outside the scope of that let's bindings.
+  (let* ((seen nil)
+         (effects
+           (star-lang.loader.effects:make-resolver-effects
+            :fetch-to-file
+            (lambda (url destination &rest arguments)
+              (setf seen (list url destination arguments))
+              :ok))))
     (is (eq :ok
             (star-lang.loader.effects:fetch-to-file-through-effects
              effects
@@ -177,4 +181,7 @@
   (is (null (find-package "STAR-LANG.CORE-SURFACE.PROTOTYPE"))))
 
 (defun run-tests ()
-  (run! 'starlangcompiler-tests))
+  ;; fiveam's run! returns T only when every check passed; surface failures
+  ;; through the process exit code so ASDF/Nix/CI gates cannot pass silently.
+  (unless (run! 'starlangcompiler-tests)
+    (error "starlang-compiler compatibility tests failed.")))

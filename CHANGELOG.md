@@ -26,6 +26,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   teardown, mapped failures, and concurrent serialized state mutation.
 - Added matching `AGENTS.md` and README execution contracts with CI consistency
   and direct-backend-boundary guards.
+- Added final actor compilation to `starlang-compiler`: a real `.star` actor
+  declaration is read by the closed parser, validated, and lowered into
+  runtime-neutral actor IR without loading `starlang-prototype`.
+  `compile-actor-source`/`compile-actor-file` expose the explicit
+  read -> expand -> validate -> lower pipeline for single-actor units.
+- Added the optional actor `:metadata` contract: a list of
+  `(lowerCamelCaseIdentifier scalar)` pairs carried into actor IR and the
+  portable manifest with lower camelCase JSON keys.
+- Added the closed parser keyword vocabulary for actor declarations
+  (`:runtime`, `:service-uri`, `:accepts`, `:produces`, `:handler`,
+  `:protocol`, `:endpoint`, `:restart`, `:mailbox`, `:capabilities`,
+  `:metadata`), making actors real `.star` source for the first time.
+- Added a fresh-SBCL acceptance proof that loads only `starlang-compiler`,
+  compiles the actor fixture deterministically, rejects name/service-URI
+  mismatches and malformed declarations, and asserts the prototype packages
+  never load.
+- Added `ci/with-nix-sbcl.sh` for local verification with the flake-pinned
+  SBCL and a correctly ordered source registry (guards against the
+  `~/common-lisp` shadowing hazard).
+
+### Changed
+
+- Moved the closed StarLang compiler core (parser, syntax model, expansion
+  boundary, grammar validation, specification lowering) from
+  `prototype/core-surface-prototype.lisp` into
+  `starlang-compiler/src/core-surface.lisp` (package
+  `star-lang.compiler.core`); the prototype file is now a compatibility
+  re-export shell.
+- Moved actor lowering and portable manifest emission
+  (`compile-actor`, `portable-actor`, `portable-declaration`,
+  `portable-field`, `declarations-of-kind`, `emit-portable-manifest`) from
+  `prototype/actor-wire-prototype.lisp` into `starlang-compiler`; the
+  prototype file retains only cl-gserver binding composition and wire
+  forwarders.
+- `starlang-compiler` now depends on `star-actor-protocol` for canonical
+  `star://domain:address:actor-name` service URIs; the dependency graph
+  stays acyclic.
+
+### Fixed
+
+- Fixed two latent `starlang-compiler` resolver-effects tests that used a
+  parallel `let` whose effect lambda captured the global binding instead of
+  the intended local one (per CLHS, `let` init-forms are outside the scope
+  of that `let`'s bindings); they now use `let*`.
+- `starlang-compiler` test suites now fail loudly: `run!` results are
+  checked and failures raise, so ASDF/Nix/CI gates can no longer pass
+  silently on fiveam failures.
 
 - Added bounded declarative format-1 macros with deterministic pattern matching,
   tail repetition, fresh introduction scopes, cycle/ambiguity detection, and
