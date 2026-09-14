@@ -20,5 +20,15 @@ BEGIN STARLANG AGENT INSTRUCTIONS
 - Update ownership and migration documentation whenever executable ownership moves.
 END STARLANG AGENT INSTRUCTIONS
 
+## Agent Zero coding orchestration
+
+For coding tasks, load the `star-lang` skill and use the StarIntel Sol/GLM flow:
+
+1. Run `starintel-code-critic` with GPT-5.6 Sol at HIGH reasoning against the latest `main`. The critic chooses one executable vertical slice and owns semantics, task DAG, adversarial tests, acceptance gates, and explicit out-of-scope work.
+2. Hand that report to `starintel-code-coordinator` running GPT-5.6 Sol. The coordinator owns architecture, integration, review, tests, branch/PR state, and merge decisions.
+3. Delegate bounded implementation packets to GLM workers. GLM may implement code/tests/fixtures inside its assigned scope, but it must not independently redefine architecture, public APIs, language semantics, verification gates, or expand scope.
+4. Sol reviews every worker diff and independently reruns the relevant tests before integration.
+5. Keep one executable vertical slice per PR; do not start the next slice in the same branch.
+
 When prose conflicts with executable ownership, audit the executable path first
 and correct the prose in the same pull request.
