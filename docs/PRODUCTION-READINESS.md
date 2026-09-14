@@ -75,6 +75,8 @@ A fake operation port can prove argument forwarding. It does not count as eviden
 
 The installed `starlang` command must stop loading `starlang-prototype` as the product runtime. The stable command/API surface should provide explicit compile/check/run behavior, deterministic exit status, structured diagnostics, and version reporting while loading only final systems.
 
+The final `starlang-cli` system now provides `version`, `check`, `compile`, and `run` commands with typed compiler/runtime diagnostics, deterministic exit codes (0 success, 1 diagnostic failure, 2 usage error), and the real deterministic dispatcher for `run`; `load`/`load-url` remain delegated to the transitional prototype loader because the spec-library loader is still prototype-owned. Nix and CI exercise that final CLI path, so the only product path left behind is the transitional loader.
+
 Nix, ASDF, CI, and packaged artifacts must exercise that same path. A compatibility test suite may continue to load `starlang-prototype` until the directory is deleted, but production execution may not depend on it.
 
 ## P0: reproducible release contract

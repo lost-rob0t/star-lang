@@ -21,6 +21,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added the final `starlang-cli` system: the installed `starlang` command now
+  provides explicit `version`, `check`, `compile`, and `run` behavior with
+  deterministic exit codes and typed compiler/runtime diagnostics while
+  loading only final systems. `run` materializes the compiled unit on the
+  real deterministic dispatcher and resolves native actor handlers from the
+  requested package; program manifests wrap the compiled unit in a synthetic
+  spec-library envelope carrying the `.star` source digest until
+  program-level compilation lands in the compiler. `load`/`load-url` remain
+  delegated to the transitional prototype loader through the installed
+  wrapper.
 - Added a flake-locked real Sento actor-system integration suite covering a
   multi-actor topology, asynchronous ask/reply, lookup/liveness, blocking
   teardown, mapped failures, and concurrent serialized state mutation.

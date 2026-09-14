@@ -7,7 +7,9 @@
    atomic_list_concat([Dir, '/testing'], Testing),
    atomic_list_concat([Dir, '/compiler-ownership'], Ownership),
    atomic_list_concat([Dir, '/verification-workflow'], Workflow),
+   atomic_list_concat([Dir, '/cli-surface'], CliSurface),
    consult(Toolchain),
    consult(Testing),
    consult(Ownership),
-   consult(Workflow).
+   consult(Workflow),
+   consult(CliSurface).

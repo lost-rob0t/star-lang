@@ -101,6 +101,7 @@
               --eval '(asdf:test-system :star-logic-protocol)' \
               --eval '(asdf:test-system :star-logic-ir)' \
               --eval '(asdf:test-system :starlang-compiler)' \
+              --eval '(asdf:test-system :starlang-cli)' \
               --eval '(asdf:test-system :star-logic-adapter-swi)' \
               --eval '(assert (null (find-package "STAR-LANG.PROTOTYPE")))' \
               --eval '(asdf:test-system :starlang-prototype)' \
@@ -117,6 +118,18 @@
               load "$source_root/fixtures/star-cl-constructors.star" \
               --runtime-compiler eval \
               --cache "$test_root/cli-cache"
+
+            # Final-only CLI smoke: the installed command surface loads only
+            # final systems and keeps starlang-prototype out of its process.
+            sbcl --script "$source_root/starlang-cli/starlang-cli.lisp" version
+            sbcl --script "$source_root/starlang-cli/starlang-cli.lisp" \
+              check "$source_root/fixtures/actor-compiler/enrichment-worker.star"
+            sbcl --script "$source_root/starlang-cli/starlang-cli.lisp" \
+              compile "$source_root/fixtures/actor-compiler/enrichment-worker.star" \
+              --manifest "$test_root/actor-manifest.json"
+            sbcl --script "$source_root/starlang-cli/starlang-cli.lisp" \
+              run "$source_root/fixtures/actor-compiler/enrichment-worker.star" \
+              --eval "(defun enrichment-worker-handler (dispatcher command) (declare (ignore dispatcher command)) (list :outcome :complete))"
 
             cd "$source_root"
             runHook postCheck
@@ -136,9 +149,23 @@
             source_root="$out/share/common-lisp/source/star-lang"
             export CL_SOURCE_REGISTRY="\$source_root//"
 
-            exec ${sbcl}/bin/sbcl \
-              --script "\$source_root/prototype/run-star.lisp" \
-              "\$@"
+            # The installed starlang command dispatches on the first argument:
+            # load/load-url keep using the transitional prototype loader
+            # script, everything else (including no arguments) enters the
+            # final-only starlang-cli entrypoint.
+            first_arg="\$1"
+            case "\$first_arg" in
+              load|load-url)
+                exec ${sbcl}/bin/sbcl \
+                  --script "\$source_root/prototype/run-star.lisp" \
+                  "\$@"
+                ;;
+              *)
+                exec ${sbcl}/bin/sbcl \
+                  --script "\$source_root/starlang-cli/starlang-cli.lisp" \
+                  "\$@"
+                ;;
+            esac
             EOF_SCRIPT
 
             cat > "$out/bin/starlang-test" <<EOF_SCRIPT
@@ -169,6 +196,7 @@
               --eval '(asdf:test-system :star-logic-protocol)' \
               --eval '(asdf:test-system :star-logic-ir)' \
               --eval '(asdf:test-system :starlang-compiler)' \
+              --eval '(asdf:test-system :starlang-cli)' \
               --eval '(asdf:test-system :star-logic-adapter-swi)' \
               --eval '(assert (null (find-package "STAR-LANG.PROTOTYPE")))' \
               --eval '(asdf:test-system :starlang-prototype)' \
