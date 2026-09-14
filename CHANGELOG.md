@@ -66,6 +66,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed a `sbcl --script prototype/run-star.lisp` crash
+  (`SB-EXT:PACKAGE-DOES-NOT-EXIST` for `:STAR-LANG.COMPILER.CORE`) on
+  machines with a stale star-lang checkout under an inherited ASDF source
+  registry (e.g. `~/common-lisp`): the core-surface compatibility shell now
+  registers the repository tree as a directory pathname `:tree` entry placed
+  before `:inherit-configuration`, so this checkout always wins over
+  inherited configuration and the fallback `load-asd`/`load-system` resolves
+  the real `starlang-compiler`. Added
+  `prototype/core-surface-load-tests.lisp`, which forces a hostile decoy
+  registry and asserts this checkout's `starlang-compiler` 0.1.0 wins.
 - Fixed two latent `starlang-compiler` resolver-effects tests that used a
   parallel `let` whose effect lambda captured the global binding instead of
   the intended local one (per CLHS, `let` init-forms are outside the scope

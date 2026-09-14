@@ -12,17 +12,23 @@
   (unless (find-package "STAR-LANG.COMPILER.CORE")
     ;; Register this repository tree first so the final systems and their
     ;; dependencies resolve from this checkout even in bare `sbcl --script`
-    ;; processes without a configured CL_SOURCE_REGISTRY.
-    (funcall (find-symbol "INITIALIZE-SOURCE-REGISTRY" "ASDF")
-             (list :source-registry
-                   :inherit-configuration
-                   (list :tree
-                         (namestring
-                          (merge-pathnames "../" *load-truename*)))))
-    (funcall (find-symbol "LOAD-ASD" "ASDF")
-             (merge-pathnames "../starlang-compiler/starlang-compiler.asd"
-                              *load-truename*))
-    (funcall (find-symbol "LOAD-SYSTEM" "ASDF") :starlang-compiler)))
+    ;; processes without a configured CL_SOURCE_REGISTRY, and so an inherited
+    ;; registry offering a stale checkout (e.g. under ~/common-lisp) can
+    ;; never shadow this one. The tree must be a directory pathname before
+    ;; :inherit-configuration so it takes precedence over inherited entries.
+    (let ((repository-root
+            (make-pathname
+             :name nil
+             :type nil
+             :directory (butlast (pathname-directory *load-truename*)))))
+      (funcall (find-symbol "INITIALIZE-SOURCE-REGISTRY" "ASDF")
+               (list :source-registry
+                     (list :tree (namestring repository-root))
+                     :inherit-configuration))
+      (funcall (find-symbol "LOAD-ASD" "ASDF")
+               (merge-pathnames "../starlang-compiler/starlang-compiler.asd"
+                                *load-truename*))
+      (funcall (find-symbol "LOAD-SYSTEM" "ASDF") :starlang-compiler))))
 
 (defpackage #:star-lang.core-surface.prototype
   (:use #:cl)
