@@ -1,7 +1,7 @@
 # component	final-owner	state	note
 core-surface-prototype	starlang-compiler	compat	Compatibility re-export shell; closed parser, syntax model, validation, and specification lowering are final-owned by starlang-compiler.
 service-uri-prototype	star-actor-protocol	compat	Compatibility forwarding only.
-macro-expander-prototype	starlang-compiler	prototype	Move hygienic bounded expansion into final compiler.
+macro-expander-prototype	starlang-compiler	compat	Declarative hygienic macro parsing/collection, bounded expansion, provenance, dependency tracking, one-step expansion, and deterministic expanded-source rendering are final-owned; prototype file is symbol-forwarding only.
 actor-wire-prototype	star-actor-protocol+starlang-compiler+starlang-runtime	partial	Actor source lowering and portable manifest emission are final-owned by starlang-compiler; cl-gserver runtime binding composition and wire-envelope forwarders remain.
 core-semantics-prototype	starlang-compiler	prototype	Compiler semantic validation remains prototype-owned.
 canonical-json-prototype	star-actor-protocol+star-canonical-json	compat	Compatibility forwarding only.
