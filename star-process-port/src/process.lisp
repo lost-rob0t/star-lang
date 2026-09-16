@@ -343,13 +343,18 @@ before calling it; regardless, the child is reaped before this function returns.
          ;; after our root process is reaped. That must not keep this invocation
          ;; or its capture threads alive beyond the bounded cleanup budget.
          (setf (capture-state-truncated-p state) t)
-         (ignore-errors (destroy-thread thread)))
-       (when (thread-alive-p thread)
-         (unless (capture-state-error state)
-           (setf (capture-state-error state)
-                 (make-condition 'simple-error
-                                 :format-control
-                                 "Capture thread remained alive after bounded cleanup.")))))))
+         (ignore-errors (destroy-thread thread))
+         (if (thread-alive-p thread)
+             (unless (capture-state-error state)
+               (setf (capture-state-error state)
+                     (make-condition 'simple-error
+                                     :format-control
+                                     "Capture thread remained alive after bounded cleanup.")))
+             ;; Bordeaux-Threads termination may surface as an ERROR inside the
+             ;; reader's broad handler. Once forced cleanup has actually stopped
+             ;; the drainer, that condition is expected truncation, not an I/O
+             ;; failure to report to the caller.
+             (setf (capture-state-error state) nil))))))
   state)
 
 (defun %finish-capture-threads (process
