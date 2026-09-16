@@ -39,7 +39,18 @@ The default portable snapshot budgets are deliberately finite:
 | Maximum recursive depth | 64 |
 | Maximum visited values | 100,000 |
 | Maximum string length | 1,048,576 characters |
+| Maximum aggregate copied string length | 8,388,608 characters |
 | Maximum vector length | 65,536 elements |
+
+Recursive depth measures nested value structure. Advancing through sibling cells
+of one proper list does not consume additional depth; those cells still consume
+the visited-value budget. This keeps a long shallow journal history from becoming
+invalid merely because it contains more events.
+
+The aggregate string budget counts every copied string occurrence, including
+repeated references to the same source string. Together with the visited-value
+and container limits, this prevents a compact shared input from expanding into
+unbounded copied string data during snapshotting.
 
 The reusable protocol primitive accepts explicit smaller/different positive
 limits for callers and focused tests. `star-journal` uses the defaults for both
@@ -62,5 +73,6 @@ asdf:test-system :star-journal
 
 The journal tests cover caller mutation after append, replay-result mutation,
 nested mutable leaves, vectors, custom backend isolation, cycle/depth/size
-rejection, failed-append history preservation, file round-trip behavior, and
-prototype independence.
+rejection, long shallow replay, aggregate alias-amplification bounds,
+failed-append history preservation, file round-trip behavior, and prototype
+independence.
