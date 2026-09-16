@@ -1,0 +1,23 @@
+{
+  "kind": "supervisor",
+  "name": "ingestSupervisor",
+  "strategy": "one-for-one",
+  "restart": "permanent",
+  "restartIntensity": {
+    "maxRestarts": 3,
+    "periodMs": 10000
+  },
+  "backoff": {
+    "kind": "fixed",
+    "delayMs": 250
+  },
+  "shutdown": {
+    "kind": "drain",
+    "timeoutMs": 5000
+  },
+  "children": [
+    {"kind": "actor", "name": "fetcher"},
+    {"kind": "actor", "name": "normalizer"},
+    {"kind": "actor", "name": "oneShot"}
+  ]
+}

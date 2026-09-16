@@ -1,11 +1,16 @@
-#+title: Supervisor prototype — executable host API and syntax review
+#+title: Supervisor prototype — host API and defined StarLang grammar
 #+startup: overview
 
 * Status and review location
 
-This is a review prototype for [[https://github.com/lost-rob0t/star-lang/issues/57][star-lang #57]], not a production-supervision claim and
-not an approval of new language grammar. Keep its pull request in draft for the
-owner's syntax/basis feedback. Do not auto-merge or close #57 from this slice.
+This is a review prototype for [[https://github.com/lost-rob0t/star-lang/issues/57][star-lang #57]], not a production-supervision claim.
+Keep [[https://github.com/lost-rob0t/star-lang/pull/91][PR #91]] in draft for the owner's feedback. Do not auto-merge or close #57.
+
+The user-written .star grammar is now defined in
+[[file:../docs/language/SUPERVISOR-GRAMMAR.org][StarLang supervisor — final surface grammar proposal v1]], with
+[[file:../docs/language/supervisor-v1.ebnf][complete EBNF]] and [[file:examples/source-design/README.org][source-design examples]]. That definition supersedes the initial
+six-clause sketch. It is a specification for review, not implemented parser
+support. The executable prototype remains the Common Lisp API below.
 
 The code lives in =star-supervisor=, not =prototype/=. It uses the existing
 =starlang-runtime= and =star-mailbox= implementations. It does not introduce
@@ -61,12 +66,13 @@ execution. The supervisor ASDF test operation explicitly signals an error when
 FiveAM reports failure; it cannot turn a false return into a green ASDF result.
 
 =bash ci/run-supervisor-review.sh= runs the mailbox, runtime, and supervisor
-ASDF suites in fresh SBCL processes, followed by all three examples. It is an
-opt-in local/Forgejo runner, not a newly installed workflow or background task.
+ASDF suites in fresh SBCL processes, followed by all three Lisp examples. It is
+an opt-in local/Forgejo runner, not a newly installed workflow or background task.
 The ownership/promotion record is
-[[file:../docs/implementation-slices/SUPERVISOR-REVIEW-PROTOTYPE.org][SUPERVISOR-REVIEW-PROTOTYPE.org]].
+[[file:../docs/implementation-slices/SUPERVISOR-REVIEW-PROTOTYPE.org][SUPERVISOR-REVIEW-PROTOTYPE.org]]. The =source-design/= files are not included in
+this runner: they specify pending compiler acceptance, not runnable examples.
 
-The three examples contain assertions, not just printed illustrations:
+The three Lisp examples contain assertions, not just printed illustrations:
 
 1. =counter.lisp=: a real failed mailbox transition, generation advance, stale
    reference rejection, recovery preserving committed state, and teardown.
@@ -117,41 +123,41 @@ it does not schedule a timer behind your back. Call it again at or after
 =next-restart-at=. Calling it repeatedly without advancing time is not useful.
 The default clock is monotonic elapsed milliseconds, not Unix epoch time.
 
-* Proposed .star syntax — NOT parsed or compiled by this PR
+* Defined .star surface — separate from host API and IR
 
-The following is a review sketch only. It is intentionally an =example= block,
-not a runnable =.star= fixture, and no Lisp reader is used to parse =.star=.
-=starlang check/compile/run= do not gain supervisor declarations from this PR.
+The complete target grammar, option cardinalities, defaults, units, nesting,
+validation errors, and source-to-IR mapping are defined in
+[[file:../docs/language/SUPERVISOR-GRAMMAR.org][SUPERVISOR-GRAMMAR.org]]. The application author writes:
 
-#+begin_example
+#+begin_src lisp
 (supervisor ingestSupervisor
-  (:strategy :one-for-one)
-  (:maxRestarts 3)
-  (:periodMs 10000)
-  (:backoffMs 250)
-  (:children fetcher normalizer oneShot))
-#+end_example
+  (:strategy one-for-one
+   :restart permanent
+   :restart-intensity (3 (seconds 10))
+   :backoff (fixed (milliseconds 250))
+   :shutdown (drain (seconds 5))
+   :children (fetcher normalizer oneShot)))
+#+end_src
 
-The child names refer to actor declarations. The sketch preserves the current
-actor-definition ownership of each child's restart class and mailbox bound.
-Its future lowering would produce data-only supervisor IR containing resolved
-actor identities and integer policy values, never function objects. Host
-handlers would be bound separately by the existing runtime boundary.
+This is .star SOURCE, not normalized IR. Like the existing actor grammar, it has
+one options list and bare enum values. The compiler would emit a data-only node
+with =restartIntensity.maxRestarts=, =periodMs=, =backoff.delayMs=, resolved child
+identities, and other normalized fields. The host constructor calls above are a
+third representation, not the source language.
 
-Questions to answer in the draft PR:
+The v1 proposal makes explicit choices instead of leaving a menu of unresolved
+syntax questions: named child references, restart class on each declaration,
+grouped count/window, fixed or no backoff, finite unit-bearing shutdown, and
+nested trees by referring to other supervisor declarations. Existing committed
+state is preserved on runtime restart. The full document defines all three
+strategies and the backend rejection rules for unimplemented semantics.
 
-| Decision | Prototype choice | Useful feedback |
-|----------+------------------+-----------------|
-| Declaration | Separate =supervisor= form naming existing actors | Prefer nested child declarations or references? |
-| Strategies | Only =one-for-one= executes; other names are rejected | Prioritize =rest-for-one=, =one-for-all=, or nesting next? |
-| Restart class | Kept on the existing actor definition | Move it to each supervisor-child binding? |
-| Intensity syntax | Explicit =maxRestarts= and =periodMs= | Prefer a grouped =restartIntensity= clause? |
-| Backoff | Fixed integer milliseconds; no jitter | Prefer a bounded exponential declaration? |
-| Child state | Keep the runtime's committed state across restart | Should restart rebuild state from an initializer instead? |
-| Host API | Constructors plus =with-supervisor= | Is a declarative Lisp =defsupervisor= macro useful? |
-| Shutdown | Immediate stop or bounded message-round drain | What acknowledgment/deadline contract should the concrete backend expose? |
+No =.star= supervisor parser or lowering has been added in this PR. The source
+files under =examples/source-design/= are pending acceptance inputs. The current
+Lisp driver is still flat/one-for-one, and its round-counted drain is NOT the
+wall-time drain specified by =(drain (seconds 5))=. No silent fallback is valid.
 
-* Exact lifecycle semantics
+* Exact prototype lifecycle semantics
 
 ** Restart classification
 
@@ -219,9 +225,9 @@ Basis, in order:
 - [[https://www.erlang.org/doc/system/sup_princ.html][Erlang/OTP supervision principles]]: inspiration for restart classes,
   one-for-one isolation, intensity bounds, and startup/shutdown ordering.
 
-This is not an OTP implementation or Sento lifecycle-equivalence claim. There
-are no watch/link notifications, Sento supervision hooks, nested supervisor
-actors, dynamic children, process kill/reap deadlines, remote actor management,
-readiness protocol, exponential backoff/jitter, journals, leases, or durable
-recovery in this PR. Those are not hidden behind fake success or placeholder
-methods. Actor registry and transport routing remain outside this package.
+This is not an OTP implementation or Sento lifecycle-equivalence claim. The
+prototype code has no watch/link notifications, Sento supervision hooks, nested
+supervisor actors, dynamic children, process kill/reap deadlines, remote actor
+management, readiness protocol, exponential backoff/jitter, journals, leases,
+or durable recovery. Defined target grammar must not be mistaken for shipped
+semantics. Actor registry and transport routing remain outside this package.
