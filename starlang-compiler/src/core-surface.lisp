@@ -1444,10 +1444,6 @@ the approved declarative hygienic macro language is implemented."
     (destructuring-bind (name type &rest options) (star-syntax-children field)
       (multiple-value-bind (required-p default default-p)
           (parse-field-markers options name)
-        (when (and required-p default-p)
-          (fail 'invalid-field-error
-                "Required field ~A cannot declare a default."
-                name))
         (list :name (require-lower-camel-field-name name)
               :type (normalize-type-expression type library-name local-types)
               :required required-p
