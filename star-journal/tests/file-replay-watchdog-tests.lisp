@@ -51,6 +51,17 @@
      :error-output :string
      :ignore-error-status t)))
 
+(defun append-watchdog-diagnostic (label output error-output exit-code)
+  ;; CI always uploads star-lang-*.log. Retain the child transcript so a failed
+  ;; boundedness oracle is diagnosable without weakening or bypassing the test.
+  (with-open-file (stream #p"star-lang-journal-watchdog.log"
+                          :direction :output
+                          :if-exists :append
+                          :if-does-not-exist :create)
+    (format stream "~&=== ~A ===~%exit-code: ~D~%stdout:~%~A~%stderr:~%~A~%"
+            label exit-code output error-output)
+    (finish-output stream)))
+
 (defun check-bounded-typed-rejection (label contents expected-message)
   (let ((path (temporary-journal-pathname label)))
     (unwind-protect
@@ -63,6 +74,7 @@
              (terpri stream))
            (multiple-value-bind (output error-output exit-code)
                (replay-in-watchdog-child path)
+             (append-watchdog-diagnostic label output error-output exit-code)
              (check (search "STARLANG-JOURNAL-CHILD-LOADED" output)
                     "Journal watchdog child failed before loading star-journal.~%stdout: ~A~%stderr: ~A"
                     output error-output)
