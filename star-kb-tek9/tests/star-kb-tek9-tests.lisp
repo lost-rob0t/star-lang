@@ -53,7 +53,7 @@
                 (make-kb-entry "a" :namespace namespace :kind "person"
                                :dataset "people"
                                :fields '(("name" . "Ada")
-                                         ("roles" . #(admin analyst)))))
+                                         ("roles" . #("admin" "analyst")))))
   (kb-put-entry store
                 (make-kb-entry "b" :namespace namespace :kind "person"
                                :dataset "people"
@@ -82,7 +82,7 @@
                           "Tek9 field index")
              (check-equal '("a")
                           (ids (kb-find-entries-by-field
-                                store "g" "roles" #(admin analyst)))
+                                store "g" "roles" #("admin" "analyst")))
                           "Tek9 structured field equality index")
              (kb-put-relation
               store
