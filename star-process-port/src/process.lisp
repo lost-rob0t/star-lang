@@ -60,6 +60,7 @@
   (stream (make-string-output-stream))
   (retained-count 0)
   (truncated-p nil)
+  (forced-stop-p nil)
   error)
 
 (defun %fail (condition-type control &rest arguments)
@@ -318,7 +319,8 @@ before calling it; regardless, the child is reaped before this function returns.
                      (incf (capture-state-retained-count state)))
                    (setf (capture-state-truncated-p state) t)))
     (error (cause)
-      (setf (capture-state-error state) cause)))
+      (unless (capture-state-forced-stop-p state)
+        (setf (capture-state-error state) cause))))
   state)
 
 (defun %start-capture-thread (stream state name)
@@ -342,19 +344,12 @@ before calling it; regardless, the child is reaped before this function returns.
          ;; An unowned descendant can inherit a pipe writer and suppress EOF
          ;; after our root process is reaped. That must not keep this invocation
          ;; or its capture threads alive beyond the bounded cleanup budget.
-         (setf (capture-state-truncated-p state) t)
+         (setf (capture-state-truncated-p state) t
+               (capture-state-forced-stop-p state) t)
          (ignore-errors (destroy-thread thread))
-         (if (thread-alive-p thread)
-             (unless (capture-state-error state)
-               (setf (capture-state-error state)
-                     (make-condition 'simple-error
-                                     :format-control
-                                     "Capture thread remained alive after bounded cleanup.")))
-             ;; Bordeaux-Threads termination may surface as an ERROR inside the
-             ;; reader's broad handler. Once forced cleanup has actually stopped
-             ;; the drainer, that condition is expected truncation, not an I/O
-             ;; failure to report to the caller.
-             (setf (capture-state-error state) nil))))))
+         ;; Give the implementation one scheduler handoff to finish termination;
+         ;; this does not extend the monotonic cleanup deadline.
+         (sleep 0)))))
   state)
 
 (defun %finish-capture-threads (process
@@ -365,7 +360,20 @@ before calling it; regardless, the child is reaped before this function returns.
   (let ((deadline (%deadline timeout)))
     (%quiesce-capture-thread stdout-thread stdout-state deadline)
     (%quiesce-capture-thread stderr-thread stderr-state deadline)
-    (%close-process-streams process))
+    (%close-process-streams process)
+    ;; Closing the owned read streams is the final wake-up path. Yield once,
+    ;; then record an actual cleanup failure only if a capture thread survived.
+    (sleep 0)
+    (when (and stdout-thread (thread-alive-p stdout-thread))
+      (setf (capture-state-error stdout-state)
+            (make-condition 'simple-error
+                            :format-control
+                            "Stdout capture thread remained alive after bounded cleanup.")))
+    (when (and stderr-thread (thread-alive-p stderr-thread))
+      (setf (capture-state-error stderr-state)
+            (make-condition 'simple-error
+                            :format-control
+                            "Stderr capture thread remained alive after bounded cleanup."))))
   (values stdout-state stderr-state))
 
 (defun %check-capture-errors (stdout-state stderr-state)
