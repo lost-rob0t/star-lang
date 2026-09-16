@@ -367,7 +367,6 @@
     (setf (actor-instance-mailbox actor)
           (fresh-actor-mailbox (actor-instance-definition actor))
           (actor-instance-status actor) :running
-          (actor-instance-processing-p actor) nil
           (actor-instance-last-error actor) nil)
     actor))
 
