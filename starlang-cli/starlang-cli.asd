@@ -10,5 +10,6 @@
   ((:module "src"
     :components
     ((:file "packages")
-     (:file "cli"))))
+     (:file "cli")
+     (:file "loader-commands"))))
   :in-order-to ((test-op (test-op "starlang-cli-tests"))))
