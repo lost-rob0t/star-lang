@@ -5,8 +5,10 @@
   :depends-on ("star-journal")
   :serial t
   :components
-  ((:file "star-journal-tests"))
+  ((:file "star-journal-tests")
+   (:file "journal-boundary-tests"))
   :perform
   (test-op (operation component)
     (declare (ignore operation component))
-    (uiop:symbol-call :starjournal-tests :run-tests)))
+    (uiop:symbol-call :starjournal-tests :run-tests)
+    (uiop:symbol-call :starjournal-boundary-tests :run-tests)))
