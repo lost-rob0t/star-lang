@@ -109,28 +109,28 @@
     (is (equal (star-lang.compiler.core:star-syntax-source-map string-syntax)
                (star-lang.compiler.core:star-syntax-source-map octet-syntax)))))
 
-(test obvious-character-oversize-rejects-before-full-string-encoder
-  "A character-count-obvious over-limit string never enters the full UTF-8 encoder."
+(test source-limit-is-propagated-before-host-string-allocation
+  "The resolved source-byte limit reaches string admission before octet allocation."
   (let* ((source (make-string 65 :initial-element #\Space))
          (encoder-symbol
            (find-symbol "STRING-TO-UTF-8-OCTETS"
                         "STAR-LANG.COMPILER.CORE"))
          (original (symbol-function encoder-symbol))
-         (called nil)
+         (seen-limit :missing)
          (condition nil))
     (unwind-protect
          (progn
            (setf (symbol-function encoder-symbol)
-                 (lambda (value)
-                   (setf called t)
-                   (funcall original value)))
+                 (lambda (value &rest arguments)
+                   (setf seen-limit (getf arguments :byte-limit :missing))
+                   (apply original value arguments)))
            (setf condition (source-limit-condition source 64)))
       (setf (symbol-function encoder-symbol) original))
     (is (typep condition
                'star-lang.compiler.core:star-lang-source-error))
     (is (eq :source-byte-limit
             (star-lang.compiler.core:star-lang-core-error-code condition)))
-    (is (not called))))
+    (is (eql 64 seen-limit))))
 
 (test multibyte-source-overflow-is-byte-bounded
   "A string whose character count fits but UTF-8 byte count does not is rejected."
