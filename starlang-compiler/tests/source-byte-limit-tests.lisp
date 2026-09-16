@@ -35,7 +35,7 @@
             :limits limits
             :source-id source-id
             :pathname pathname
-            :origin origin)))))))
+            :origin origin))))))
 
 (defun assert-source-byte-boundary (source octets byte-length)
   (let* ((at-limit
