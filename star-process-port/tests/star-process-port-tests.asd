@@ -1,8 +1,8 @@
 (defsystem "star-process-port-tests"
-  :description "Unit tests for star-process-port"
+  :description "Contract tests for star-process-port lifecycle behavior"
   :author "lost-rob0t"
   :license "AGPL-3.0-only"
-  :depends-on ("star-process-port" "fiveam")
+  :depends-on ("star-process-port" "bordeaux-threads" "fiveam")
   :components
   ((:file "star-process-port-tests"))
   :perform
