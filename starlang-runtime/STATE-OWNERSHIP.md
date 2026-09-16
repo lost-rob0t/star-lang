@@ -21,26 +21,29 @@ actor instance.
 
 Transition working/commit snapshots reuse
 `star-actor-protocol:snapshot-portable-wire-value`; `starlang-runtime` does not own a
-second copier or serializer. The admitted transition-state values are the existing
-portable value grammar:
+second copier or serializer. The transition-state grammar is therefore exactly the
+existing portable snapshot grammar: `NIL`/`T` and other symbols, integers, strings,
+cons structures whose components are themselves admitted values, and vectors whose
+elements are admitted values. Strings, conses, and vectors are copied recursively;
+shared-but-acyclic mutable input is copied by value rather than preserved as an
+alias.
 
-- `NIL` and `T`;
-- integers;
-- symbols;
-- characters;
-- strings;
-- proper lists whose members are admitted values; and
-- vectors whose elements are admitted values.
+The runtime uses the portable snapshot defaults owned by `star-actor-protocol`:
 
-Mutable strings, lists, and vectors are copied recursively. Circular aggregates,
-improper lists, unsupported host objects/resources, nesting beyond 128 levels, and
-more than 65,536 aggregate nodes are rejected deterministically. At the native actor
-boundary these snapshot failures are reported as `actor-contract-error`; failed
-admission does not advance the invocation count or replace committed state.
+- maximum nested depth: 64;
+- maximum aggregate nodes: 100,000;
+- maximum single-string length: 1,048,576 characters;
+- maximum aggregate string length: 8,388,608 characters; and
+- maximum vector length: 65,536 elements.
 
-The depth/node limits and portable-value grammar remain owned by
-`star-actor-protocol`. `starlang-runtime` owns only the transition-time use of that
-contract and the commit boundary.
+Circular aggregates, unsupported host objects/resources, and values exceeding any
+of those bounds are rejected deterministically. At the native actor boundary these
+snapshot failures are reported as `actor-contract-error`; failed admission does not
+advance the invocation count or replace committed state.
+
+The grammar and resource limits remain owned by `star-actor-protocol`.
+`starlang-runtime` owns only the transition-time use of that contract and the commit
+boundary.
 
 ## Lifecycle interaction
 
