@@ -2,8 +2,7 @@
   :description "Real-loopback regression tests for the synchronous Dexador HTTP backend"
   :author "lost-rob0t"
   :license "AGPL-3.0-only"
-  :depends-on ("star-http-port"
-               "dexador"
+  :depends-on ("star-http-dexador"
                "usocket"
                "bordeaux-threads"
                "babel")
