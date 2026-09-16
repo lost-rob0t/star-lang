@@ -1,6 +1,5 @@
-;;;; Public starlang-compiler surface: re-export the final parser, macro
-;;;; expander, actor lowering, manifest emission, and diagnostics from the core
-;;;; package.
+;;;; Public starlang-compiler surface: final parser, semantic/program IR,
+;;;; actor lowering, macro expansion, manifest emission, and diagnostics.
 
 (in-package #:starlangcompiler)
 
@@ -21,12 +20,20 @@
     #:compile-actor-file
     #:compile-spec-library
     #:compile-star-core
+    #:compile-core-library
+    #:compile-program
+    #:compile-program-source
+    #:define-star-program
+    #:emit-core-manifest
     #:emit-portable-manifest
     #:expand-star-syntax
+    #:full-sha256-digest-p
     #:load-star-form
     #:portable-actor
     #:read-star-syntax
     #:trusted-form-to-star-syntax
+    #:validate-actor-contract
+    #:validate-library-semantics
     #:validate-star-core
     #:+normalized-ir-schema+
     #:+normalized-ir-version+
@@ -60,9 +67,12 @@
     #:invalid-field-error
     #:invalid-library-error
     #:invalid-macro-error
+    #:invalid-program-error
+    #:invalid-stage-error
     #:invalid-star-service-uri-error
     #:invalid-type-error
     #:macro-context-error
     #:macro-expansion-error
     #:macro-limit-error
+    #:unresolved-spec-error
     #:unsupported-macro-error))
