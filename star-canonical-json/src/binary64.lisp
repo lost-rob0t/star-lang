@@ -9,8 +9,12 @@
 (defun %assert-binary64-runtime ()
   (unless (and (= 2 (float-radix 1d0))
                (= 53 (float-digits 1d0))
-               (= -1021 (float-min-exponent 1d0))
-               (= 1024 (float-max-exponent 1d0)))
+               (= (rational least-positive-normalized-double-float)
+                  (expt 2 -1022))
+               (= (rational least-positive-double-float)
+                  (expt 2 -1074))
+               (= (rational most-positive-double-float)
+                  (- (expt 2 1024) (expt 2 971))))
     (%fail-binary64
      "The host double-float representation is not IEEE 754 binary64.")))
 
