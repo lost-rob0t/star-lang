@@ -7,5 +7,7 @@
   ((:file "star-supervisor-tests"))
   :perform (test-op (op c)
              (declare (ignore op c))
-             (unless (symbol-call :fiveam '#:run! 'starsupervisor-tests)
-               (error "Final star-supervisor tests failed."))))
+             (let ((suite (find-symbol "STARSUPERVISOR-TESTS"
+                                       :starsupervisor-tests)))
+               (unless (and suite (symbol-call :fiveam '#:run! suite))
+                 (error "Final star-supervisor tests failed.")))))
