@@ -25,13 +25,14 @@
 
 (defun test-command (&key
                        (message-id "journal-command")
-                       (idempotency-key "journal-key"))
+                       (idempotency-key "journal-key")
+                       payload)
   (staractorprotocol:make-command-envelope
    :message-id message-id
    :message-type "test/journal@1/command"
    :actor "journal-test"
    :idempotency-key idempotency-key
-   :payload nil))
+   :payload payload))
 
 (defun pending-event (&key
                         (sequence 1)
@@ -54,6 +55,16 @@
         :command command
         :result (list :outcome outcome)))
 
+(defun nested-payload-string (event)
+  (cdr (assoc "nested"
+              (getf (getf event :command) :payload)
+              :test #'string=)))
+
+(defun payload-vector (event)
+  (cdr (assoc "items"
+              (getf (getf event :command) :payload)
+              :test #'string=)))
+
 (defun test-memory-journal-round-trip-and-copying ()
   (let* ((journal (make-memory-runtime-journal-port))
          (event (pending-event)))
@@ -66,6 +77,94 @@
       (check (eq :pending
                  (getf (first (runtime-journal-replay journal)) :kind))
              "Memory journal replay did not return defensive copies."))))
+
+(defun test-memory-journal-owns-mutable-leaves-on-append ()
+  (let* ((journal (make-memory-runtime-journal-port))
+         (message-id (copy-seq "command-1"))
+         (clock (copy-seq "1970-01-01T00:00:00Z"))
+         (nested (copy-seq "alpha"))
+         (items (vector (copy-seq "first") (copy-seq "second")))
+         (command
+           (test-command
+            :message-id message-id
+            :payload (list (cons "nested" nested)
+                           (cons "items" items))))
+         (event (pending-event :now clock :command command)))
+    (runtime-journal-append journal event)
+    (setf (char message-id 0) #\X
+          (char clock 0) #\X
+          (char nested 0) #\X
+          (char (aref items 0) 0) #\X)
+    (setf (aref items 1) "replacement")
+    (let ((stored (first (runtime-journal-replay journal))))
+      (check (string= "command-1"
+                      (getf (getf stored :command) :message-id))
+             "Journal append retained caller-owned message-id string.")
+      (check (string= "1970-01-01T00:00:00Z"
+                      (getf stored :dispatcher-now))
+             "Journal append retained caller-owned clock string.")
+      (check (string= "alpha" (nested-payload-string stored))
+             "Journal append retained a nested caller-owned payload string.")
+      (check (equalp #("first" "second") (payload-vector stored))
+             "Journal append retained caller-owned vector state."))))
+
+(defun test-memory-journal-replay-returns-owned-mutable-leaves ()
+  (let* ((journal (make-memory-runtime-journal-port))
+         (command
+           (test-command
+            :message-id (copy-seq "command-1")
+            :payload
+            (list (cons "nested" (copy-seq "alpha"))
+                  (cons "items"
+                        (vector (copy-seq "first")
+                                (copy-seq "second"))))))
+         (event
+           (pending-event
+            :now (copy-seq "1970-01-01T00:00:00Z")
+            :command command)))
+    (runtime-journal-append journal event)
+    (let ((first (first (runtime-journal-replay journal))))
+      (setf (char (getf (getf first :command) :message-id) 0) #\X
+            (char (getf first :dispatcher-now) 0) #\X
+            (char (nested-payload-string first) 0) #\X
+            (char (aref (payload-vector first) 0) 0) #\X)
+      (setf (aref (payload-vector first) 1) "replacement"))
+    (let ((second (first (runtime-journal-replay journal))))
+      (check (string= "command-1"
+                      (getf (getf second :command) :message-id))
+             "Mutating one replay changed later message-id replay.")
+      (check (string= "1970-01-01T00:00:00Z"
+                      (getf second :dispatcher-now))
+             "Mutating one replay changed later clock replay.")
+      (check (string= "alpha" (nested-payload-string second))
+             "Mutating one replay changed later nested payload replay.")
+      (check (equalp #("first" "second") (payload-vector second))
+             "Mutating one replay changed later vector replay."))))
+
+(defun test-custom-backend-boundary-owns-values ()
+  (let ((stored '()))
+    (let* ((journal
+             (make-runtime-journal-port
+              :append
+              (lambda (event)
+                (setf stored (list event))
+                :appended)
+              :replay (lambda () stored)))
+           (message-id (copy-seq "custom-command"))
+           (event
+             (pending-event
+              :command (test-command :message-id message-id))))
+      (runtime-journal-append journal event)
+      (setf (char message-id 0) #\X)
+      (check (string= "custom-command"
+                      (getf (getf (first stored) :command) :message-id))
+             "Journal passed caller-owned mutable data into custom append backend.")
+      (let ((replay (runtime-journal-replay journal)))
+        (setf (char (getf (getf (first replay) :command) :message-id) 0)
+              #\Y))
+      (check (string= "custom-command"
+                      (getf (getf (first stored) :command) :message-id))
+             "Journal exposed custom backend-owned mutable data through replay."))))
 
 (defun test-file-journal-round-trip ()
   (let* ((path #p"/tmp/star-journal-final-test.sexp")
@@ -180,6 +279,9 @@
 
 (defun run-tests ()
   (test-memory-journal-round-trip-and-copying)
+  (test-memory-journal-owns-mutable-leaves-on-append)
+  (test-memory-journal-replay-returns-owned-mutable-leaves)
+  (test-custom-backend-boundary-owns-values)
   (test-file-journal-round-trip)
   (test-event-shape-validation)
   (test-replay-order-validation)

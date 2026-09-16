@@ -10,6 +10,13 @@
   (error 'star-journal-error
          :message (apply #'format nil control arguments)))
 
+(defun snapshot-journal-value (value context)
+  (handler-case
+      (staractorprotocol:snapshot-portable-wire-value value)
+    (staractorprotocol:invalid-wire-envelope-error (condition)
+      (fail-journal "~A contains an invalid portable value: ~A"
+                    context condition))))
+
 (defun proper-plist-p (value)
   (loop with rest = value
         do (cond
@@ -119,10 +126,10 @@
   (unless (runtime-journal-port-p port)
     (fail-journal "Runtime journal append requires a journal port."))
   (handler-case
-      (progn
-        (validate-runtime-journal-event event)
-        (funcall (runtime-journal-port-append-fn port)
-                 (copy-tree event)))
+      (let ((owned-event
+              (snapshot-journal-value event "Runtime journal event")))
+        (validate-runtime-journal-event owned-event)
+        (funcall (runtime-journal-port-append-fn port) owned-event))
     (star-journal-error (condition)
       (error condition))
     (error (condition)
@@ -132,17 +139,15 @@
   (unless (runtime-journal-port-p port)
     (fail-journal "Runtime journal replay requires a journal port."))
   (handler-case
-      (let ((events (funcall (runtime-journal-port-replay-fn port))))
-        (unless (listp events)
+      (let* ((events (funcall (runtime-journal-port-replay-fn port)))
+             (owned-events
+               (snapshot-journal-value events "Runtime journal replay")))
+        (unless (listp owned-events)
           (fail-journal "Runtime journal replay must return a list."))
-        (let ((validated
-                (mapcar
-                 (lambda (event)
-                   (validate-runtime-journal-event event)
-                   (copy-tree event))
-                 events)))
-          (validate-runtime-journal-order validated)
-          validated))
+        (dolist (event owned-events)
+          (validate-runtime-journal-event event))
+        (validate-runtime-journal-order owned-events)
+        owned-events)
     (star-journal-error (condition)
       (error condition))
     (error (condition)
@@ -153,11 +158,10 @@
     (make-runtime-journal-port
      :append
      (lambda (event)
-       (setf events (append events (list (copy-tree event))))
+       (setf events (append events (list event)))
        :appended)
      :replay
-     (lambda ()
-       (copy-tree events)))))
+     (lambda () events))))
 
 (defun make-file-runtime-journal-port (pathname)
   (let ((path (pathname pathname)))

@@ -1,0 +1,130 @@
+(in-package :staractorprotocol)
+
+(defconstant +portable-snapshot-default-max-depth+ 64)
+(defconstant +portable-snapshot-default-max-nodes+ 100000)
+(defconstant +portable-snapshot-default-max-string-length+ 1048576)
+(defconstant +portable-snapshot-default-max-total-string-length+ 8388608)
+(defconstant +portable-snapshot-default-max-vector-length+ 65536)
+
+(defun ensure-portable-snapshot-limit (value name)
+  (unless (and (integerp value) (> value 0))
+    (fail-invalid-wire-envelope
+     "Portable wire snapshot ~A must be a positive integer, received ~S."
+     name value))
+  value)
+
+(defun snapshot-portable-wire-value
+    (value
+     &key
+       (max-depth +portable-snapshot-default-max-depth+)
+       (max-nodes +portable-snapshot-default-max-nodes+)
+       (max-string-length +portable-snapshot-default-max-string-length+)
+       (max-total-string-length
+         +portable-snapshot-default-max-total-string-length+)
+       (max-vector-length +portable-snapshot-default-max-vector-length+))
+  "Return an owned, bounded snapshot of a portable StarLang wire value.
+
+Strings, cons structure, and vectors are copied by value. Immutable wire atoms
+are retained. Proper-list spines are traversed iteratively so host call-stack
+depth follows nested value structure instead of list cardinality. Cycles and
+unsupported host objects are rejected instead of being retained by identity.
+Shared-but-acyclic input is accepted and copied by value, so callers cannot
+mutate a later snapshot through an earlier alias."
+  (ensure-portable-snapshot-limit max-depth "max-depth")
+  (ensure-portable-snapshot-limit max-nodes "max-nodes")
+  (ensure-portable-snapshot-limit max-string-length "max-string-length")
+  (ensure-portable-snapshot-limit
+   max-total-string-length
+   "max-total-string-length")
+  (ensure-portable-snapshot-limit max-vector-length "max-vector-length")
+  (let ((nodes 0)
+        (total-string-length 0)
+        (visiting (make-hash-table :test #'eq)))
+    (labels
+        ((claim-node (depth)
+           (incf nodes)
+           (when (> nodes max-nodes)
+             (fail-invalid-wire-envelope
+              "Portable wire snapshot exceeded the ~D-node limit."
+              max-nodes))
+           (when (> depth max-depth)
+             (fail-invalid-wire-envelope
+              "Portable wire snapshot exceeded the depth limit ~D."
+              max-depth)))
+         (claim-string (item)
+           (let ((length (length item)))
+             (when (> length max-string-length)
+               (fail-invalid-wire-envelope
+                "Portable wire snapshot string length ~D exceeds the limit ~D."
+                length max-string-length))
+             (incf total-string-length length)
+             (when (> total-string-length max-total-string-length)
+               (fail-invalid-wire-envelope
+                "Portable wire snapshot aggregate string length ~D exceeds the limit ~D."
+                total-string-length max-total-string-length))))
+         (enter-composite (item)
+           (when (gethash item visiting)
+             (fail-invalid-wire-envelope
+              "Portable wire snapshot contains a cycle."))
+           (setf (gethash item visiting) t))
+         (copy-vector-value (item depth)
+           (let ((length (length item)))
+             (when (> length max-vector-length)
+               (fail-invalid-wire-envelope
+                "Portable wire snapshot vector length ~D exceeds the limit ~D."
+                length max-vector-length))
+             (enter-composite item)
+             (unwind-protect
+                  (let ((snapshot
+                          (make-array length
+                                      :element-type
+                                      (array-element-type item))))
+                    (dotimes (index length snapshot)
+                      (setf (aref snapshot index)
+                            (copy-value (aref item index) (1+ depth)))))
+               (remhash item visiting))))
+         (copy-cons-value (item depth)
+           (let ((current item)
+                 (snapshot nil)
+                 (snapshot-tail nil)
+                 (entered-conses nil))
+             (unwind-protect
+                  (loop
+                    (claim-node depth)
+                    (enter-composite current)
+                    (push current entered-conses)
+                    (let ((cell
+                            (cons (copy-value (car current) (1+ depth)) nil)))
+                      (if snapshot-tail
+                          (setf (cdr snapshot-tail) cell)
+                          (setf snapshot cell))
+                      (setf snapshot-tail cell))
+                    (let ((next (cdr current)))
+                      (if (consp next)
+                          (setf current next)
+                          (progn
+                            (setf (cdr snapshot-tail)
+                                  (copy-value next depth))
+                            (return snapshot)))))
+               (dolist (entered entered-conses)
+                 (remhash entered visiting)))))
+         (copy-value (item depth)
+           (if (consp item)
+               (copy-cons-value item depth)
+               (progn
+                 (claim-node depth)
+                 (cond
+                   ((null item) nil)
+                   ((eq item t) t)
+                   ((integerp item) item)
+                   ((symbolp item) item)
+                   ((stringp item)
+                    (claim-string item)
+                    (copy-seq item))
+                   ((vectorp item)
+                    (copy-vector-value item depth))
+                   (t
+                    (fail-invalid-wire-envelope
+                     "Unsupported portable wire snapshot value ~S."
+                     (type-of item))))))))
+      (copy-value value 0))))
