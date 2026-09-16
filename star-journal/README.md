@@ -44,8 +44,10 @@ The default portable snapshot budgets are deliberately finite:
 
 Recursive depth measures nested value structure. Advancing through sibling cells
 of one proper list does not consume additional depth; those cells still consume
-the visited-value budget. This keeps a long shallow journal history from becoming
-invalid merely because it contains more events.
+the visited-value budget. Proper-list spines are traversed iteratively, so host
+call-stack depth follows semantic nesting rather than sequential list
+cardinality. This keeps a long shallow journal history from becoming invalid or
+unsafe merely because it contains more events.
 
 The aggregate string budget counts every copied string occurrence, including
 repeated references to the same source string. Together with the visited-value
