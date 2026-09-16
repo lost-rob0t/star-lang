@@ -13,6 +13,7 @@
      (:file "supervisor-integration-tests"))))
   :perform (test-op (op c)
              (declare (ignore op c))
-             (unless (symbol-call :fiveam '#:run!
-                                  'starsentocompat-integration-tests)
-               (error "Real Sento actor-system integration tests failed."))))
+             (let ((suite (find-symbol "STARSENTOCOMPAT-INTEGRATION-TESTS"
+                                       :starsentocompat-integration-tests)))
+               (unless (and suite (symbol-call :fiveam '#:run! suite))
+                 (error "Real Sento actor-system integration tests failed.")))))
