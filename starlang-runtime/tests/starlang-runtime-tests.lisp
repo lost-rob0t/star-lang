@@ -313,6 +313,82 @@
                   "A second actor cleared the target dispatch guard through START-ACTOR."))
       (shutdown-runtime runtime))))
 
+(defun test-stop-start-does-not-enable-reentry ()
+  (let ((runtime (make-runtime))
+        (inside-outer nil)
+        (overlaps 0))
+    (unwind-protect
+         (let ((actor
+                 (create-native-actor
+                  runtime
+                  "stop-start-guarded"
+                  (lambda (message state owner)
+                    (declare (ignore state))
+                    (ecase message
+                      (:outer
+                       (setf inside-outer t)
+                       (unwind-protect
+                            (progn
+                              (stop-actor owner "stop-start-guarded")
+                              (start-actor owner "stop-start-guarded")
+                              (handler-case
+                                  (ask owner "stop-start-guarded" :inner :timeout-steps 1)
+                                (actor-runtime-error () :blocked)))
+                         (setf inside-outer nil))
+                       :outer)
+                      (:inner
+                       (when inside-outer
+                         (incf overlaps))
+                       :inner))))))
+           (tell runtime actor :outer)
+           (check (eq :completed
+                      (dispatch-result-status (dispatch-next runtime actor)))
+                  "Stop/start guard fixture did not complete its outer transition.")
+           (check (zerop overlaps)
+                  "STOP followed by START cleared an in-flight dispatch guard and enabled reentry."))
+      (shutdown-runtime runtime))))
+
+(defun test-second-actor-restart-does-not-enable-reentry ()
+  (let ((runtime (make-runtime))
+        (inside-target nil)
+        (overlaps 0))
+    (unwind-protect
+         (progn
+           (create-native-actor
+            runtime
+            "restart-guard-target"
+            (lambda (message state owner)
+              (declare (ignore state))
+              (ecase message
+                (:outer
+                 (setf inside-target t)
+                 (unwind-protect
+                      (progn
+                        (ask owner "restarter" :restart)
+                        (handler-case
+                            (ask owner "restart-guard-target" :inner :timeout-steps 1)
+                          (actor-runtime-error () :blocked)))
+                   (setf inside-target nil))
+                 :outer)
+                (:inner
+                 (when inside-target
+                   (incf overlaps))
+                 :inner))))
+           (create-native-actor
+            runtime
+            "restarter"
+            (lambda (message state owner)
+              (declare (ignore state))
+              (ecase message
+                (:restart
+                 (restart-actor owner "restart-guard-target")
+                 :restarted))))
+           (check (eq :outer (ask runtime "restart-guard-target" :outer))
+                  "Cross-actor restart fixture did not complete its outer transition.")
+           (check (zerop overlaps)
+                  "A second actor cleared the target dispatch guard through RESTART-ACTOR."))
+      (shutdown-runtime runtime))))
+
 (defun test-spawn-and-shutdown ()
   (let* ((runtime (make-runtime))
          (definition
@@ -601,6 +677,8 @@
   (test-start-running-actor-is-idempotent)
   (test-start-does-not-enable-reentry)
   (test-second-actor-start-does-not-enable-reentry)
+  (test-stop-start-does-not-enable-reentry)
+  (test-second-actor-restart-does-not-enable-reentry)
   (test-spawn-and-shutdown)
   (test-runtime-registry-and-external-boundary)
   (test-run-until-idle)
