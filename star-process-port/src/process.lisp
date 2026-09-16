@@ -214,6 +214,11 @@ part of provenance."
   (and deadline
        (>= (get-internal-real-time) deadline)))
 
+(defun %seconds-until-deadline (deadline)
+  (max 0.0d0
+       (/ (- deadline (get-internal-real-time))
+          (coerce internal-time-units-per-second 'double-float))))
+
 (defun %close-process-streams (process)
   (ignore-errors (uiop:close-streams (managed-process-info process))))
 
@@ -319,13 +324,52 @@ before calling it; regardless, the child is reaped before this function returns.
 (defun %start-capture-thread (stream state name)
   (make-thread (lambda () (%drain-stream-bounded stream state)) :name name))
 
-(defun %join-capture-thread (thread state)
-  (join-thread thread)
-  (when (capture-state-error state)
-    (error 'process-output-error
-           :message "Failed while draining subprocess output."
-           :cause (capture-state-error state)))
+(defun %quiesce-capture-thread (thread state deadline)
+  "Bound capture-thread completion by DEADLINE and force-stop a lingering reader."
+  (when thread
+    (cond
+      ((not (thread-alive-p thread))
+       ;; The thread already reached EOF; joining a dead thread is immediate.
+       (ignore-errors (join-thread thread)))
+      (t
+       (let ((remaining (%seconds-until-deadline deadline)))
+         (when (plusp remaining)
+           (handler-case
+               (with-timeout (remaining)
+                 (join-thread thread))
+             (bordeaux-threads:timeout () nil))))
+       (when (thread-alive-p thread)
+         ;; An unowned descendant can inherit a pipe writer and suppress EOF
+         ;; after our root process is reaped. That must not keep this invocation
+         ;; or its capture threads alive beyond the bounded cleanup budget.
+         (setf (capture-state-truncated-p state) t)
+         (ignore-errors (destroy-thread thread)))
+       (when (thread-alive-p thread)
+         (unless (capture-state-error state)
+           (setf (capture-state-error state)
+                 (make-condition 'simple-error
+                                 :format-control
+                                 "Capture thread remained alive after bounded cleanup.")))))))
   state)
+
+(defun %finish-capture-threads (process
+                                stdout-thread stdout-state
+                                stderr-thread stderr-state
+                                timeout)
+  "Quiesce both capture threads under one shared deadline, then close streams."
+  (let ((deadline (%deadline timeout)))
+    (%quiesce-capture-thread stdout-thread stdout-state deadline)
+    (%quiesce-capture-thread stderr-thread stderr-state deadline)
+    (%close-process-streams process))
+  (values stdout-state stderr-state))
+
+(defun %check-capture-errors (stdout-state stderr-state)
+  (let ((cause (or (capture-state-error stdout-state)
+                   (capture-state-error stderr-state))))
+    (when cause
+      (error 'process-output-error
+             :message "Failed while draining subprocess output."
+             :cause cause))))
 
 (defun %capture-string (state)
   (get-output-stream-string (capture-state-stream state)))
@@ -358,7 +402,9 @@ STDOUT-LIMIT and STDERR-LIMIT bound retained characters; output beyond either
 limit is drained and discarded so the child cannot block on a full pipe. TIMEOUT
 is a monotonic deadline budget. CANCELLATION-TOKEN may be cancelled from another
 thread. Timeout and cancellation always stop, escalate if necessary, and reap the
-child before returning a PROCESS-RESULT."
+child before returning a PROCESS-RESULT. After the owned root is reaped, output
+drain completion shares the bounded TERMINATE-TIMEOUT budget; inherited pipe
+writers cannot keep this invocation alive indefinitely."
   (%validate-limit "STDOUT-LIMIT" stdout-limit)
   (%validate-limit "STDERR-LIMIT" stderr-limit)
   (%validate-duration "POLL-INTERVAL" poll-interval)
@@ -409,21 +455,23 @@ child before returning a PROCESS-RESULT."
                (wait-process process :close-streams nil))
            (when (and (eq outcome :exited) (managed-process-signal process))
              (setf outcome :signaled))
-           (%join-capture-thread stdout-thread stdout-state)
-           (%join-capture-thread stderr-thread stderr-state)
-           (%close-process-streams process)
+           (%finish-capture-threads process
+                                    stdout-thread stdout-state
+                                    stderr-thread stderr-state
+                                    terminate-timeout)
            (setf streams-closed-p t)
+           (%check-capture-errors stdout-state stderr-state)
            (%make-result-from-process process outcome stdout-state stderr-state))
       (when process
         (unless (managed-process-reaped-p process)
           (ignore-errors
             (%stop-and-reap process terminate-timeout :close-streams nil)))
-        (when stdout-thread
-          (ignore-errors (join-thread stdout-thread)))
-        (when stderr-thread
-          (ignore-errors (join-thread stderr-thread)))
         (unless streams-closed-p
-          (%close-process-streams process))))))
+          (ignore-errors
+            (%finish-capture-threads process
+                                     stdout-thread stdout-state
+                                     stderr-thread stderr-state
+                                     terminate-timeout)))))))
 
 (defun process-result-success-p (result)
   (check-type result process-result)
