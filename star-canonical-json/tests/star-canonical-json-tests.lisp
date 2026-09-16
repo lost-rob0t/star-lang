@@ -153,6 +153,42 @@
      "RFC 8785 non-finite binary64 value ~A was not rejected with a typed canonical JSON error."
      hex)))
 
+(defun test-binary64-output-is-printer-state-independent ()
+  (let ((*print-base* 16)
+        (*print-radix* t)
+        (*read-default-float-format* 'single-float))
+    (check
+     (string= "1.7976931348623157e+308"
+              (canonical-json-string
+               (double-float-from-bits "7fefffffffffffff")))
+     "Binary64 canonicalization leaked Common Lisp printer state.")))
+
+(defun test-binary64-implementation-does-not-delegate-number-printing ()
+  (let* ((root (asdf:system-source-directory
+                (asdf:find-system "star-canonical-json")))
+         (source
+           (string-downcase
+            (uiop:read-file-string
+             (merge-pathnames "src/binary64.lisp" root)))))
+    (dolist (forbidden '("run-program"
+                         "launch-program"
+                         "\"python\""
+                         "\"node\""
+                         "~e"
+                         "~f"
+                         "~g"))
+      (check (null (search forbidden source))
+             "Binary64 canonicalization contains forbidden delegated/printer token ~A."
+             forbidden))))
+
+(defun test-other-float-formats-remain-unsupported ()
+  (check
+   (signals-p
+    'invalid-canonical-json-error
+    (lambda ()
+      (canonical-json-string 1.5f0)))
+   "Single-float was silently widened into the binary64 canonical contract."))
+
 (defun test-unsupported-node-is-typed ()
   (check
    (signals-p
@@ -174,6 +210,9 @@
   (test-pinned-double-float-is-ieee-binary64)
   (test-rfc8785-appendix-b-binary64-vectors)
   (test-rfc8785-non-finite-values-are-rejected)
+  (test-binary64-output-is-printer-state-independent)
+  (test-binary64-implementation-does-not-delegate-number-printing)
+  (test-other-float-formats-remain-unsupported)
   (test-unsupported-node-is-typed)
   (test-final-system-is-prototype-independent)
   (format t "~&star-canonical-json tests passed~%")
