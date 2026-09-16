@@ -12,6 +12,10 @@
   (unless truth
     (error (apply #'format nil control arguments))))
 
+(defun plist-key-present-p (plist key)
+  (loop for tail on plist by #'cddr
+        thereis (eq (first tail) key)))
+
 (defun wire-manifest-fixture ()
   (list
    :wire-version 1
@@ -41,7 +45,39 @@
    :wire-version 1
    :library (list :name "defaults" :version "1" :digest "sha256:test")
    :imports '()
-   :types '()
+   :types
+   (list
+    (list :kind :scalar
+          :name "test/count@1"
+          :base "integer"
+          :pattern nil
+          :format nil
+          :minimum nil
+          :maximum nil
+          :scale nil)
+    (list :kind :enum
+          :name "test/mode@1"
+          :values '("fast" "slow"))
+    (list :kind :document
+          :name "test/base@1"
+          :extends nil
+          :persistence :transient
+          :fields
+          (list
+           (list :name "inheritedEnabled"
+                 :type "boolean"
+                 :required nil
+                 :default nil)))
+    (list :kind :document
+          :name "test/child@1"
+          :extends "test/base@1"
+          :persistence :transient
+          :fields
+          (list
+           (list :name "localLabel"
+                 :type "string"
+                 :required nil
+                 :default ""))))
    :predicates '()
    :messages
    (list
@@ -50,14 +86,20 @@
           :fields
           (list
            (list :name "noDefault" :type "string" :required nil)
-           (list :name "enabled" :type "boolean" :required nil :default nil)
+           (list :name "disabled" :type "boolean" :required nil :default nil)
+           (list :name "enabled" :type "boolean" :required nil :default t)
            (list :name "nullable" :type (list :optional "string")
                  :required nil :default nil)
-           (list :name "tags" :type (list :list "string")
+           (list :name "emptyTags" :type (list :list "string")
                  :required nil :default nil)
+           (list :name "tags" :type (list :list "string")
+                 :required nil :default '("alpha" "beta"))
            (list :name "metadata" :type "map" :required nil :default nil)
            (list :name "count" :type "integer" :required nil :default 0)
-           (list :name "label" :type "string" :required nil :default ""))))
+           (list :name "label" :type "string" :required nil :default "")
+           (list :name "amount" :type "decimal" :required nil :default "0.00")
+           (list :name "aliasCount" :type "test/count@1" :required nil :default 0)
+           (list :name "mode" :type "test/mode@1" :required nil :default :fast))))
    :actors '()))
 
 (defun test-canonical-manifest-bytes ()
@@ -75,23 +117,32 @@
    "Canonical portable manifest bytes changed."))
 
 (defun test-manifest-default-presence-is-type-aware ()
-  (let ((json (canonical-manifest-json (default-manifest-fixture))))
+  (let* ((manifest (default-manifest-fixture))
+         (json (canonical-manifest-json manifest)))
     (check
      (search "{\"name\":\"noDefault\",\"required\":false,\"type\":\"string\"}"
              json)
      "A field without a default acquired one during manifest serialization.")
     (check
-     (search "{\"default\":false,\"name\":\"enabled\",\"required\":false,\"type\":\"boolean\"}"
+     (search "{\"default\":false,\"name\":\"disabled\",\"required\":false,\"type\":\"boolean\"}"
              json)
      "An explicit boolean false default was omitted or encoded incorrectly.")
+    (check
+     (search "{\"default\":true,\"name\":\"enabled\",\"required\":false,\"type\":\"boolean\"}"
+             json)
+     "An explicit boolean true default was omitted or encoded incorrectly.")
     (check
      (search "{\"default\":null,\"name\":\"nullable\",\"required\":false,\"type\":{\"optional\":\"string\"}}"
              json)
      "An explicit optional null default was omitted or encoded incorrectly.")
     (check
-     (search "{\"default\":[],\"name\":\"tags\",\"required\":false,\"type\":{\"list\":\"string\"}}"
+     (search "{\"default\":[],\"name\":\"emptyTags\",\"required\":false,\"type\":{\"list\":\"string\"}}"
              json)
      "An explicit empty list default was omitted or encoded incorrectly.")
+    (check
+     (search "{\"default\":[\"alpha\",\"beta\"],\"name\":\"tags\",\"required\":false,\"type\":{\"list\":\"string\"}}"
+             json)
+     "A non-empty list default changed during manifest serialization.")
     (check
      (search "{\"default\":{},\"name\":\"metadata\",\"required\":false,\"type\":\"map\"}"
              json)
@@ -103,13 +154,56 @@
     (check
      (search "{\"default\":\"\",\"name\":\"label\",\"required\":false,\"type\":\"string\"}"
              json)
-     "An empty string default changed during manifest serialization.")))
+     "An empty string default changed during manifest serialization.")
+    (check
+     (search "{\"default\":\"0.00\",\"name\":\"amount\",\"required\":false,\"type\":\"decimal\"}"
+             json)
+     "A decimal-string default changed during manifest serialization.")
+    (check
+     (search "{\"default\":0,\"name\":\"aliasCount\",\"required\":false,\"type\":\"test/count@1\"}"
+             json)
+     "A scalar-alias default was not encoded through its declared contract.")
+    (check
+     (search "{\"default\":\"fast\",\"name\":\"mode\",\"required\":false,\"type\":\"test/mode@1\"}"
+             json)
+     "An enum default was not encoded through its declared contract.")
+    (check
+     (search "{\"default\":false,\"name\":\"inheritedEnabled\",\"required\":false,\"type\":\"boolean\"}"
+             json)
+     "A document-field false default was lost during manifest serialization.")
+    (check
+     (search "{\"default\":\"\",\"name\":\"localLabel\",\"required\":false,\"type\":\"string\"}"
+             json)
+     "A child document-field empty-string default changed during serialization.")))
+
+(defun test-inherited-document-field-default-presence-survives-projection ()
+  (let* ((manifest (default-manifest-fixture))
+         (child
+           (staractorprotocol:portable-manifest-type-contract
+            manifest "test/child@1"))
+         (fields
+           (staractorprotocol:portable-manifest-document-fields
+            manifest child))
+         (inherited (first fields))
+         (local (second fields)))
+    (check (= 2 (length fields))
+           "Inherited document field projection changed shape.")
+    (check (string= "inheritedEnabled" (getf inherited :name))
+           "Inherited document field was not projected first.")
+    (check (plist-key-present-p inherited :default)
+           "Inherited document field lost explicit default presence.")
+    (check (null (getf inherited :default))
+           "Inherited boolean false default changed value.")
+    (check (and (string= "localLabel" (getf local :name))
+                (plist-key-present-p local :default)
+                (string= "" (getf local :default)))
+           "Local child field default changed during projection.")))
 
 (defun test-invalid-manifest-default-is-rejected-by-type ()
   (let* ((manifest (default-manifest-fixture))
          (message (first (getf manifest :messages)))
-         (enabled (second (getf message :fields))))
-    (setf (getf enabled :default) "not-a-boolean")
+         (disabled (second (getf message :fields))))
+    (setf (getf disabled :default) "not-a-boolean")
     (check
      (handler-case
          (progn
@@ -194,6 +288,7 @@
 (defun run-tests ()
   (test-canonical-manifest-bytes)
   (test-manifest-default-presence-is-type-aware)
+  (test-inherited-document-field-default-presence-survives-projection)
   (test-invalid-manifest-default-is-rejected-by-type)
   (test-canonical-legacy-envelope-bytes)
   (test-canonical-command-lifecycle-bytes)
