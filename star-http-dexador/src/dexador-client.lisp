@@ -26,6 +26,9 @@
 
 (defun transport-error-kind (condition)
   (cond
+    #+sbcl
+    ((typep condition 'sb-sys:io-timeout)
+     :timeout)
     ((typep condition 'timeout-error)
      :timeout)
     ((or (typep condition 'ssl-error-verify)
