@@ -10,6 +10,7 @@
                 #:dispatch-result-status
                 #:make-runtime
                 #:create-native-actor
+                #:register-actor
                 #:tell
                 #:ask
                 #:dispatch-next
@@ -162,6 +163,47 @@
                     "Unregister fixture left the actor registered.")))
       (shutdown-runtime runtime))))
 
+(defun test-reregister-same-instance-does-not-resurrect-completion-ownership ()
+  (let ((runtime (make-runtime))
+        (actor nil))
+    (unwind-protect
+         (progn
+           (setf actor
+                 (create-native-actor
+                  runtime
+                  "reregister-worker"
+                  (lambda (message state owner)
+                    (declare (ignore state))
+                    (ecase message
+                      (:go
+                       (unregister-actor owner actor)
+                       (register-actor owner actor)
+                       (values :late 99))
+                      (:fresh
+                       (values :fresh 31))))
+                  :initial-state 29))
+           (tell runtime actor :go)
+           (let ((result (dispatch-next runtime actor)))
+             (check (stale-dispatch-p result)
+                    "Unregister/re-register of the same instance resurrected old completion ownership.")
+             (check (= 29 (actor-instance-data actor))
+                    "Old dispatch committed state after unregister/re-register ABA.")
+             (check (zerop (actor-instance-invocation-count actor))
+                    "Old dispatch counted success after unregister/re-register ABA.")
+             (check (null (actor-instance-last-error actor))
+                    "Old dispatch overwrote diagnostics after unregister/re-register ABA.")
+             (check (= 1 (runtime-actor-count runtime))
+                    "Re-register fixture did not restore the same actor registration."))
+           (tell runtime actor :fresh)
+           (let ((fresh-result (dispatch-next runtime actor)))
+             (check (eq :completed (dispatch-result-status fresh-result))
+                    "Fresh delivery after re-registration did not complete normally.")
+             (check (= 31 (actor-instance-data actor))
+                    "Fresh delivery after re-registration did not commit state.")
+             (check (= 1 (actor-instance-invocation-count actor))
+                    "Fresh delivery after re-registration did not commit exactly once.")))
+      (shutdown-runtime runtime))))
+
 (defun test-shutdown-fences-inflight-completion ()
   (let ((runtime (make-runtime)))
     (unwind-protect
@@ -222,6 +264,7 @@
   (test-restart-during-output-validation-fences-diagnostics)
   (test-stop-fences-inflight-completion)
   (test-unregister-fences-inflight-completion)
+  (test-reregister-same-instance-does-not-resurrect-completion-ownership)
   (test-shutdown-fences-inflight-completion)
   (test-stale-ask-does-not-publish-success)
   (format t "~&starlang-runtime stale completion tests passed~%")
