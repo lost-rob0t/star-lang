@@ -400,6 +400,11 @@
                       (http-transport-error-kind failure)))))
 
 (defun test-connection-failure (client failures)
+  (unless (eq :connection
+              (starhttpdexador::transport-error-kind
+               (make-condition 'usocket:connection-refused-error :socket nil)))
+    (record-failure failures
+                    "USOCKET connection-refused condition did not map to :connection."))
   (let* ((listener (socket-listen "127.0.0.1"
                                   0
                                   :reuse-address t
@@ -414,11 +419,12 @@
                                 :read-timeout 1
                                 :max-redirects 0)
              failures
-             "Connection failure")))
+             "Closed loopback endpoint")))
       (when (and (typep failure 'http-transport-error)
-                 (not (eq :connection (http-transport-error-kind failure))))
+                 (not (member (http-transport-error-kind failure)
+                              '(:connection :timeout))))
         (record-failure failures
-                        "Connection failure was classified as ~S instead of :connection."
+                        "Closed loopback endpoint was classified outside connection/timeout: ~S."
                         (http-transport-error-kind failure))))))
 
 (defun test-transport-error-redaction (client server failures)
