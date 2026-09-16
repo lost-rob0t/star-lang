@@ -9,10 +9,9 @@
   :serial t
   :components
   ((:file "star-http-dexador-tests")
-   (:file "star-http-dexador-ownership-tests")
-   (:file "star-http-dexador-red-runner"))
+   (:file "star-http-dexador-ownership-tests"))
   :perform
   (test-op (operation component)
     (declare (ignore operation component))
     (uiop:symbol-call :starhttpdexador-tests :run-tests)
-    (uiop:symbol-call :starhttpdexador-tests :run-ownership-red-tests)))
+    (uiop:symbol-call :starhttpdexador-tests :run-ownership-tests)))
