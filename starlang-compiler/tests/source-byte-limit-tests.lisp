@@ -17,6 +17,11 @@
     (star-lang.compiler.core:star-lang-source-error (condition)
       condition)))
 
+(defun byte-vector (&rest values)
+  (make-array (length values)
+              :element-type '(unsigned-byte 8)
+              :initial-contents values))
+
 (defun source-limit-condition (source limit &key source-id pathname origin actor-p)
   (capture-source-error
    (lambda ()
@@ -68,18 +73,18 @@
 
 (test source-byte-limit-counts-utf-8-bytes
   "ASCII and two-, three-, and four-byte scalar values use UTF-8 byte limits."
-  (assert-source-byte-boundary "x" #(120) 1)
+  (assert-source-byte-boundary "x" (byte-vector 120) 1)
   (assert-source-byte-boundary
    (string (code-char #x00E9))
-   #(#xC3 #xA9)
+   (byte-vector #xC3 #xA9)
    2)
   (assert-source-byte-boundary
    (string (code-char #x20AC))
-   #(#xE2 #x82 #xAC)
+   (byte-vector #xE2 #x82 #xAC)
    3)
   (assert-source-byte-boundary
    (string (code-char #x1F600))
-   #(#xF0 #x9F #x98 #x80)
+   (byte-vector #xF0 #x9F #x98 #x80)
    4))
 
 (test string-and-octet-source-remain-equivalent
@@ -89,7 +94,7 @@
                         "("
                         (string (code-char #x03C0))
                         ")"))
-         (octets #(#x28 #xCF #x80 #x29))
+         (octets (byte-vector #x28 #xCF #x80 #x29))
          (limits
            (star-lang.compiler.core:make-star-parser-limits
             :source-bytes 4))
