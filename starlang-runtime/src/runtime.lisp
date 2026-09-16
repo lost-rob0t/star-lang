@@ -51,6 +51,7 @@
             (:constructor %make-actor-instance
                 (&key definition data mailbox)))
   (definition (error "DEFINITION is required") :type actor-definition)
+  owner
   (status :running :type keyword)
   data
   (generation 0 :type (integer 0 *))
@@ -266,12 +267,27 @@
                 actor))
   (starmailbox:mailbox-depth (actor-instance-mailbox actor)))
 
+(defun actor-currently-registered-p (runtime actor)
+  (and (runtime-p runtime)
+       (eq runtime (actor-instance-owner actor))
+       (eq actor
+           (gethash (actor-name actor)
+                    (runtime-actors-by-name runtime)))
+       (eq actor
+           (gethash (actor-service-uri actor)
+                    (runtime-actors-by-uri runtime)))))
+
 (defun register-actor (runtime actor)
   (ensure-runtime-running runtime)
   (unless (actor-instance-p actor)
     (fail-actor 'actor-definition-error
                 "Expected an actor instance, received ~S."
                 actor))
+  (let ((owner (actor-instance-owner actor)))
+    (when (and owner (not (eq owner runtime)))
+      (fail-actor 'actor-already-registered-error
+                  "Actor ~A is owned by another StarLang runtime."
+                  (actor-name actor))))
   (let ((name (actor-name actor))
         (service-uri (actor-service-uri actor)))
     (when (or (gethash name (runtime-actors-by-name runtime))
@@ -279,7 +295,8 @@
       (fail-actor 'actor-already-registered-error
                   "Actor ~A (~A) is already registered."
                   name service-uri))
-    (setf (gethash name (runtime-actors-by-name runtime)) actor
+    (setf (actor-instance-owner actor) runtime
+          (gethash name (runtime-actors-by-name runtime)) actor
           (gethash service-uri (runtime-actors-by-uri runtime)) actor
           (runtime-actor-order runtime)
           (append (runtime-actor-order runtime) (list name)))
@@ -303,7 +320,8 @@
 
 (defun find-actor (runtime target)
   (cond
-    ((actor-instance-p target) target)
+    ((actor-instance-p target)
+     (and (actor-currently-registered-p runtime target) target))
     ((staractorprotocol:star-actor-reference-p target)
      (gethash
       (staractorprotocol:star-actor-reference-service-uri target)
