@@ -9,6 +9,9 @@
 (define-condition http-backend-unavailable-error (http-port-error) ())
 (define-condition http-request-error (http-port-error) ())
 
+(define-condition http-transport-error (http-request-error)
+  ((kind :initarg :kind :reader http-transport-error-kind)))
+
 (defun fail-http (condition-type control &rest arguments)
   (error condition-type :message (apply #'format nil control arguments)))
 
@@ -95,71 +98,3 @@
   (perform-http-request
    client
    (apply #'make-http-request url :method :get options)))
-
-(defun ensure-asdf-system (system-name)
-  (require :asdf)
-  (let* ((package (find-package "ASDF"))
-         (loader (and package (find-symbol "LOAD-SYSTEM" package))))
-    (unless (and loader (fboundp loader))
-      (fail-http 'http-backend-unavailable-error
-                 "ASDF cannot load HTTP backend ~A."
-                 system-name))
-    (handler-case
-        (funcall (symbol-function loader) system-name)
-      (error (condition)
-        (fail-http 'http-backend-unavailable-error
-                   "Could not load HTTP backend ~A: ~A"
-                   system-name
-                   condition)))))
-
-(defun backend-function (packages name backend-name)
-  (let ((symbol
-          (loop for package-name in packages
-                for package = (find-package package-name)
-                for candidate = (and package (find-symbol name package))
-                when (and candidate (fboundp candidate))
-                  return candidate)))
-    (unless symbol
-      (fail-http 'http-backend-unavailable-error
-                 "HTTP backend ~A does not expose ~A."
-                 backend-name
-                 name))
-    (symbol-function symbol)))
-
-(defun dexador-request-arguments (request)
-  (append
-   (list :method (http-request-method request)
-         :headers (http-request-headers request)
-         :connect-timeout (http-request-connect-timeout request)
-         :read-timeout (http-request-read-timeout request)
-         :max-redirects (http-request-max-redirects request))
-   (when (http-request-body request)
-     (list :content (http-request-body request)))))
-
-(defun make-dexador-http-client ()
-  "Create a Star HTTP client backed by Dexador when Dexador is installed.
-The dependency is loaded dynamically so STAR-HTTP-PORT remains usable and
-unit-testable without a network stack in the base StarLang closure."
-  (ensure-asdf-system "dexador")
-  (let ((request-fn (backend-function '("DEXADOR" "DEX") "REQUEST" "Dexador")))
-    (make-http-client
-     "dexador"
-     (lambda (request)
-       (handler-case
-           (multiple-value-bind (body status headers final-uri stream)
-               (apply request-fn
-                      (http-request-url request)
-                      (dexador-request-arguments request))
-             (declare (ignore stream))
-             (make-http-response
-              :body body
-              :status status
-              :headers headers
-              :final-url (princ-to-string final-uri)))
-         (http-port-error (condition)
-           (error condition))
-         (error (condition)
-           (fail-http 'http-request-error
-                      "Dexador request for ~A failed: ~A"
-                      (http-request-url request)
-                      condition)))))))
