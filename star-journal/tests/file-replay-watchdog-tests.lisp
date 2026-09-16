@@ -10,9 +10,10 @@
   (unless truth
     (error (apply #'format nil control arguments))))
 
-(defun temporary-journal-pathname ()
+(defun temporary-journal-pathname (label)
   (pathname
-   (format nil "/tmp/star-journal-cycle-~D-~D.sexp"
+   (format nil "/tmp/star-journal-~A-~D-~D.sexp"
+           label
            (get-universal-time)
            (random 1000000000))))
 
@@ -36,6 +37,7 @@
            "--kill-after=1s"
            "3s"
            "sbcl"
+           "--dynamic-space-size" "256"
            "--noinform"
            "--disable-debugger"
            "--non-interactive"
@@ -49,15 +51,15 @@
      :error-output :string
      :ignore-error-status t)))
 
-(defun test-file-journal-cycle-is-rejected-within-watchdog ()
-  (let ((path (temporary-journal-pathname)))
+(defun check-bounded-typed-rejection (label contents)
+  (let ((path (temporary-journal-pathname label)))
     (unwind-protect
          (progn
            (with-open-file (stream path
                                    :direction :output
                                    :if-exists :supersede
                                    :if-does-not-exist :create)
-             (write-string "#1=(:kind :pending . #1#)" stream)
+             (write-string contents stream)
              (terpri stream))
            (multiple-value-bind (output error-output exit-code)
                (replay-in-watchdog-child path)
@@ -68,12 +70,27 @@
                     "Journal watchdog child failed before replay began.~%stdout: ~A~%stderr: ~A"
                     output error-output)
              (check (= 0 exit-code)
-                    "Circular journal replay did not terminate with typed rejection; child exit was ~D (124 means watchdog timeout).~%stdout: ~A~%stderr: ~A"
-                    exit-code output error-output)))
+                    "Journal input ~A did not terminate with typed rejection; child exit was ~D (124 means watchdog timeout).~%stdout: ~A~%stderr: ~A"
+                    label exit-code output error-output)))
       (when (probe-file path)
         (delete-file path)))))
 
+(defun test-file-journal-cycle-is-rejected-within-watchdog ()
+  (check-bounded-typed-rejection
+   "cycle"
+   "#1=(:kind :pending . #1#)"))
+
+(defun test-file-journal-compact-vector-allocation-is-bounded ()
+  ;; A tiny file can ask the host reader to allocate an enormous vector before
+  ;; star-journal's post-read portable snapshot gets a chance to reject it.
+  ;; The constrained child makes that pre-validation allocation bug observable
+  ;; without risking the long-lived test process.
+  (check-bounded-typed-rejection
+   "compact-vector"
+   "#100000000(0)"))
+
 (defun run-tests ()
   (test-file-journal-cycle-is-rejected-within-watchdog)
+  (test-file-journal-compact-vector-allocation-is-bounded)
   (format t "~&star-journal file replay watchdog tests passed~%")
   t)
