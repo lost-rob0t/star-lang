@@ -768,12 +768,60 @@ validated separately and is never silently rewritten."
       (t
        (parse-star-source-atom parser)))))
 
-(defun string-to-utf-8-octets (source)
-  (let ((result (make-array (max 16 (length source))
-                            :element-type '(unsigned-byte 8)
-                            :adjustable t
-                            :fill-pointer 0)))
-    (labels ((emit (octet) (vector-push-extend octet result)))
+(defun fail-source-byte-limit-before-encoding (source-id pathname origin)
+  (error 'star-lang-source-error
+         :message "Star source exceeds the configured source-byte limit."
+         :code :source-byte-limit
+         :span (make-star-source-span
+                :source-id source-id
+                :pathname pathname
+                :start-byte 0
+                :end-byte 0
+                :start-line 1
+                :start-column 1
+                :end-line 1
+                :end-column 1)
+         :origin origin
+         :phase :read))
+
+(defun star-character-utf-8-width (character)
+  (let ((code (char-code character)))
+    (cond
+      ((<= code #x7F) 1)
+      ((<= code #x7FF) 2)
+      ((or (<= #xD800 code #xDFFF) (> code #x10FFFF))
+       (error 'star-lang-source-error
+              :message "Source string contains a non-Unicode character."
+              :code :invalid-source-character
+              :phase :read))
+      ((<= code #xFFFF) 3)
+      (t 4))))
+
+(defun bounded-string-utf-8-length (source byte-limit source-id pathname origin)
+  ;; Every valid character consumes at least one UTF-8 byte. This cheap guard
+  ;; prevents an input-sized octet allocation for obviously oversized strings.
+  (when (> (length source) byte-limit)
+    (fail-source-byte-limit-before-encoding source-id pathname origin))
+  (let ((bytes 0))
+    (loop for character across source
+          do (incf bytes (star-character-utf-8-width character))
+             (when (> bytes byte-limit)
+               (fail-source-byte-limit-before-encoding
+                source-id pathname origin)))
+    bytes))
+
+(defun string-to-utf-8-octets (source &key byte-limit source-id pathname origin)
+  (let* ((length
+           (if byte-limit
+               (bounded-string-utf-8-length
+                source byte-limit source-id pathname origin)
+               (loop for character across source
+                     sum (star-character-utf-8-width character))))
+         (result (make-array length :element-type '(unsigned-byte 8)))
+         (index 0))
+    (labels ((emit (octet)
+               (setf (aref result index) octet)
+               (incf index)))
       (loop for character across source
             for code = (char-code character)
             do (cond
@@ -783,6 +831,8 @@ validated separately and is never silently rewritten."
                   (emit (logior #xC0 (ash code -6)))
                   (emit (logior #x80 (logand code #x3F))))
                  ((or (<= #xD800 code #xDFFF) (> code #x10FFFF))
+                  ;; The counting pass rejects this first; keep the encoder
+                  ;; defensive if its validation contract changes later.
                   (error 'star-lang-source-error
                          :message "Source string contains a non-Unicode character."
                          :code :invalid-source-character
@@ -819,30 +869,42 @@ validated separately and is never silently rewritten."
            result)
       (setf (star-source-parser-index parser) saved))))
 
-(defun ensure-star-octets (source)
+(defun ensure-star-octets (source &key byte-limit source-id pathname origin)
   (etypecase source
-    (string (string-to-utf-8-octets source))
+    (string
+     (string-to-utf-8-octets source
+                             :byte-limit byte-limit
+                             :source-id source-id
+                             :pathname pathname
+                             :origin origin))
     ((vector (unsigned-byte 8)) source)))
 
 (defun read-star-syntax (source &key origin limits source-id pathname)
   "Read exactly one StarLang unit. SOURCE is canonically UTF-8 octets; strings
-are encoded to UTF-8 first. Columns are one-based decoded-character columns,
-and byte spans are zero-based, half-open UTF-8 byte ranges."
-  (let* ((octets (ensure-star-octets source))
-         (effective-limits (or limits (make-star-parser-limits)))
+are encoded to UTF-8 only after the source-byte limit is resolved. Columns are
+one-based decoded-character columns, and byte spans are zero-based, half-open
+UTF-8 byte ranges."
+  (let* ((effective-limits (or limits (make-star-parser-limits)))
          (effective-source-id
            (or source-id (and pathname (namestring pathname)) "<memory>"))
          (effective-origin
            (or origin
                (make-star-origin-frame :kind :source
                                        :source-id effective-source-id)))
+         (source-byte-limit
+           (star-parser-limits-source-bytes effective-limits))
+         (octets
+           (ensure-star-octets source
+                               :byte-limit source-byte-limit
+                               :source-id effective-source-id
+                               :pathname pathname
+                               :origin effective-origin))
          (parser (make-star-source-parser octets
                                           effective-source-id
                                           pathname
                                           effective-origin
                                           effective-limits)))
-    (when (> (length octets)
-             (star-parser-limits-source-bytes effective-limits))
+    (when (> (length octets) source-byte-limit)
       (fail-star-source parser :source-byte-limit
                         "Star source exceeds the configured source-byte limit."))
     (skip-star-source-trivia parser)

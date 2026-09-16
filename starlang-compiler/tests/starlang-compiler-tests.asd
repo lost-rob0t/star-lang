@@ -9,7 +9,8 @@
    (:file "actor-compiler-tests")
    (:file "actor-capabilities-tests")
    (:file "field-marker-tests")
-   (:file "macro-expander-tests"))
+   (:file "macro-expander-tests")
+   (:file "source-byte-limit-tests"))
   :perform
   (test-op (op c)
     (declare (ignore op c))
@@ -17,4 +18,5 @@
     (uiop:symbol-call :starlang-actor-compiler-tests :run-tests)
     (uiop:symbol-call :starlang-actor-capabilities-tests :run-tests)
     (uiop:symbol-call :starlang-field-marker-tests :run-tests)
-    (uiop:symbol-call :starlang-macro-expander-tests :run-tests)))
+    (uiop:symbol-call :starlang-macro-expander-tests :run-tests)
+    (uiop:symbol-call :starlang-source-byte-limit-tests :run-tests)))
