@@ -87,6 +87,18 @@
     (check (null (runtime-journal-replay journal))
            "Rejected bounded values changed an empty journal.")))
 
+(defun test-replay-many-shallow-events-does-not-consume-depth ()
+  (let ((journal (make-memory-runtime-journal-port)))
+    (dotimes (index 80)
+      (runtime-journal-append
+       journal
+       (event-with-payload nil :sequence (1+ index))))
+    (let ((events (runtime-journal-replay journal)))
+      (check (= 80 (length events))
+             "Replay rejected or truncated shallow journal history by list length.")
+      (check (= 80 (getf (car (last events)) :dispatcher-sequence))
+             "Replay changed the final shallow journal event."))))
+
 (defun test-replay-rejects-backend-owned-cycle ()
   (let* ((cycle (list "cycle"))
          (event (event-with-payload cycle))
@@ -105,6 +117,7 @@
 (defun run-tests ()
   (test-invalid-snapshot-never-enters-backend)
   (test-journal-rejects-excessive-depth-and-size)
+  (test-replay-many-shallow-events-does-not-consume-depth)
   (test-replay-rejects-backend-owned-cycle)
   (format t "~&star-journal boundary tests passed~%")
   t)
