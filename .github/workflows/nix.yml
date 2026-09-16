@@ -76,4 +76,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: DeterminateSystems/determinate-nix-action@v3
-      - run: nix flake check --print-build-logs
+      - name: Run nix flake check --print-build-logs
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix flake check --print-build-logs 2>&1 | tee nix-flake-check.log
+      - name: Upload flake-check diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nix-flake-check-log
+          path: nix-flake-check.log
+          if-no-files-found: error

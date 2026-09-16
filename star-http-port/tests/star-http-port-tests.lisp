@@ -34,6 +34,9 @@
       (typep condition condition-type))))
 
 (defun run-tests ()
+  (check (null (find-package "DEXADOR"))
+         "Loading and testing star-http-port alone unexpectedly loaded Dexador.")
+
   (let ((seen nil)
         (client nil))
     (setf client

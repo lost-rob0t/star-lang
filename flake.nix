@@ -24,6 +24,7 @@
         sentoRemoting = import ./nix/sento-remoting.nix { inherit pkgs; };
         sbcl = pkgs.sbcl.withPackages (ps: [
           ps.babel
+          ps.dexador
           ps.fiveam
           ps.ironclad
           ps.usocket
@@ -96,6 +97,7 @@
               --eval '(asdf:test-system :starlang-runtime)' \
               --eval '(asdf:test-system :star-sento-compat)' \
               --eval '(asdf:test-system :star-http-port)' \
+              --eval '(asdf:test-system :star-http-dexador-tests)' \
               --eval '(asdf:test-system :star-scrape)' \
               --eval '(asdf:test-system :star-process-port)' \
               --eval '(asdf:test-system :star-logic-protocol)' \
@@ -191,6 +193,7 @@
               --eval '(asdf:test-system :starlang-runtime)' \
               --eval '(asdf:test-system :star-sento-compat)' \
               --eval '(asdf:test-system :star-http-port)' \
+              --eval '(asdf:test-system :star-http-dexador-tests)' \
               --eval '(asdf:test-system :star-scrape)' \
               --eval '(asdf:test-system :star-process-port)' \
               --eval '(asdf:test-system :star-logic-protocol)' \
