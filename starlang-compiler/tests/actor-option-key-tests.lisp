@@ -81,13 +81,13 @@ actor lowering rather than silently ignored."
 retains the first occurrence as related source evidence."
   (let* ((source (native-actor-source ":runtime native"))
          (condition (capture-invalid-actor source)))
-    (is condition)
+    (is (not (null condition)))
     (when condition
       (let ((span (star-lang.compiler.core:star-lang-core-error-span condition))
             (related
               (star-lang.compiler.core:star-lang-core-error-related-spans
                condition)))
-        (is span)
+        (is (not (null span)))
         (is (= 1 (length related)))
         (when (and span (= 1 (length related)))
           (let ((first (first related)))
@@ -106,10 +106,10 @@ actor form."
                     (t ":protocol star-message-v1")))
            (source (native-actor-source extra))
            (condition (capture-invalid-actor source)))
-      (is condition)
+      (is (not (null condition)))
       (when condition
         (let ((span (star-lang.compiler.core:star-lang-core-error-span condition)))
-          (is span)
+          (is (not (null span)))
           (when span
             (is (= (search token source :from-end t)
                    (star-lang.compiler.core:star-source-span-start-byte span)))))))))
