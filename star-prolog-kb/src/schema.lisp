@@ -191,8 +191,8 @@ non-unique and use DUPSORT postings."
     t))
 
 (defun required-tek9-max-dbs (indexes)
-  "Return a safe LMDB named-DB budget for INDEXES plus graph and KB metadata."
-  ;; Tek9 graph/v2 currently owns ten named DBs. Add main, Prolog source, and
-  ;; headroom for future graph/catalog metadata. The minimum preserves Tek9's
-  ;; default behavior for small schemas.
-  (max 64 (+ 24 (length indexes))))
+  "Return a safe LMDB named-DB budget for INDEXES plus runtime index headroom."
+  ;; Tek9 graph/v2 owns ten DBIs; the KB owns main and Prolog source DBIs. Keep
+  ;; a large explicit reserve because LMDB max-dbs cannot be raised after the
+  ;; environment is open and DEFINE-INDEX is intentionally a runtime operation.
+  (max 256 (+ 128 (length indexes))))
