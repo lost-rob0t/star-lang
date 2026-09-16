@@ -6,6 +6,7 @@
   :serial t
   :components
   ((:file "starlang-runtime-tests")
+   (:file "state-isolation-tests")
    (:file "runtime-ownership-tests")
    (:file "stale-completion-tests")
    (:file "wire-dispatcher-tests")
@@ -14,6 +15,7 @@
   (test-op (operation component)
     (declare (ignore operation component))
     (uiop:symbol-call :starlangruntime-tests :run-tests)
+    (uiop:symbol-call :starlangruntime-state-isolation-tests :run-tests)
     (uiop:symbol-call :starlangruntime-ownership-tests :run-tests)
     (uiop:symbol-call :starlangruntime-stale-completion-tests :run-tests)
     (uiop:symbol-call :starlangruntime-wire-tests :run-tests)
