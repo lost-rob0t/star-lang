@@ -163,6 +163,226 @@
      :replay
      (lambda () events))))
 
+(defconstant +file-journal-max-bytes+ (* 64 1024 1024))
+(defconstant +file-journal-max-reader-depth+ 64)
+(defconstant +file-journal-max-reader-tokens+ 50000)
+(defconstant +file-journal-max-records+ 50000)
+(defconstant +file-journal-max-string-length+ 1048576)
+(defconstant +file-journal-max-total-string-length+ 8388608)
+(defconstant +file-journal-max-bit-vector-length+ 65536)
+
+(defun file-journal-whitespace-p (character)
+  (member character '(#\Space #\Tab #\Newline #\Return #\Page)
+          :test #'char=))
+
+(defun file-journal-token-delimiter-p (character)
+  (or (file-journal-whitespace-p character)
+      (member character
+              '(#\( #\) #\" #\; #\' #\` #\,)
+              :test #'char=)))
+
+(defun validate-file-journal-source (source)
+  "Reject reader forms that can outrun final journal ownership bounds.
+
+The on-disk format remains the readable representation emitted by this package:
+ordinary atoms, strings, proper/dotted lists, vectors, bit-vectors, keywords,
+package-qualified symbols, and uninterned symbols. Reader evaluation, graph
+labels, numeric dispatch prefixes, and other dispatch extensions are not emitted
+by the writer and are rejected before invoking READ."
+  (let ((length (length source))
+        (index 0)
+        (depth 0)
+        (tokens 0)
+        (total-string-length 0))
+    (labels
+        ((claim-token ()
+           (incf tokens)
+           (when (> tokens +file-journal-max-reader-tokens+)
+             (fail-journal
+              "File journal reader token budget exceeded ~D."
+              +file-journal-max-reader-tokens+)))
+         (scan-string ()
+           (claim-token)
+           (incf index)
+           (let ((string-length 0)
+                 (escaped nil))
+             (loop while (< index length)
+                   for character = (char source index)
+                   do (incf index)
+                      (cond
+                        (escaped
+                         (setf escaped nil)
+                         (incf string-length))
+                        ((char= character #\\)
+                         (setf escaped t))
+                        ((char= character #\")
+                         (incf total-string-length string-length)
+                         (when (> string-length
+                                  +file-journal-max-string-length+)
+                           (fail-journal
+                            "File journal string exceeds the ~D-character limit."
+                            +file-journal-max-string-length+))
+                         (when (> total-string-length
+                                  +file-journal-max-total-string-length+)
+                           (fail-journal
+                            "File journal aggregate string data exceeds the ~D-character limit."
+                            +file-journal-max-total-string-length+))
+                         (return-from scan-string nil))
+                        (t
+                         (incf string-length))))
+             (fail-journal "File journal contains a truncated string.")))
+         (scan-symbol-token ()
+           (claim-token)
+           (let ((barred nil)
+                 (escaped nil))
+             (loop while (< index length)
+                   for character = (char source index)
+                   do (cond
+                        (escaped
+                         (setf escaped nil)
+                         (incf index))
+                        ((char= character #\\)
+                         (setf escaped t)
+                         (incf index))
+                        ((char= character #\|)
+                         (setf barred (not barred))
+                         (incf index))
+                        ((and (not barred)
+                              (file-journal-token-delimiter-p character))
+                         (return))
+                        (t
+                         (incf index))))
+             (when escaped
+               (fail-journal "File journal contains a truncated symbol escape."))
+             (when barred
+               (fail-journal "File journal contains an unterminated escaped symbol."))))
+         (scan-line-comment ()
+           (loop while (< index length)
+                 for character = (char source index)
+                 do (incf index)
+                 until (char= character #\Newline)))
+         (scan-bit-vector ()
+           (claim-token)
+           (incf index 2)
+           (let ((bits 0))
+             (loop while (< index length)
+                   for character = (char source index)
+                   while (or (char= character #\0)
+                             (char= character #\1))
+                   do (incf bits)
+                      (incf index)
+                      (when (> bits +file-journal-max-bit-vector-length+)
+                        (fail-journal
+                         "File journal bit-vector exceeds the ~D-bit limit."
+                         +file-journal-max-bit-vector-length+)))
+             (when (= bits 0)
+               (fail-journal "File journal contains an empty bit-vector reader token."))))
+         (scan-dispatch ()
+           (when (= (1+ index) length)
+             (fail-journal "File journal contains a truncated # dispatch token."))
+           (let ((next (char source (1+ index))))
+             (cond
+               ((digit-char-p next)
+                (fail-journal
+                 "File journal numeric # dispatch prefixes are not admitted."))
+               ((char= next #\()
+                ;; Leave the opening parenthesis for the main scanner so it
+                ;; participates in the same depth/token accounting as a list.
+                (incf index))
+               ((char= next #\*)
+                (scan-bit-vector))
+               ((char= next #\:)
+                (incf index 2)
+                (when (or (= index length)
+                          (file-journal-token-delimiter-p
+                           (char source index)))
+                  (fail-journal
+                   "File journal contains an incomplete uninterned symbol."))
+                (scan-symbol-token))
+               (t
+                (fail-journal
+                 "File journal reader dispatch #~C is not admitted."
+                 next))))))
+      (loop while (< index length)
+            for character = (char source index)
+            do (cond
+                 ((file-journal-whitespace-p character)
+                  (incf index))
+                 ((char= character #\;)
+                  (scan-line-comment))
+                 ((char= character #\")
+                  (scan-string))
+                 ((char= character #\()
+                  (claim-token)
+                  (incf depth)
+                  (when (> depth +file-journal-max-reader-depth+)
+                    (fail-journal
+                     "File journal reader depth exceeds ~D."
+                     +file-journal-max-reader-depth+))
+                  (incf index))
+                 ((char= character #\))
+                  (decf depth)
+                  (when (< depth 0)
+                    (fail-journal
+                     "File journal contains an unmatched closing parenthesis."))
+                  (incf index))
+                 ((char= character #\#)
+                  (scan-dispatch))
+                 ((member character '(#\' #\` #\,) :test #'char=)
+                  (fail-journal
+                   "File journal reader abbreviation ~C is not admitted."
+                   character))
+                 (t
+                  (scan-symbol-token))))
+      (unless (zerop depth)
+        (fail-journal "File journal contains an unterminated list or vector."))
+      source)))
+
+(defun read-bounded-file-journal-source (stream)
+  (let ((size (file-length stream)))
+    (unless (and (integerp size) (>= size 0))
+      (fail-journal "File journal size is unavailable."))
+    (when (> size +file-journal-max-bytes+)
+      (fail-journal
+       "File journal size ~D exceeds the ~D-byte replay limit."
+       size +file-journal-max-bytes+))
+    (let ((buffer (make-string size)))
+      (let ((count (read-sequence buffer stream)))
+        (when (read-char stream nil nil)
+          (fail-journal "File journal changed while replay was reading it."))
+        (subseq buffer 0 count)))))
+
+(defun parse-file-journal-source (source)
+  (validate-file-journal-source source)
+  (handler-case
+      (with-input-from-string (stream source)
+        (with-standard-io-syntax
+          (let ((*read-eval* nil)
+                (eof (gensym "EOF"))
+                (record-count 0))
+            (loop for event = (read stream nil eof)
+                  until (eq event eof)
+                  do (incf record-count)
+                     (when (> record-count +file-journal-max-records+)
+                       (fail-journal
+                        "File journal record count exceeds ~D."
+                        +file-journal-max-records+))
+                  collect event))))
+    (star-journal-error (condition)
+      (error condition))
+    (error ()
+      (fail-journal "File journal contains invalid readable data."))))
+
+(defun read-file-runtime-journal-events (path)
+  (handler-case
+      (with-open-file (stream path :direction :input)
+        (parse-file-journal-source
+         (read-bounded-file-journal-source stream)))
+    (star-journal-error (condition)
+      (error condition))
+    (error ()
+      (fail-journal "File journal replay could not read bounded journal data."))))
+
 (defun make-file-runtime-journal-port (pathname)
   (let ((path (pathname pathname)))
     (make-runtime-journal-port
@@ -185,11 +405,5 @@
      :replay
      (lambda ()
        (if (probe-file path)
-           (with-open-file (stream path :direction :input)
-             (with-standard-io-syntax
-               (let ((*read-eval* nil)
-                     (eof (gensym "EOF")))
-                 (loop for event = (read stream nil eof)
-                       until (eq event eof)
-                       collect event))))
+           (read-file-runtime-journal-events path)
            '())))))
