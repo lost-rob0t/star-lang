@@ -15,7 +15,6 @@
 (defun bind-program-actor (actor)
   (unless (eq (getf actor :runtime) :native)
     (error 'invalid-program-binding-error
-           :operation :bind-program
            :message
            (format nil
                    "cl-gserver binding requires native actor ~A; received runtime ~S."
@@ -69,7 +68,6 @@
                         +normalized-program-ir-schema+)
                (eq (getf program :kind) :program))
     (error 'invalid-program-binding-error
-           :operation :bind-program
            :message
            (format nil
                    "cl-gserver binder requires normalized IR schema ~A."
