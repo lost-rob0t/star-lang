@@ -2,8 +2,8 @@
   :description "Generic exact-argv external-process lifecycle port"
   :author "lost-rob0t"
   :license "AGPL-3.0-only"
-  :version "0.1.0"
-  :depends-on ()
+  :version "0.2.0"
+  :depends-on ("bordeaux-threads")
   :serial t
   :components
   ((:module "src"

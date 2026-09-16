@@ -5,6 +5,8 @@
    #:http-port-error
    #:http-backend-unavailable-error
    #:http-request-error
+   #:http-transport-error
+   #:http-transport-error-kind
    #:http-request
    #:http-request-p
    #:http-request-url
@@ -28,5 +30,4 @@
    #:http-client-name
    #:make-http-client
    #:perform-http-request
-   #:http-get
-   #:make-dexador-http-client))
+   #:http-get))
