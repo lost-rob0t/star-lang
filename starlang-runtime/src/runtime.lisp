@@ -54,6 +54,7 @@
   (status :running :type keyword)
   data
   (generation 0 :type (integer 0 *))
+  (completion-incarnation 0 :type (integer 0 *))
   (invocation-count 0 :type (integer 0 *))
   last-error
   mailbox
@@ -347,6 +348,7 @@
     (remhash service-uri (runtime-actors-by-uri runtime))
     (setf (runtime-actor-order runtime)
           (remove name (runtime-actor-order runtime) :test #'string=))
+    (incf (actor-instance-completion-incarnation actor))
     actor))
 
 (defun stop-actor (runtime target)
@@ -406,11 +408,14 @@
                 contract
                 value)))
 
-(defun dispatch-incarnation-current-p (runtime actor reference)
+(defun dispatch-incarnation-current-p
+    (runtime actor reference completion-incarnation)
   (and (eq :running (runtime-status runtime))
        (actor-running-p actor)
        (= (actor-instance-generation actor)
           (staractorprotocol:star-actor-reference-generation reference))
+       (= (actor-instance-completion-incarnation actor)
+          completion-incarnation)
        (eq actor
            (gethash (actor-name actor)
                     (runtime-actors-by-name runtime)))
@@ -427,12 +432,15 @@
            (actor-name actor)
            (staractorprotocol:star-actor-reference-generation reference))))
 
-(defun ensure-dispatch-incarnation-current (runtime actor reference)
-  (unless (dispatch-incarnation-current-p runtime actor reference)
+(defun ensure-dispatch-incarnation-current
+    (runtime actor reference completion-incarnation)
+  (unless (dispatch-incarnation-current-p
+           runtime actor reference completion-incarnation)
     (error (make-stale-completion-condition actor reference)))
   actor)
 
-(defun invoke-native-transition (actor message runtime reference)
+(defun invoke-native-transition
+    (actor message runtime reference completion-incarnation)
   (let* ((definition (actor-instance-definition actor))
          (values
            (multiple-value-list
@@ -443,7 +451,8 @@
     ;; A handler may stop, restart, unregister, or shut down its own actor via
     ;; another real actor. Once that happens this dispatch no longer owns any
     ;; actor-local completion state.
-    (ensure-dispatch-incarnation-current runtime actor reference)
+    (ensure-dispatch-incarnation-current
+     runtime actor reference completion-incarnation)
     (unless values
       (fail-actor 'actor-contract-error
                   "Actor ~A returned no values."
@@ -458,7 +467,8 @@
        result actor)
       ;; Validators are trusted host code and may themselves change lifecycle.
       ;; Recheck immediately before the only actor-local success commit.
-      (ensure-dispatch-incarnation-current runtime actor reference)
+      (ensure-dispatch-incarnation-current
+       runtime actor reference completion-incarnation)
       (when state-supplied-p
         (setf (actor-instance-data actor) next-state))
       (incf (actor-instance-invocation-count actor))
@@ -529,6 +539,8 @@
 
 (defun dispatch-envelope (runtime actor envelope)
   (let ((reference (actor-reference actor))
+        (completion-incarnation
+          (actor-instance-completion-incarnation actor))
         (correlation-id (runtime-message-correlation-id envelope))
         (cell (runtime-message-reply-cell envelope)))
     (handler-case
@@ -541,13 +553,15 @@
             (actor-instance-definition actor))
            (runtime-message-payload envelope)
            actor)
-          (ensure-dispatch-incarnation-current runtime actor reference)
+          (ensure-dispatch-incarnation-current
+           runtime actor reference completion-incarnation)
           (let ((result
                   (invoke-native-transition
                    actor
                    (runtime-message-payload envelope)
                    runtime
-                   reference)))
+                   reference
+                   completion-incarnation)))
             (complete-ask-cell cell result)
             (%make-dispatch-result
              :status :completed
@@ -558,12 +572,14 @@
         ;; A stale dispatch may fail only its own reply. It no longer owns the
         ;; replacement actor's diagnostic state.
         (let ((effective-condition
-                (if (dispatch-incarnation-current-p runtime actor reference)
+                (if (dispatch-incarnation-current-p
+                     runtime actor reference completion-incarnation)
                     condition
                     (if (typep condition 'actor-stale-completion-error)
                         condition
                         (make-stale-completion-condition actor reference)))))
-          (when (dispatch-incarnation-current-p runtime actor reference)
+          (when (dispatch-incarnation-current-p
+                 runtime actor reference completion-incarnation)
             (setf (actor-instance-last-error actor) effective-condition))
           (fail-ask-cell cell effective-condition)
           (%make-dispatch-result
