@@ -50,6 +50,34 @@
          (cons (%fixture-script) arguments)
          keys))
 
+(defun %elapsed-seconds (started)
+  (/ (- (get-internal-real-time) started)
+     (coerce internal-time-units-per-second 'double-float)))
+
+(defun %call-with-wall-watchdog (seconds thunk)
+  (let ((started (get-internal-real-time))
+        (value nil)
+        (timed-out-p nil))
+    (handler-case
+        (setf value
+              (bordeaux-threads:with-timeout (seconds)
+                (funcall thunk)))
+      (bordeaux-threads:timeout ()
+        (setf timed-out-p t)))
+    (values value timed-out-p (%elapsed-seconds started))))
+
+(defun %capture-thread-count ()
+  (count-if
+   (lambda (thread)
+     (let ((name (bordeaux-threads:thread-name thread)))
+       (and (bordeaux-threads:thread-alive-p thread)
+            (stringp name)
+            (member name
+                    '("star-process-port stdout drainer"
+                      "star-process-port stderr drainer")
+                    :test #'string=))))
+   (bordeaux-threads:all-threads)))
+
 (test rejects-non-string-argv
   (signals invalid-process-command-error
     (launch-process "/definitely/not/launched" '("ok" 42))))
@@ -146,6 +174,68 @@
     (is (eq :cancelled (process-result-outcome result)))
     (signals process-cancelled-error
       (ensure-process-success result))))
+
+(test descendant-held-pipes-do-not-block-normal-root-completion
+  (let ((capture-count-before (%capture-thread-count)))
+    (multiple-value-bind (result timed-out-p elapsed)
+        (%call-with-wall-watchdog
+         0.75d0
+         (lambda ()
+           (%run-fixture '("descendant-holds-pipes" "2")
+                         :terminate-timeout 0.05d0)))
+      (is (not timed-out-p)
+          "run-process exceeded the outer watchdog after the owned root exited (~,3Fs)."
+          elapsed)
+      (is result)
+      (when result
+        (is (eq :exited (process-result-outcome result)))
+        (is (= 0 (process-result-exit-code result))))
+      (is (= capture-count-before (%capture-thread-count))
+          "run-process returned with a live capture thread after normal root exit."))))
+
+(test descendant-held-pipes-do-not-break-timeout-boundedness
+  (let ((capture-count-before (%capture-thread-count)))
+    (multiple-value-bind (result timed-out-p elapsed)
+        (%call-with-wall-watchdog
+         0.75d0
+         (lambda ()
+           (%run-fixture '("descendant-holds-pipes-spin" "2")
+                         :timeout 0.05d0
+                         :terminate-timeout 0.05d0)))
+      (is (not timed-out-p)
+          "timeout cleanup exceeded the outer watchdog with inherited pipe writers (~,3Fs)."
+          elapsed)
+      (is result)
+      (when result
+        (is (eq :timeout (process-result-outcome result))))
+      (is (= capture-count-before (%capture-thread-count))
+          "timeout cleanup returned with a live capture thread."))))
+
+(test descendant-held-pipes-do-not-break-cancellation-boundedness
+  (let* ((capture-count-before (%capture-thread-count))
+         (token (make-process-cancellation-token))
+         (canceller (make-thread
+                     (lambda ()
+                       (sleep 0.05d0)
+                       (cancel-process-operation token))
+                     :name "star-process-port inherited-pipe cancellation test")))
+    (unwind-protect
+         (multiple-value-bind (result timed-out-p elapsed)
+             (%call-with-wall-watchdog
+              0.75d0
+              (lambda ()
+                (%run-fixture '("descendant-holds-pipes-spin" "2")
+                              :cancellation-token token
+                              :terminate-timeout 0.05d0)))
+           (is (not timed-out-p)
+               "cancellation cleanup exceeded the outer watchdog with inherited pipe writers (~,3Fs)."
+               elapsed)
+           (is result)
+           (when result
+             (is (eq :cancelled (process-result-outcome result))))
+           (is (= capture-count-before (%capture-thread-count))
+               "cancellation cleanup returned with a live capture thread."))
+      (join-thread canceller))))
 
 (test generated-result-carries-generation-and-safe-provenance
   (let* ((secret "result-secret")
