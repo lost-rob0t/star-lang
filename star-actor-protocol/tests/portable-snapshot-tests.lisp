@@ -47,6 +47,31 @@
     (check (not (eq (first snapshot) (second snapshot)))
            "Shared input was retained as a mutable shared output alias.")))
 
+(defun test-flat-list-cardinality-does-not-consume-depth ()
+  (let* ((source (loop for index below 16 collect index))
+         (snapshot
+           (snapshot-portable-wire-value
+            source
+            :max-depth 2
+            :max-nodes 64)))
+    (check (equal source snapshot)
+           "Flat list cardinality consumed the recursive depth budget.")))
+
+(defun test-snapshot-rejects-aggregate-string-amplification ()
+  (let* ((shared (copy-seq "abcdef"))
+         (source (vector shared shared)))
+    (check
+     (signals-p 'invalid-wire-envelope-error
+                (lambda ()
+                  (snapshot-portable-wire-value
+                   source
+                   :max-depth 4
+                   :max-nodes 16
+                   :max-string-length 8
+                   :max-vector-length 4
+                   :max-total-string-length 10)))
+     "Portable snapshot accepted aggregate string copy amplification.")))
+
 (defun test-snapshot-rejects-cycles ()
   (let ((cycle (list "cycle")))
     (setf (cdr cycle) cycle)
@@ -106,6 +131,8 @@
 (defun run-tests ()
   (test-snapshot-owns-mutable-wire-values)
   (test-snapshot-accepts-shared-acyclic-values-by-value)
+  (test-flat-list-cardinality-does-not-consume-depth)
+  (test-snapshot-rejects-aggregate-string-amplification)
   (test-snapshot-rejects-cycles)
   (test-snapshot-enforces-resource-bounds)
   (test-snapshot-rejects-unsupported-host-values)
