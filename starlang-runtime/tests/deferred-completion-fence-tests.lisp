@@ -5,6 +5,23 @@
    :message-type "test/result@1"
    :payload (list (cons "value" value))))
 
+(defun deferred-fence-manifest ()
+  (let* ((manifest (copy-tree (dispatcher-manifest)))
+         (actor (first (getf manifest :actors))))
+    (setf (getf manifest :messages)
+          (append
+           (getf manifest :messages)
+           (list
+            (list :kind :message
+                  :name "test/run-alt@1"
+                  :fields
+                  (list (list :name "target"
+                              :type "string"
+                              :required t)))))
+          (getf actor :accepts)
+          (append (getf actor :accepts) '("test/run-alt@1")))
+    manifest))
+
 (defun assert-deferred-identity-conflict (dispatcher command mutator context)
   (let ((conflict (copy-tree command)))
     (funcall mutator conflict)
@@ -24,7 +41,7 @@
            context)))
 
 (defun test-deferred-completion-fences-semantic-command-identity ()
-  (let* ((dispatcher (make-deterministic-dispatcher (dispatcher-manifest)))
+  (let* ((dispatcher (make-deterministic-dispatcher (deferred-fence-manifest)))
          (command (dispatcher-command)))
     (register-dispatch-actor
      dispatcher "worker"
@@ -35,6 +52,11 @@
     (check (eq :deferred (run-dispatcher-next dispatcher))
            "Fixture did not enter deferred execution.")
     (drain-dispatcher-emitted dispatcher)
+    (assert-deferred-identity-conflict
+     dispatcher command
+     (lambda (conflict)
+       (setf (getf conflict :message-type) "test/run-alt@1"))
+     "message type")
     (assert-deferred-identity-conflict
      dispatcher command
      (lambda (conflict)
@@ -63,6 +85,59 @@
      "Original deferred command did not complete after rejected conflicts.")
     (check (equal '(:reply :ack) (emitted-kinds dispatcher))
            "Valid deferred completion emitted the wrong outcomes.")))
+
+(defun test-deferred-completion-record-owns-command-snapshot ()
+  (let* ((dispatcher (make-deterministic-dispatcher (dispatcher-manifest)))
+         (command
+           (dispatcher-command
+            :message-id "deferred-snapshot-1"
+            :idempotency-key "deferred-snapshot-key"))
+         (original (copy-tree command)))
+    (register-dispatch-actor
+     dispatcher "worker"
+     (lambda (runtime envelope)
+       (declare (ignore runtime envelope))
+       (defer-dispatch)))
+    (submit-dispatch-envelope dispatcher command)
+    (check (eq :deferred (run-dispatcher-next dispatcher))
+           "Snapshot fixture did not enter deferred execution.")
+    (drain-dispatcher-emitted dispatcher)
+    (setf (cdr (assoc "target" (getf command :payload) :test #'string=))
+          "mutated-after-admission.example.org")
+    (check
+     (signals-p
+      'wire-dispatcher-idempotency-conflict-error
+      (lambda ()
+        (finish-deferred-dispatch
+         dispatcher command (deferred-success-result "mutated-command"))))
+     "Post-admission caller mutation changed the command stored by the active record.")
+    (check (eq :in-progress (deferred-dispatch-status dispatcher original))
+           "Rejected mutated command changed the active record.")
+    (check (null (drain-dispatcher-emitted dispatcher))
+           "Rejected mutated command emitted outcomes.")
+    (check
+     (eq :completed
+         (finish-deferred-dispatch
+          dispatcher original (deferred-success-result "owned-snapshot")))
+     "Owned pre-mutation command snapshot could not settle the deferred record.")
+    (check (equal '(:reply :ack) (emitted-kinds dispatcher))
+           "Owned snapshot completion emitted the wrong outcomes.")))
+
+(defun test-deferred-completion-rejects-absent-record ()
+  (let* ((dispatcher (make-deterministic-dispatcher (dispatcher-manifest)))
+         (command
+           (dispatcher-command
+            :message-id "deferred-absent-1"
+            :idempotency-key "deferred-absent-key")))
+    (check
+     (signals-p
+      'wire-dispatcher-error
+      (lambda ()
+        (finish-deferred-dispatch
+         dispatcher command (deferred-success-result "absent"))))
+     "Deferred completion without an idempotency record was accepted.")
+    (check (null (drain-dispatcher-emitted dispatcher))
+           "Absent-record completion emitted outcomes.")))
 
 (defun test-deferred-completion-fences-active-delivery-attempt ()
   (let* ((dispatcher (make-deterministic-dispatcher (dispatcher-manifest)))
@@ -142,6 +217,8 @@
 
 (defun run-deferred-completion-fence-tests ()
   (test-deferred-completion-fences-semantic-command-identity)
+  (test-deferred-completion-record-owns-command-snapshot)
+  (test-deferred-completion-rejects-absent-record)
   (test-deferred-completion-fences-active-delivery-attempt)
   (format t "~&starlang-runtime deferred completion fence tests passed~%")
   t)
