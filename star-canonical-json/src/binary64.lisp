@@ -18,6 +18,13 @@
     (%fail-binary64
      "The host double-float representation is not IEEE 754 binary64.")))
 
+(defun %finite-binary64-p (value)
+  (handler-case
+      (<= (- most-positive-double-float)
+          value
+          most-positive-double-float)
+    (arithmetic-error () nil)))
+
 (defun %log10-power-of-two (exponent)
   (ash (* exponent 78913) -18))
 
@@ -41,6 +48,9 @@
 
 (defun %binary64-fields (value)
   (%assert-binary64-runtime)
+  (unless (%finite-binary64-p value)
+    (%fail-binary64
+     "RFC 8785 canonical JSON does not permit NaN or Infinity."))
   (handler-case
       (multiple-value-bind (significand exponent sign)
           (integer-decode-float value)
