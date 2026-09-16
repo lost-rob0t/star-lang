@@ -304,7 +304,6 @@
          (supervisor-restart-times supervisor))))
 
 (defun mark-budget-exhausted (supervisor child)
-  (stop-child supervisor child)
   (let ((condition
           (make-condition
            'restart-budget-exhausted-error
@@ -319,9 +318,13 @@
            :child-id (child-spec-id (supervised-child-spec child))
            :max-restarts (supervisor-max-restarts supervisor)
            :restart-window (supervisor-restart-window supervisor))))
-    (setf (supervised-child-status child) :failed
-          (supervisor-status supervisor) :failed
+    (setf (supervisor-status supervisor) :failed
           (supervisor-terminal-condition supervisor) condition)
+    (dolist (id (supervisor-child-order supervisor))
+      (let ((owned-child (find-supervised-child supervisor id)))
+        (when (eq :running (supervised-child-status owned-child))
+          (stop-child supervisor owned-child))))
+    (setf (supervised-child-status child) :failed)
     (error condition)))
 
 (defun consume-restart-budget (supervisor child)
@@ -371,14 +374,25 @@
     (:sento (restart-sento-child supervisor child))))
 
 (defun supervisor-handle-child-exit
-    (supervisor child-id reason &key condition)
+    (supervisor child-id reason
+     &key condition (observed-generation nil observed-generation-p))
   (unless (member reason '(:normal :failure) :test #'eq)
     (fail-supervisor 'invalid-supervisor-error
                      "Child exit reason must be :NORMAL or :FAILURE, received ~S."
                      reason))
+  (unless observed-generation-p
+    (fail-supervisor 'invalid-supervisor-error
+                     "Child exit observation for ~S requires :OBSERVED-GENERATION."
+                     child-id))
+  (unless (and (integerp observed-generation) (>= observed-generation 0))
+    (fail-supervisor 'invalid-supervisor-error
+                     "Observed child generation must be a non-negative integer, received ~S."
+                     observed-generation))
   (let* ((child (find-supervised-child supervisor child-id))
          (restart-class
            (child-spec-restart-class (supervised-child-spec child))))
+    (unless (= observed-generation (supervised-child-generation child))
+      (return-from supervisor-handle-child-exit :stale))
     (setf (supervised-child-last-exit child) reason
           (supervised-child-last-condition child) condition)
     (cond
@@ -404,6 +418,7 @@
       (let ((child (find-supervised-child supervisor id)))
         (when (eq :running (supervised-child-status child))
           (let* ((reference (supervised-child-backend-ref child))
+                 (observed-generation (supervised-child-generation child))
                  (actor (starlangruntime:resolve-actor runtime reference)))
             (if (starlangruntime:actor-running-p actor)
                 (let ((result (starlangruntime:dispatch-next runtime reference)))
@@ -414,8 +429,11 @@
                       (supervisor-handle-child-exit
                        supervisor id :failure
                        :condition
-                       (starlangruntime:dispatch-result-condition result)))))
-                (supervisor-handle-child-exit supervisor id :normal))))))
+                       (starlangruntime:dispatch-result-condition result)
+                       :observed-generation observed-generation))))
+                (supervisor-handle-child-exit
+                 supervisor id :normal
+                 :observed-generation observed-generation))))))
     processed))
 
 (defun supervisor-child-reference (supervisor child-id)
@@ -472,15 +490,11 @@
     (fail-supervisor 'invalid-supervisor-error
                      "Expected a supervisor, received ~S."
                      supervisor))
-  (unless (eq :failed (supervisor-status supervisor))
-    (drain-supervisor supervisor))
-  (ecase (supervisor-kind supervisor)
-    (:runtime
-     (starlangruntime:shutdown-runtime (supervisor-context supervisor)))
-    (:sento
-     (starsentocompat:runtime-shutdown
-      (supervisor-port supervisor)
-      (supervisor-context supervisor)
-      :wait t)))
+  (if (eq :failed (supervisor-status supervisor))
+      (dolist (id (supervisor-child-order supervisor))
+        (let ((child (find-supervised-child supervisor id)))
+          (when (eq :running (supervised-child-status child))
+            (stop-child supervisor child))))
+      (drain-supervisor supervisor))
   (setf (supervisor-status supervisor) :stopped)
   :stopped)
