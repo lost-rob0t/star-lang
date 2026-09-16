@@ -48,9 +48,27 @@
     (write-string contents stream)
     (finish-output stream)))
 
+(defun read-raw-journal (path)
+  (with-open-file (stream path :direction :input)
+    (let* ((size (file-length stream))
+           (contents (make-string size)))
+      (read-sequence contents stream)
+      contents)))
+
 (defun replay-path (path)
   (starjournal:runtime-journal-replay
    (starjournal:make-file-runtime-journal-port path)))
+
+(defun replay-shared-path (path)
+  (handler-case
+      (replay-path path)
+    (starjournal:star-journal-error (condition)
+      (let ((source (read-raw-journal path)))
+        (multiple-value-bind (sanitized placeholders)
+            (starjournal::sanitize-file-journal-source source)
+          (error
+           "Shared acyclic file replay failed: ~A~%source: ~S~%sanitized: ~S~%placeholder-count: ~D"
+           condition source sanitized (hash-table-count placeholders)))))))
 
 (defun test-file-journal-shared-acyclic-replays-by-value ()
   (let* ((path (temporary-journal-pathname "shared-acyclic"))
@@ -63,7 +81,7 @@
            (check (eq :appended
                       (starjournal:runtime-journal-append journal event))
                   "Shared acyclic file event was not appended.")
-           (let* ((replayed (first (starjournal:runtime-journal-replay journal)))
+           (let* ((replayed (first (replay-shared-path path)))
                   (replayed-payload
                     (getf (getf replayed :command) :payload))
                   (left (cdr (assoc "left" replayed-payload :test #'string=)))
