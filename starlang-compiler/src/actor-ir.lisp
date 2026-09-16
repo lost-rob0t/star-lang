@@ -71,6 +71,35 @@ deterministic string alist."
            (cons key (metadata-scalar-value (second pair))))))
      entries)))
 
+(defun actor-capability-identifier (value)
+  "Lower one validated source or trusted-host capability identifier."
+  (with-star-source-position (value)
+    (cond
+      ((star-syntax-p value)
+       (unless (eq (star-syntax-kind value) :identifier)
+         (fail 'invalid-actor-error
+               "Actor capabilities must contain identifiers."))
+       (identifier-string value))
+      ((stringp value) value)
+      ((and (symbolp value)
+            value
+            (not (eq value t))
+            (not (keywordp value)))
+       (identifier-string value))
+      (t
+       (fail 'invalid-actor-error
+             "Actor capabilities must contain identifiers.")))))
+
+(defun normalize-actor-capabilities (value)
+  "Validate and lower an explicitly present actor capability list."
+  (let ((*star-current-phase* :lower))
+    (with-star-source-position (value)
+      (unless (or (syntax-list-p value)
+                  (and (listp value) (not (star-syntax-p value))))
+        (fail 'invalid-actor-error
+              "Actor capabilities must be a list of identifiers."))
+      (mapcar #'actor-capability-identifier (plist-elements value)))))
+
 (defun compile-actor (form &optional library)
   (let* ((elements (actor-declaration-elements form))
          (operator (first elements))
@@ -123,11 +152,11 @@ deterministic string alist."
                       :mailbox (normalize-mailbox
                                 (required-option options :mailbox "actor" 'invalid-actor-error))
                       :capabilities
-                      (mapcar #'identifier-string
-                              (or (and (plist-has-key-p options :capabilities)
-                                       (plist-elements
-                                        (required-option options :capabilities "actor")))
-                                  '())))))
+                      (if (plist-has-key-p options :capabilities)
+                          (normalize-actor-capabilities
+                           (required-option options :capabilities "actor"
+                                            'invalid-actor-error))
+                          '()))))
           (ecase runtime
             (:native
              (let ((handler (required-option options :handler "native actor"
