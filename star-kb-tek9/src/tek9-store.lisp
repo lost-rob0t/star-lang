@@ -1,12 +1,15 @@
 (in-package :starkbtek9)
 
-(defconstant +records-database-name+ "star-kb/records")
-(defconstant +index-entry-kind+ "star-kb.entry-kind")
-(defconstant +index-entry-dataset+ "star-kb.entry-dataset")
-(defconstant +index-entry-field+ "star-kb.entry-field")
-(defconstant +index-relation-predicate+ "star-kb.relation-predicate")
-(defconstant +index-relation-dataset+ "star-kb.relation-dataset")
-(defconstant +schema-marker-key+ "star-kb/schema-version")
+;; Strings are DEFparameter, not DEFconstant: ANSI CONSTANT values are compared
+;; with EQL, so compiled file reloads of equal-but-not-EQL strings trip
+;; SB-EXT:DEFCONSTANT-UNEQL. These names are stable adapter configuration.
+(defparameter +records-database-name+ "star-kb/records")
+(defparameter +index-entry-kind+ "star-kb.entry-kind")
+(defparameter +index-entry-dataset+ "star-kb.entry-dataset")
+(defparameter +index-entry-field+ "star-kb.entry-field")
+(defparameter +index-relation-predicate+ "star-kb.relation-predicate")
+(defparameter +index-relation-dataset+ "star-kb.relation-dataset")
+(defparameter +schema-marker-key+ "star-kb/schema-version")
 (defconstant +schema-version+ 1)
 
 (defun component-key (value)
