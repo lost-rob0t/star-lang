@@ -9,8 +9,10 @@
 (define-condition kb-contract-error (kb-error) ())
 
 (define-condition kb-backend-error (kb-error)
-  ((operation :initarg :operation :reader kb-backend-error-operation)
-   (backend :initarg :backend :reader kb-backend-error-backend)))
+  ((operation :initarg :operation :initform :unknown
+              :reader kb-backend-error-operation)
+   (backend :initarg :backend :initform "unknown"
+            :reader kb-backend-error-backend)))
 
 (defun fail-kb (condition-type control &rest arguments)
   (error condition-type :message (apply #'format nil control arguments)))
@@ -131,7 +133,8 @@ not belong in the edge hot path."
         :provenance (snapshot-kb-value provenance "KB relation provenance")))
 
 (defun plist-record-p (record type required-string-keys)
-  (and (listp record)
+  (and (proper-list-p record)
+       (evenp (length record))
        (eq (getf record :record-type) type)
        (every (lambda (key)
                 (let ((value (getf record key)))
@@ -196,6 +199,28 @@ not belong in the edge hot path."
 (defun kb-relation-target (relation)
   (getf relation :target))
 
+(defun portable-kb-value-equal-p (left right)
+  "Structural equality for portable values using StarLang wire symbol semantics."
+  (cond
+    ((and (null left) (null right)) t)
+    ((or (null left) (null right)) nil)
+    ((and (eq left t) (eq right t)) t)
+    ((or (eq left t) (eq right t)) nil)
+    ((and (integerp left) (integerp right)) (= left right))
+    ((and (stringp left) (stringp right)) (string= left right))
+    ((and (symbolp left) (symbolp right))
+     (string= (staractorprotocol:portable-wire-identifier-string left)
+              (staractorprotocol:portable-wire-identifier-string right)))
+    ((and (consp left) (consp right))
+     (and (portable-kb-value-equal-p (car left) (car right))
+          (portable-kb-value-equal-p (cdr left) (cdr right))))
+    ((and (vectorp left) (vectorp right))
+     (and (= (length left) (length right))
+          (loop for index below (length left)
+                always (portable-kb-value-equal-p
+                        (aref left index) (aref right index)))))
+    (t nil)))
+
 (defun kb-field-value (entry field-path &optional default)
   (nonempty-string field-path "KB field path")
   (let ((pair (assoc field-path (kb-entry-fields entry) :test #'string=)))
@@ -257,14 +282,15 @@ not belong in the edge hot path."
     (fail-kb 'kb-contract-error "Expected a KB store, received ~S." store))
   store)
 
-(defun call-kb-backend (store operation function &rest arguments)
+(defun call-kb-backend (store operation accessor &rest arguments)
   (ensure-store store)
-  (handler-case
-      (apply function arguments)
-    (kb-error (condition)
-      (error condition))
-    (error (condition)
-      (fail-kb-backend store operation condition))))
+  (let ((function (funcall accessor store)))
+    (handler-case
+        (apply function arguments)
+      (kb-error (condition)
+        (error condition))
+      (error (condition)
+        (fail-kb-backend store operation condition)))))
 
 (defun snapshot-result (value context)
   (snapshot-kb-value value context))
@@ -295,14 +321,14 @@ not belong in the edge hot path."
   (let ((owned (snapshot-result entry "KB put entry")))
     (ensure-entry owned "KB put entry")
     (snapshot-entry-result
-     (call-kb-backend store :put-entry (kb-store-put-entry-fn store) owned)
+     (call-kb-backend store :put-entry #'kb-store-put-entry-fn owned)
      "KB put entry result")))
 
 (defun kb-fetch-entry (store namespace id)
   (nonempty-string namespace "KB fetch namespace")
   (nonempty-string id "KB fetch entry id")
   (snapshot-entry-result
-   (call-kb-backend store :fetch-entry (kb-store-fetch-entry-fn store)
+   (call-kb-backend store :fetch-entry #'kb-store-fetch-entry-fn
                     namespace id)
    "KB fetch entry result"))
 
@@ -310,14 +336,14 @@ not belong in the edge hot path."
   (nonempty-string namespace "KB delete namespace")
   (nonempty-string id "KB delete entry id")
   (not (null
-        (call-kb-backend store :delete-entry (kb-store-delete-entry-fn store)
+        (call-kb-backend store :delete-entry #'kb-store-delete-entry-fn
                          namespace id))))
 
 (defun kb-find-entries-by-kind (store namespace kind)
   (nonempty-string namespace "KB kind namespace")
   (nonempty-string kind "KB entry kind")
   (snapshot-entry-list
-   (call-kb-backend store :find-kind (kb-store-find-kind-fn store)
+   (call-kb-backend store :find-kind #'kb-store-find-kind-fn
                     namespace kind)
    "KB kind query"))
 
@@ -325,7 +351,7 @@ not belong in the edge hot path."
   (nonempty-string namespace "KB dataset namespace")
   (nonempty-string dataset "KB dataset")
   (snapshot-entry-list
-   (call-kb-backend store :find-dataset (kb-store-find-dataset-fn store)
+   (call-kb-backend store :find-dataset #'kb-store-find-dataset-fn
                     namespace dataset)
    "KB dataset query"))
 
@@ -334,7 +360,7 @@ not belong in the edge hot path."
   (nonempty-string field-path "KB field path")
   (let ((owned (snapshot-result value "KB field query value")))
     (snapshot-entry-list
-     (call-kb-backend store :find-field (kb-store-find-field-fn store)
+     (call-kb-backend store :find-field #'kb-store-find-field-fn
                       namespace field-path owned)
      "KB field query")))
 
@@ -342,7 +368,7 @@ not belong in the edge hot path."
   (let ((owned (snapshot-result relation "KB put relation")))
     (ensure-relation owned "KB put relation")
     (snapshot-relation-result
-     (call-kb-backend store :put-relation (kb-store-put-relation-fn store)
+     (call-kb-backend store :put-relation #'kb-store-put-relation-fn
                       owned)
      "KB put relation result")))
 
@@ -350,7 +376,7 @@ not belong in the edge hot path."
   (nonempty-string namespace "KB relation namespace")
   (nonempty-string id "KB relation id")
   (snapshot-relation-result
-   (call-kb-backend store :fetch-relation (kb-store-fetch-relation-fn store)
+   (call-kb-backend store :fetch-relation #'kb-store-fetch-relation-fn
                     namespace id)
    "KB fetch relation result"))
 
@@ -359,7 +385,7 @@ not belong in the edge hot path."
   (nonempty-string id "KB relation id")
   (not (null
         (call-kb-backend store :delete-relation
-                         (kb-store-delete-relation-fn store)
+                         #'kb-store-delete-relation-fn
                          namespace id))))
 
 (defun kb-find-relations-by-predicate (store namespace predicate)
@@ -367,7 +393,7 @@ not belong in the edge hot path."
   (nonempty-string predicate "KB relation predicate")
   (snapshot-relation-list
    (call-kb-backend store :find-predicate
-                    (kb-store-find-predicate-fn store)
+                    #'kb-store-find-predicate-fn
                     namespace predicate)
    "KB predicate query"))
 
@@ -377,10 +403,10 @@ not belong in the edge hot path."
   (when predicate
     (nonempty-string predicate "KB neighbor predicate"))
   (snapshot-entry-list
-   (call-kb-backend store :neighbors (kb-store-neighbors-fn store)
+   (call-kb-backend store :neighbors #'kb-store-neighbors-fn
                     namespace id predicate (not (null incoming)))
    "KB neighbor query"))
 
 (defun kb-close (store)
   (not (null
-        (call-kb-backend store :close (kb-store-close-fn store)))))
+        (call-kb-backend store :close #'kb-store-close-fn))))
