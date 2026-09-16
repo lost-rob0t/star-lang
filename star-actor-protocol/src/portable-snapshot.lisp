@@ -3,6 +3,7 @@
 (defconstant +portable-snapshot-default-max-depth+ 64)
 (defconstant +portable-snapshot-default-max-nodes+ 100000)
 (defconstant +portable-snapshot-default-max-string-length+ 1048576)
+(defconstant +portable-snapshot-default-max-total-string-length+ 8388608)
 (defconstant +portable-snapshot-default-max-vector-length+ 65536)
 
 (defun ensure-portable-snapshot-limit (value name)
@@ -18,6 +19,8 @@
        (max-depth +portable-snapshot-default-max-depth+)
        (max-nodes +portable-snapshot-default-max-nodes+)
        (max-string-length +portable-snapshot-default-max-string-length+)
+       (max-total-string-length
+         +portable-snapshot-default-max-total-string-length+)
        (max-vector-length +portable-snapshot-default-max-vector-length+))
   "Return an owned, bounded snapshot of a portable StarLang wire value.
 
@@ -28,8 +31,12 @@ value, so callers cannot mutate a later snapshot through an earlier alias."
   (ensure-portable-snapshot-limit max-depth "max-depth")
   (ensure-portable-snapshot-limit max-nodes "max-nodes")
   (ensure-portable-snapshot-limit max-string-length "max-string-length")
+  (ensure-portable-snapshot-limit
+   max-total-string-length
+   "max-total-string-length")
   (ensure-portable-snapshot-limit max-vector-length "max-vector-length")
   (let ((nodes 0)
+        (total-string-length 0)
         (visiting (make-hash-table :test #'eq)))
     (labels
         ((claim-node (depth)
@@ -42,6 +49,17 @@ value, so callers cannot mutate a later snapshot through an earlier alias."
              (fail-invalid-wire-envelope
               "Portable wire snapshot exceeded the depth limit ~D."
               max-depth)))
+         (claim-string (item)
+           (let ((length (length item)))
+             (when (> length max-string-length)
+               (fail-invalid-wire-envelope
+                "Portable wire snapshot string length ~D exceeds the limit ~D."
+                length max-string-length))
+             (incf total-string-length length)
+             (when (> total-string-length max-total-string-length)
+               (fail-invalid-wire-envelope
+                "Portable wire snapshot aggregate string length ~D exceeds the limit ~D."
+                total-string-length max-total-string-length))))
          (enter-composite (item)
            (when (gethash item visiting)
              (fail-invalid-wire-envelope
@@ -67,7 +85,7 @@ value, so callers cannot mutate a later snapshot through an earlier alias."
            (enter-composite item)
            (unwind-protect
                 (cons (copy-value (car item) (1+ depth))
-                      (copy-value (cdr item) (1+ depth)))
+                      (copy-value (cdr item) depth))
              (remhash item visiting)))
          (copy-value (item depth)
            (claim-node depth)
@@ -77,10 +95,7 @@ value, so callers cannot mutate a later snapshot through an earlier alias."
              ((integerp item) item)
              ((symbolp item) item)
              ((stringp item)
-              (when (> (length item) max-string-length)
-                (fail-invalid-wire-envelope
-                 "Portable wire snapshot string length ~D exceeds the limit ~D."
-                 (length item) max-string-length))
+              (claim-string item)
               (copy-seq item))
              ((consp item)
               (copy-cons-value item depth))
