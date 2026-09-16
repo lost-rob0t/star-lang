@@ -180,7 +180,7 @@
                                  "Explicit client proxy policy was not passed to Dexador."))
                (unless (eq t (getf arguments :insecure))
                  (record-failure failures
-                                 "Explicit :insecure TLS policy was not passed to Dexador."))))
+                                 "Explicit :insecure TLS policy was not passed to Dexador.")))))
       (setf (symbol-function 'dexador:request) original-request))))
 
 (defun test-explicit-pools-are-client-local (failures)
@@ -227,7 +227,7 @@
                (unless (and (eq pool-b (getf call-b :pool))
                             (getf (getf call-b :arguments) :use-connection-pool))
                  (record-failure failures
-                                 "Client B did not execute with its own explicit connection pool.")))))
+                                 "Client B did not execute with its own explicit connection pool."))))))
       (setf (symbol-function 'dexador:request) original-request)
       (clear-explicit-pool pool-a)
       (clear-explicit-pool pool-b))))
