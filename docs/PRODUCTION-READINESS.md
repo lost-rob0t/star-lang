@@ -44,13 +44,21 @@ Extraction order:
 7. generated portable manifests and Python/TypeScript bindings;
 8. public compile/check APIs and CLI entry points.
 
-Items 1 and 2 are complete: the closed parser, syntax model, diagnostics,
-validation, and specification lowering are final-owned by `starlang-compiler`
-(`star-lang.compiler.core`), together with actor source lowering; the actor
-declaration is now real `.star` source. The resolver effect protocol is a
-loader-boundary item already moved to the final compiler. Network and digest
-implementations remain adapters; compiler policy must not gain ambient
-shell/network authority.
+Items 1 through 3 are complete: the closed parser, syntax model, diagnostics,
+parser limits, and bounded declarative hygienic macro expander are final-owned by
+`starlang-compiler` (`star-lang.compiler.core`). Macro collection, expansion
+limits, fresh introduction scopes, definition/use-site provenance, imported
+macro environments, expansion traces/dependencies, one-step expansion, and
+stable expanded-source rendering are tested by the final compiler test system
+without loading prototype packages. Specification lowering and actor source
+lowering are also final-owned; the actor declaration is real `.star` source.
+The resolver effect protocol is a loader-boundary item already moved to the
+final compiler. Network and digest implementations remain adapters; compiler
+policy must not gain ambient shell/network authority.
+
+The next compiler authority slice is semantic validation and normalized IR from
+`core-semantics-prototype` and `compiler-ir-prototype`; loader migration must not
+skip ahead of those owners.
 
 Before a stable release, the research-conformance blocker must be closed with executable regression coverage for field casing, canonical numbers/JSON, complete digests, source spelling/spans, parser bounds, secure imports, and runtime-neutral IR.
 

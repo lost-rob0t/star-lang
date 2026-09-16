@@ -383,6 +383,35 @@
      dispatcher command (terminal-record command (list error-envelope)))
     :deadline-exceeded))
 
+(defun settle-command-exception (dispatcher command condition)
+  (declare (ignore condition))
+  (let* ((record (command-idempotency-record dispatcher command))
+         (status (and record (getf record :status))))
+    (case status
+      (:in-progress
+       ;; The handler has already been admitted, so an unclassified condition
+       ;; has unknown side-effect state. Preserve the existing lifecycle rule:
+       ;; do not retry it implicitly; record one terminal typed failure. Do not
+       ;; invoke arbitrary condition reporting while terminalizing the record.
+       (fail-command
+        dispatcher
+        command
+        (fail-dispatch
+         :code "star.native-handler-error"
+         :message "Native actor handler failed before producing a valid result."
+         :retryable nil)))
+      ;; A nested cancellation or another explicit settlement may have won
+      ;; before the handler signalled. First terminal state owns the record;
+      ;; exception cleanup must not emit or overwrite a second outcome.
+      (:terminal :failed)
+      (:retry :retry)
+      (otherwise
+       (fail-actor
+        'wire-dispatcher-error
+        "Cannot settle command ~A after handler failure; idempotency status is ~S."
+        (getf command :message-id)
+        status)))))
+
 (defun process-command (dispatcher command)
   (ensure-deterministic-dispatcher dispatcher)
   (validate-wire-dispatcher-lifecycle
@@ -418,24 +447,28 @@
          (set-command-idempotency-record
           dispatcher command (in-progress-record command accepted))
          (increment-handler-count dispatcher (getf command :actor))
-         (let ((result (funcall handler dispatcher command)))
-           (ensure-wire-dispatcher-plist
-            result "deterministic dispatch result")
-           (case (getf result :outcome)
-             (:complete
-              (complete-command dispatcher command result))
-             (:retry
-              (retry-command dispatcher command result))
-             (:fail
-              (fail-command dispatcher command result))
-             (:defer
-              :deferred)
-             (otherwise
-              (fail-actor
-               'wire-dispatcher-error
-               "Actor ~A returned unknown dispatch outcome ~S."
-               (getf command :actor)
-               (getf result :outcome))))))))))
+         (handler-case
+             (let ((result (funcall handler dispatcher command)))
+               (ensure-wire-dispatcher-plist
+                result "deterministic dispatch result")
+               (case (getf result :outcome)
+                 (:complete
+                  (complete-command dispatcher command result))
+                 (:retry
+                  (retry-command dispatcher command result))
+                 (:fail
+                  (fail-command dispatcher command result))
+                 (:defer
+                  :deferred)
+                 (otherwise
+                  (fail-actor
+                   'wire-dispatcher-error
+                   "Actor ~A returned unknown dispatch outcome ~S."
+                   (getf command :actor)
+                   (getf result :outcome)))))
+           (error (condition)
+             (settle-command-exception
+              dispatcher command condition))))))))
 
 (defun active-record-targeted-p
     (record target-message-id target-correlation-id)
