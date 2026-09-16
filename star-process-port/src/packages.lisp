@@ -2,10 +2,13 @@
   (:use :cl)
   (:nicknames :star-process-port)
   (:import-from :bordeaux-threads
+                #:destroy-thread
                 #:join-thread
                 #:make-lock
                 #:make-thread
-                #:with-lock-held)
+                #:thread-alive-p
+                #:with-lock-held
+                #:with-timeout)
   (:export
    #:process-port-error
    #:process-port-error-message
