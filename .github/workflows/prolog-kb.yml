@@ -1,0 +1,73 @@
+name: star-lang Prolog KB
+
+on:
+  pull_request:
+    paths:
+      - "star-prolog-kb/**"
+      - "starlang-compiler/**"
+      - "star-canonical-json/**"
+      - "fixtures/starintel-prolog-kb.star"
+      - "ci/target-systems.txt"
+      - ".github/workflows/prolog-kb.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "star-prolog-kb/**"
+      - "starlang-compiler/**"
+      - "star-canonical-json/**"
+      - "fixtures/starintel-prolog-kb.star"
+      - "ci/target-systems.txt"
+      - ".github/workflows/prolog-kb.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Real StarLang grammar and index contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CL_SOURCE_REGISTRY: "${{ github.workspace }}//:"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install SBCL
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes sbcl
+
+      - name: Test Prolog KB final system
+        shell: bash
+        run: |
+          set -euo pipefail
+          sbcl --non-interactive \
+            --eval '(require :asdf)' \
+            --eval '(asdf:test-system :star-prolog-kb)' \
+            --eval '(assert (null (find-package "STAR-LANG.PROTOTYPE")))' \
+            --eval '(assert (null (find-package "STAR-LANG.CORE-SURFACE.PROTOTYPE")))' \
+            --eval '(sb-ext:quit)' \
+            2>&1 | tee prolog-kb-test.log
+
+      - name: Parse canonical fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          sbcl --non-interactive \
+            --eval '(require :asdf)' \
+            --eval '(asdf:load-system :star-prolog-kb)' \
+            --eval '(starprologkb:load-prolog-kb-file #P"fixtures/starintel-prolog-kb.star")' \
+            --eval '(sb-ext:quit)' \
+            2>&1 | tee prolog-kb-fixture.log
+
+      - name: Upload verification logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prolog-kb-verification-logs
+          path: |
+            prolog-kb-test.log
+            prolog-kb-fixture.log
+          if-no-files-found: warn
