@@ -124,6 +124,26 @@
    "CL-USER"
    "~A"))
 
+(defun test-unrelated-common-lisp-symbols-are-quarantined-before-read ()
+  (dolist (token '("&REST" "&ALLOW-OTHER-KEYS"))
+    (multiple-value-bind (sanitized placeholders)
+        (starjournal::sanitize-file-journal-source token)
+      (check (= 1 (hash-table-count placeholders))
+             "Existing COMMON-LISP marker ~A bypassed journal token quarantine."
+             token)
+      (check (null (search token sanitized :test #'char-equal))
+             "Existing COMMON-LISP marker ~A remained visible to READ: ~S"
+             token sanitized)
+      (let ((original nil))
+        (maphash
+         (lambda (placeholder value)
+           (declare (ignore placeholder))
+           (setf original value))
+         placeholders)
+        (check (string= token original)
+               "Quarantine did not retain the original marker token ~A: ~S"
+               token original)))))
+
 #+sbcl
 (defun test-file-journal-short-snapshot-read-is-rejected ()
   (let* ((path (temporary-journal-pathname "short-read"))
@@ -168,6 +188,7 @@
   (test-file-journal-shared-acyclic-replays-by-value)
   (test-rejected-package-qualified-symbol-does-not-intern)
   (test-rejected-unqualified-symbol-does-not-intern)
+  (test-unrelated-common-lisp-symbols-are-quarantined-before-read)
   (test-file-journal-short-snapshot-read-is-rejected)
   (format t "~&star-journal review repair tests passed~%")
   t)
