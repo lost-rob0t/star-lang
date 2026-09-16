@@ -55,7 +55,8 @@
                   :namespace namespace
                   :kind "person"
                   :dataset "people"
-                  :fields '(("name" . "Ada") ("age" . 37))
+                  :fields '(("name" . "Ada") ("age" . 37)
+                            ("roles" . #("admin" "analyst")))
                   :metadata '(:rank 1)
                   :provenance '(:source "unit")))
   (kb-put-entry
@@ -109,6 +110,10 @@
            (check-equal '("a")
                         (ids (kb-find-entries-by-field store "one" "age" 37))
                         "field index")
+           (check-equal '("a")
+                        (ids (kb-find-entries-by-field
+                              store "one" "roles" #("admin" "analyst")))
+                        "structured field equality")
            (check-equal "person"
                         (kb-entry-kind (kb-fetch-entry store "two" "a"))
                         "namespace isolated fetch"))
