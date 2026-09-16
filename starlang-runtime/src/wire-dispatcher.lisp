@@ -384,19 +384,21 @@
     :deadline-exceeded))
 
 (defun settle-command-exception (dispatcher command condition)
+  (declare (ignore condition))
   (let* ((record (command-idempotency-record dispatcher command))
          (status (and record (getf record :status))))
     (case status
       (:in-progress
        ;; The handler has already been admitted, so an unclassified condition
        ;; has unknown side-effect state. Preserve the existing lifecycle rule:
-       ;; do not retry it implicitly; record one terminal typed failure.
+       ;; do not retry it implicitly; record one terminal typed failure. Do not
+       ;; invoke arbitrary condition reporting while terminalizing the record.
        (fail-command
         dispatcher
         command
         (fail-dispatch
          :code "star.native-handler-error"
-         :message (princ-to-string condition)
+         :message "Native actor handler failed before producing a valid result."
          :retryable nil)))
       ;; A nested cancellation or another explicit settlement may have won
       ;; before the handler signalled. First terminal state owns the record;
