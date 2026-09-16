@@ -1,0 +1,43 @@
+name: ZMQ local native interoperability
+on:
+  pull_request:
+    paths:
+      - 'star-zmq/**'
+      - '.github/workflows/zmq-local.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Read the exact tested public repository commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          git fetch --depth=1 origin "$GITHUB_SHA"
+          git checkout --detach FETCH_HEAD
+      - name: Install native test dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y sbcl cl-cffi cl-bordeaux-threads libzmq3-dev nim python3-venv
+          python3 -m venv .venv
+          .venv/bin/pip install ./star-zmq/python
+      - name: Build the external Nim peer
+        run: nim c --threads:off --out:"$RUNNER_TEMP/star-zmq-peer" star-zmq/nim/peer.nim
+      - name: Exercise Common Lisp CFFI and Lisp-launched Nim
+        shell: bash
+        run: |
+          set -euo pipefail
+          export STAR_ZMQ_PEER="$RUNNER_TEMP/star-zmq-peer"
+          sbcl --non-interactive \
+            --eval '(require :asdf)' \
+            --eval '(asdf:load-asd (truename "star-zmq/star-zmq.asd"))' \
+            --eval '(asdf:test-system "star-zmq")'
+      - name: Exercise Python byte framing separately
+        run: .venv/bin/python -m unittest discover -s star-zmq/tests -p 'test_*.py' -v

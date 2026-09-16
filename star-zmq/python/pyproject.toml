@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "star-zmq-local"
+version = "0.1.0"
+description = "Local-only StarLang ZeroMQ byte transport, not a federation runtime"
+requires-python = ">=3.10"
+dependencies = ["pyzmq>=27,<28"]
+
+[tool.setuptools]
+py-modules = ["star_zmq"]
