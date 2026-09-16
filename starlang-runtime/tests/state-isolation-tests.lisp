@@ -156,6 +156,30 @@
                     "Cyclic next-state rejection advanced invocation count.")))
       (shutdown-runtime runtime))))
 
+(defun test-unsupported-host-next-state-is-typed-rejection ()
+  (let ((runtime (make-runtime)))
+    (unwind-protect
+         (let ((actor
+                 (create-native-actor
+                  runtime
+                  "state-host-rejection"
+                  (lambda (message state owner)
+                    (declare (ignore message state owner))
+                    (values :ok #'identity))
+                  :initial-state (nested-state "seed"))))
+           (tell runtime actor :go)
+           (let ((result (dispatch-next runtime actor)))
+             (check (eq :failed (dispatch-result-status result))
+                    "Unsupported host next-state was committed instead of rejected.")
+             (check (typep (dispatch-result-condition result)
+                           'actor-contract-error)
+                    "Unsupported host next-state rejection was not actor-contract-error.")
+             (check (string= "seed" (nested-text (actor-instance-data actor)))
+                    "Unsupported host next-state rejection changed committed state.")
+             (check (zerop (actor-instance-invocation-count actor))
+                    "Unsupported host next-state rejection advanced invocation count.")))
+      (shutdown-runtime runtime))))
+
 (defun test-restart-fencing-also-isolates-working-state ()
   (let ((runtime (make-runtime)))
     (unwind-protect
@@ -198,6 +222,7 @@
   (test-omitted-next-state-does-not-commit-working-mutation)
   (test-committed-next-state-does-not-retain-handler-alias)
   (test-cyclic-next-state-is-typed-rejection)
+  (test-unsupported-host-next-state-is-typed-rejection)
   (test-restart-fencing-also-isolates-working-state)
   (format t "~&starlang-runtime state-isolation tests passed~%")
   t)
