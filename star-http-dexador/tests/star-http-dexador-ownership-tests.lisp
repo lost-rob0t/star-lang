@@ -227,7 +227,7 @@
                (unless (and (eq pool-b (getf call-b :pool))
                             (getf (getf call-b :arguments) :use-connection-pool))
                  (record-failure failures
-                                 "Client B did not execute with its own explicit connection pool."))))))
+                                 "Client B did not execute with its own explicit connection pool.")))))
       (setf (symbol-function 'dexador:request) original-request)
       (clear-explicit-pool pool-a)
       (clear-explicit-pool pool-b))))
