@@ -11,7 +11,7 @@
    #'string< :key #'kb-record-id))
 
 (defun memory-field-equal-p (left right)
-  (equal left right))
+  (portable-kb-value-equal-p left right))
 
 (defun make-memory-kb-store (&key (name "memory"))
   "Create the deterministic reference backend for the STAR-KB port.
