@@ -1,5 +1,7 @@
 (in-package :starsentocompat-integration-tests)
 
+(in-suite starsentocompat-integration-tests)
+
 (defun supervisor-integration-symbol (name)
   (multiple-value-bind (symbol status)
       (find-symbol name :starsupervisor)
