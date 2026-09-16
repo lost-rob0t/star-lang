@@ -65,7 +65,7 @@
                  (assert (equalp (second ready) (octets 114 101 97 100 121)))
                  (star-zmq:send-frames router (list (first ready) body))
                  (let ((reply (star-zmq:receive-frames router)))
-                   (assert (equalp reply (list (first ready) body))))
+                   (assert (equalp reply (list (first ready) body)))))
                ;; Keep shutdown bounded even if the child misbehaves.
                (let ((deadline (+ (get-internal-real-time) (* 5 internal-time-units-per-second))))
                  (star-zmq:send-frames router
