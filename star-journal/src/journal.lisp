@@ -366,6 +366,7 @@ can quarantine novel symbols before the host reader sees live packages."
     (do-all-symbols (symbol table)
       (when (or (eq symbol nil)
                 (eq symbol t)
+                (eq symbol 'base-char)
                 (eq (symbol-package symbol) keyword-package))
         (setf (gethash (file-journal-symbol-token symbol) table) t)))))
 
