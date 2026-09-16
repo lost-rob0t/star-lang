@@ -61,7 +61,7 @@
            (span (star-lang.compiler.core:star-lang-core-error-span condition))
            (related
              (star-lang.compiler.core:star-lang-core-error-related-spans condition)))
-      (is span)
+      (is (not (null span)))
       (is (= 1 (length related)))
       (is (< (star-lang.compiler.core:star-source-span-start-column
               (first related))
