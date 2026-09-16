@@ -155,25 +155,60 @@
                 (snapshot-value (child-snapshot supervisor "worker")
                                 :status)))))))
 
-(test drain-suppresses-permanent-restart-and-shutdown-is-terminal
+(test restart-budget-exhaustion-terminally-stops-all-owned-children
+  (let* ((primary-spec
+           (runtime-child-spec
+            "primary" (make-test-definition "primary-budget" :permanent)))
+         (sibling-spec
+           (runtime-child-spec
+            "sibling" (make-test-definition "sibling-budget" :permanent))))
+    (multiple-value-bind (runtime supervisor)
+        (make-runtime-supervisor-fixture
+         (list primary-spec sibling-spec)
+         :max-restarts 0
+         :restart-window 10
+         :clock (lambda () 100))
+      (start-supervisor supervisor)
+      (let ((primary (child-reference supervisor "primary"))
+            (sibling (child-reference supervisor "sibling")))
+        (tell runtime primary :crash)
+        (signals error
+          (step-supervisor supervisor))
+        (is (eq :failed
+                (snapshot-value
+                 (supervisor-call "SUPERVISOR-SNAPSHOT" supervisor)
+                 :status)))
+        (is (eq :failed
+                (snapshot-value (child-snapshot supervisor "primary") :status)))
+        (is (eq :stopped
+                (snapshot-value (child-snapshot supervisor "sibling") :status)))
+        (is (not (actor-running-p (resolve-actor runtime sibling))))))))
+
+(test drain-suppresses-permanent-restart-and-shutdown-preserves-shared-runtime
   (let ((spec (runtime-child-spec
                "worker" (make-test-definition "worker" :permanent))))
     (multiple-value-bind (runtime supervisor)
         (make-runtime-supervisor-fixture (list spec))
-      (start-supervisor supervisor)
-      (let ((before (child-reference supervisor "worker")))
-        (supervisor-call "DRAIN-SUPERVISOR" supervisor)
-        (step-supervisor supervisor)
-        (is (= (star-actor-reference-generation before)
-               (star-actor-reference-generation
-                (child-reference supervisor "worker"))))
-        (is (not (actor-running-p (resolve-actor runtime before))))
-        (is (eq :stopped
-                (snapshot-value
-                 (supervisor-call "SUPERVISOR-SNAPSHOT" supervisor)
-                 :status))))
-      (supervisor-call "SHUTDOWN-SUPERVISOR" supervisor)
-      (is (eq :stopped (runtime-status runtime))))))
+      (let* ((unrelated
+               (starlangruntime:spawn
+                runtime (make-test-definition "unrelated" :permanent)))
+             (unrelated-reference (starlangruntime:actor-reference unrelated)))
+        (start-supervisor supervisor)
+        (let ((before (child-reference supervisor "worker")))
+          (supervisor-call "DRAIN-SUPERVISOR" supervisor)
+          (step-supervisor supervisor)
+          (is (= (star-actor-reference-generation before)
+                 (star-actor-reference-generation
+                  (child-reference supervisor "worker"))))
+          (is (not (actor-running-p (resolve-actor runtime before))))
+          (is (eq :stopped
+                  (snapshot-value
+                   (supervisor-call "SUPERVISOR-SNAPSHOT" supervisor)
+                   :status))))
+        (supervisor-call "SHUTDOWN-SUPERVISOR" supervisor)
+        (is (eq :running (runtime-status runtime)))
+        (is (actor-running-p (resolve-actor runtime unrelated-reference)))
+        (is (eq :ping (ask runtime unrelated-reference :ping)))))))
 
 (test snapshots-expose-only-supervision-state
   (let ((spec (runtime-child-spec
