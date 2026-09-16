@@ -60,6 +60,7 @@
    #:portable-keyword-plist-p
    #:portable-string-alist-p
    #:portable-payload-entry
+   #:snapshot-portable-wire-value
    #:validate-portable-wire-fields
    #:validate-portable-wire-value
    #:validate-portable-message-payload))
