@@ -361,9 +361,13 @@ can quarantine novel symbols before the host reader sees live packages."
       (write-to-string symbol))))
 
 (defun file-journal-existing-symbol-token-table ()
-  (let ((table (make-hash-table :test #'equal)))
+  (let ((table (make-hash-table :test #'equal))
+        (keyword-package (find-package :keyword)))
     (do-all-symbols (symbol table)
-      (setf (gethash (file-journal-symbol-token symbol) table) symbol))))
+      (when (or (eq symbol nil)
+                (eq symbol t)
+                (eq (symbol-package symbol) keyword-package))
+        (setf (gethash (file-journal-symbol-token symbol) table) symbol)))))
 
 (defun sanitize-file-journal-source (source)
   (multiple-value-bind (validated symbol-spans)
