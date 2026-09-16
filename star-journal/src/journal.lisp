@@ -185,10 +185,10 @@
   "Reject reader forms that can outrun final journal ownership bounds.
 
 The on-disk format remains the readable representation emitted by this package:
-ordinary atoms, strings, proper/dotted lists, vectors, bit-vectors, keywords,
-package-qualified symbols, and uninterned symbols. Reader evaluation, graph
-labels, numeric dispatch prefixes, and other dispatch extensions are not emitted
-by the writer and are rejected before invoking READ."
+ordinary atoms, strings, proper/dotted lists, vectors, bounded array syntax,
+bit-vectors, keywords, package-qualified symbols, and uninterned symbols. Reader
+evaluation, graph labels, numeric dispatch prefixes, and other dispatch
+extensions are not emitted by the writer and are rejected before invoking READ."
   (let ((length (length source))
         (index 0)
         (depth 0)
@@ -299,6 +299,11 @@ by the writer and are rejected before invoking READ."
                   (fail-journal
                    "File journal contains an incomplete uninterned symbol."))
                 (scan-symbol-token))
+               ((char-equal next #\A)
+                ;; SBCL can emit #A(...) for a readably printed specialized
+                ;; one-dimensional array. Numeric #nA prefixes remain rejected;
+                ;; the following parentheses are scanned for depth/token bounds.
+                (incf index 2))
                (t
                 (fail-journal
                  "File journal reader dispatch #~C is not admitted."
