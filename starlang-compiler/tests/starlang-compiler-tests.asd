@@ -7,6 +7,7 @@
   :components
   ((:file "starlang-compiler-tests")
    (:file "actor-compiler-tests")
+   (:file "actor-option-key-tests")
    (:file "actor-capabilities-tests")
    (:file "field-marker-tests")
    (:file "macro-expander-tests"))
@@ -15,6 +16,7 @@
     (declare (ignore op c))
     (uiop:symbol-call :starlangcompiler-tests :run-tests)
     (uiop:symbol-call :starlang-actor-compiler-tests :run-tests)
+    (uiop:symbol-call :starlang-actor-option-key-tests :run-tests)
     (uiop:symbol-call :starlang-actor-capabilities-tests :run-tests)
     (uiop:symbol-call :starlang-field-marker-tests :run-tests)
     (uiop:symbol-call :starlang-macro-expander-tests :run-tests)))
