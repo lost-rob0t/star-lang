@@ -9,6 +9,10 @@
 
 (in-suite starlangcompiler-tests)
 
+(defun plist-key-present-p (plist key)
+  (loop for tail on plist by #'cddr
+        thereis (eq (first tail) key)))
+
 (defun make-test-identity ()
   (starlogicir:make-logic-package-identity
    :package-id "logic.compiler-test"
@@ -174,6 +178,29 @@
     (is (search "correlationId: string" typescript))
     (is (null (search "message_id" python)))
     (is (null (search "message_id" typescript)))))
+
+(test compiler-preserves-explicit-false-default-through-manifest-json
+  "The final source/compiler/manifest path keeps default presence separate from NIL truthiness."
+  (let* ((source
+           "(spec-library \"test/defaults@1\" (:version \"1.0.0\")
+              (document preferences (:persistence transient)
+                (enabled boolean :optional :default nil)))")
+         (library
+           (starlangcompiler:compile-spec-library
+            (starlangcompiler:read-star-syntax source)))
+         (declaration (first (getf library :declarations)))
+         (field (first (getf declaration :fields)))
+         (manifest (starlangcompiler:emit-portable-manifest library nil))
+         (portable-document (first (getf manifest :types)))
+         (portable-field (first (getf portable-document :fields)))
+         (json (starcanonicaljson:canonical-manifest-json manifest)))
+    (is (getf field :default-p))
+    (is (null (getf field :default)))
+    (is (plist-key-present-p portable-field :default))
+    (is (null (getf portable-field :default)))
+    (is (search
+         "{\"default\":false,\"name\":\"enabled\",\"required\":false,\"type\":\"boolean\"}"
+         json))))
 
 (test final-compiler-logic-path-does-not-load-prototype
   "The final compiler logic compatibility path stays prototype-independent."
