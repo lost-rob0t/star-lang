@@ -1,7 +1,11 @@
-(load (merge-pathnames "core-surface-prototype.lisp" *load-truename*))
-(load (merge-pathnames "macro-expander-prototype.lisp" *load-truename*))
+;;;; Final-system declarative macro tests. These load only starlang-compiler;
+;;;; prototype/ must not be required for macro semantics.
 
-(in-package #:star-lang.core-surface.prototype)
+(defpackage #:starlang-macro-expander-tests
+  (:use #:cl #:star-lang.compiler.core)
+  (:export #:run-tests))
+
+(in-package #:starlang-macro-expander-tests)
 
 (defun macro-assert (value label)
   (unless value
@@ -213,7 +217,13 @@
     (macro-equal "message" (syntax-head-name fully-declaration)
                  "full expansion reaches core declaration")))
 
-(defun run-macro-expander-tests ()
+(defun test-final-system-owns-macro-expansion ()
+  (macro-assert (null (find-package "STAR-LANG.PROTOTYPE"))
+                "final compiler tests do not load STAR-LANG.PROTOTYPE")
+  (macro-assert (null (find-package "STAR-LANG.CORE-SURFACE.PROTOTYPE"))
+                "final compiler tests do not load core-surface prototype"))
+
+(defun run-tests ()
   (mapc #'funcall
         (list #'test-declarative-expansion-and-equivalence
               #'test-distinct-introduction-scopes-and-provenance
@@ -221,9 +231,7 @@
               #'test-locked-imported-macro-environment
               #'test-bounded-failures
               #'test-stable-expanded-source
-              #'test-single-expansion-step))
-  (format t "Star-Lang declarative hygienic macro tests passed.~%")
+              #'test-single-expansion-step
+              #'test-final-system-owns-macro-expansion))
+  (format t "Final StarLang declarative hygienic macro tests passed.~%")
   t)
-
-(unless (run-macro-expander-tests)
-  (error "Star-Lang declarative hygienic macro tests failed."))
