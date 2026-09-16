@@ -188,12 +188,15 @@ The on-disk format remains the readable representation emitted by this package:
 ordinary atoms, strings, proper/dotted lists, vectors, bounded array syntax,
 bit-vectors, keywords, package-qualified symbols, and uninterned symbols. Reader
 evaluation, graph labels, numeric dispatch prefixes, and other dispatch
-extensions are not emitted by the writer and are rejected before invoking READ."
+extensions are not emitted by the writer and are rejected before invoking READ.
+The second return value contains source spans for symbol/atom tokens so replay
+can quarantine novel symbols before the host reader sees live packages."
   (let ((length (length source))
         (index 0)
         (depth 0)
         (tokens 0)
-        (total-string-length 0))
+        (total-string-length 0)
+        (symbol-spans '()))
     (labels
         ((claim-token ()
            (incf tokens)
@@ -231,7 +234,7 @@ extensions are not emitted by the writer and are rejected before invoking READ."
                         (t
                          (incf string-length))))
              (fail-journal "File journal contains a truncated string.")))
-         (scan-symbol-token ()
+         (scan-symbol-token (&optional (token-start index))
            (claim-token)
            (let ((barred nil)
                  (escaped nil))
@@ -255,7 +258,8 @@ extensions are not emitted by the writer and are rejected before invoking READ."
              (when escaped
                (fail-journal "File journal contains a truncated symbol escape."))
              (when barred
-               (fail-journal "File journal contains an unterminated escaped symbol."))))
+               (fail-journal "File journal contains an unterminated escaped symbol."))
+             (push (cons token-start index) symbol-spans)))
          (scan-line-comment ()
            (loop while (< index length)
                  for character = (char source index)
@@ -286,23 +290,19 @@ extensions are not emitted by the writer and are rejected before invoking READ."
                 (fail-journal
                  "File journal numeric # dispatch prefixes are not admitted."))
                ((char= next #\()
-                ;; Leave the opening parenthesis for the main scanner so it
-                ;; participates in the same depth/token accounting as a list.
                 (incf index))
                ((char= next #\*)
                 (scan-bit-vector))
                ((char= next #\:)
-                (incf index 2)
-                (when (or (= index length)
-                          (file-journal-token-delimiter-p
-                           (char source index)))
-                  (fail-journal
-                   "File journal contains an incomplete uninterned symbol."))
-                (scan-symbol-token))
+                (let ((token-start index))
+                  (incf index 2)
+                  (when (or (= index length)
+                            (file-journal-token-delimiter-p
+                             (char source index)))
+                    (fail-journal
+                     "File journal contains an incomplete uninterned symbol."))
+                  (scan-symbol-token token-start)))
                ((char-equal next #\A)
-                ;; SBCL can emit #A(...) for a readably printed specialized
-                ;; one-dimensional array. Numeric #nA prefixes remain rejected;
-                ;; the following parentheses are scanned for depth/token bounds.
                 (incf index 2))
                (t
                 (fail-journal
@@ -341,7 +341,250 @@ extensions are not emitted by the writer and are rejected before invoking READ."
                   (scan-symbol-token))))
       (unless (zerop depth)
         (fail-journal "File journal contains an unterminated list or vector."))
-      source)))
+      (values source (nreverse symbol-spans)))))
+
+(defun file-journal-decimal-integer-token-p (token)
+  (let* ((length (length token))
+         (start (if (and (> length 0)
+                         (member (char token 0) '(#\+ #\-) :test #'char=))
+                    1
+                    0)))
+    (and (< start length)
+         (loop for index from start below length
+               always (digit-char-p (char token index))))))
+
+(defun file-journal-symbol-token (symbol)
+  (with-standard-io-syntax
+    (let ((*print-readably* t)
+          (*print-pretty* nil)
+          (*print-circle* nil))
+      (write-to-string symbol))))
+
+(defun file-journal-existing-symbol-token-table ()
+  (let ((table (make-hash-table :test #'equal)))
+    (do-all-symbols (symbol table)
+      (setf (gethash (file-journal-symbol-token symbol) table) symbol))))
+
+(defun sanitize-file-journal-source (source)
+  (multiple-value-bind (validated symbol-spans)
+      (validate-file-journal-source source)
+    (let ((existing (file-journal-existing-symbol-token-table))
+          (placeholders (make-hash-table :test #'equal))
+          (cursor 0)
+          (counter 0))
+      (values
+       (with-output-to-string (stream)
+         (dolist (span symbol-spans)
+           (let* ((start (car span))
+                  (end (cdr span))
+                  (token (subseq validated start end)))
+             (write-string validated stream :start cursor :end start)
+             (cond
+               ((or (string= token ".")
+                    (file-journal-decimal-integer-token-p token)
+                    (gethash token existing))
+                (write-string token stream))
+               (t
+                (let ((name (format nil "STAR-JOURNAL-RAW-TOKEN-~D"
+                                    (incf counter))))
+                  (setf (gethash name placeholders) token)
+                  (format stream "#:~A" name))))
+             (setf cursor end)))
+         (write-string validated stream :start cursor))
+       placeholders))))
+
+(defun validate-safe-file-journal-events (events)
+  (let ((owned-events
+          (snapshot-journal-value events "File journal replay")))
+    (unless (listp owned-events)
+      (fail-journal "File journal replay must contain a list of events."))
+    (dolist (event owned-events)
+      (validate-runtime-journal-event event))
+    (validate-runtime-journal-order owned-events)
+    owned-events))
+
+(defun file-journal-standard-reader-package ()
+  (with-standard-io-syntax *package*))
+
+(defun file-journal-package-marker (token)
+  (let ((barred nil)
+        (escaped nil)
+        (marker-start nil)
+        (marker-count 0)
+        (last-colon nil))
+    (loop for index from 0 below (length token)
+          for character = (char token index)
+          do (cond
+               (escaped
+                (setf escaped nil))
+               ((char= character #\\)
+                (setf escaped t))
+               ((char= character #\|)
+                (setf barred (not barred)))
+               ((and (not barred) (char= character #\:))
+                (cond
+                  ((null marker-start)
+                   (setf marker-start index
+                         marker-count 1
+                         last-colon index))
+                  ((= index (1+ last-colon))
+                   (incf marker-count)
+                   (setf last-colon index))
+                  (t
+                   (fail-journal
+                    "File journal symbol token contains multiple package markers."))))))
+    (when (> marker-count 2)
+      (fail-journal "File journal symbol token has an invalid package marker."))
+    (values marker-start marker-count)))
+
+(defun decode-file-journal-symbol-component (text decoder-package)
+  (when (= (length text) 0)
+    (fail-journal "File journal symbol token contains an empty name."))
+  (handler-case
+      (with-standard-io-syntax
+        (let ((*package* decoder-package)
+              (*read-eval* nil))
+          (multiple-value-bind (value position)
+              (read-from-string text nil nil)
+            (unless (and (symbolp value)
+                         (= position (length text)))
+              (fail-journal
+               "File journal token is not a readable symbol name."))
+            (symbol-name value))))
+    (star-journal-error (condition)
+      (error condition))
+    (error ()
+      (fail-journal "File journal contains an invalid symbol token."))))
+
+(defun plan-file-journal-symbol-resolution (token decoder-package)
+  (labels ((intern-plan (package name)
+             #+sbcl
+             (when (and (not (eq package (find-package :keyword)))
+                        (sb-ext:package-locked-p package))
+               (multiple-value-bind (existing status)
+                   (find-symbol name package)
+                 (declare (ignore existing))
+                 (unless status
+                   (fail-journal
+                    "File journal symbol targets a locked package."))))
+             (list :intern package name)))
+    (if (and (>= (length token) 2)
+             (char= (char token 0) #\#)
+             (char= (char token 1) #\:))
+        (list :make-symbol
+              (decode-file-journal-symbol-component
+               (subseq token 2) decoder-package))
+        (multiple-value-bind (marker-start marker-count)
+            (file-journal-package-marker token)
+          (cond
+            ((null marker-start)
+             (intern-plan
+              (file-journal-standard-reader-package)
+              (decode-file-journal-symbol-component token decoder-package)))
+            ((and (= marker-start 0) (= marker-count 1))
+             (intern-plan
+              (find-package :keyword)
+              (decode-file-journal-symbol-component
+               (subseq token 1) decoder-package)))
+            ((= marker-start 0)
+             (fail-journal "File journal symbol token has no package name."))
+            (t
+             (let* ((package-name
+                      (decode-file-journal-symbol-component
+                       (subseq token 0 marker-start) decoder-package))
+                    (symbol-start (+ marker-start marker-count))
+                    (symbol-name
+                      (decode-file-journal-symbol-component
+                       (subseq token symbol-start) decoder-package))
+                    (package (find-package package-name)))
+               (unless package
+                 (fail-journal
+                  "File journal symbol names an unavailable package."))
+               (ecase marker-count
+                 (1
+                  (multiple-value-bind (symbol status)
+                      (find-symbol symbol-name package)
+                    (unless (eq status :external)
+                      (fail-journal
+                       "File journal symbol names a non-external package symbol."))
+                    (list :existing symbol)))
+                 (2
+                  (multiple-value-bind (symbol status)
+                      (find-symbol symbol-name package)
+                    (if status
+                        (list :existing symbol)
+                        (intern-plan package symbol-name))))))))))))
+
+(defun collect-file-journal-symbol-plans (value placeholders decoder-package)
+  (let ((plans (make-hash-table :test #'eq)))
+    (labels ((walk (item depth)
+               (when (> depth +file-journal-max-reader-depth+)
+                 (fail-journal "File journal symbol-resolution depth exceeded."))
+               (cond
+                 ((symbolp item)
+                  (let ((token (gethash (symbol-name item) placeholders)))
+                    (when token
+                      (setf (gethash item plans)
+                            (plan-file-journal-symbol-resolution
+                             token decoder-package)))))
+                 ((consp item)
+                  (loop with current = item
+                        while (consp current)
+                        do (walk (car current) (1+ depth))
+                           (setf current (cdr current))
+                        finally (unless (null current)
+                                  (walk current (1+ depth)))))
+                 ((and (vectorp item) (not (stringp item)))
+                  (dotimes (index (length item))
+                    (walk (aref item index) (1+ depth)))))))
+      (walk value 0))
+    plans))
+
+(defun realize-file-journal-symbol-plan (plan)
+  (ecase (first plan)
+    (:existing (second plan))
+    (:make-symbol (make-symbol (second plan)))
+    (:intern (intern (third plan) (second plan)))))
+
+(defun resolve-file-journal-symbol-placeholders (value plans)
+  (labels ((resolve (item depth)
+             (when (> depth +file-journal-max-reader-depth+)
+               (fail-journal "File journal symbol-resolution depth exceeded."))
+             (cond
+               ((symbolp item)
+                (let ((plan (gethash item plans)))
+                  (if plan
+                      (realize-file-journal-symbol-plan plan)
+                      item)))
+               ((consp item)
+                (loop with current = item
+                      while (consp current)
+                      do (setf (car current)
+                               (resolve (car current) (1+ depth)))
+                         (if (consp (cdr current))
+                             (setf current (cdr current))
+                             (progn
+                               (setf (cdr current)
+                                     (resolve (cdr current) (1+ depth)))
+                               (return item)))))
+               ((and (vectorp item) (not (stringp item)))
+                (dotimes (index (length item) item)
+                  (setf (aref item index)
+                        (resolve (aref item index) (1+ depth)))))
+               (t item))))
+    (resolve value 0)))
+
+(defun resolve-file-journal-symbols (events placeholders)
+  (let ((decoder-package
+          (make-package
+           (format nil "STARJOURNAL-READER-~A" (gensym))
+           :use '())))
+    (unwind-protect
+         (let ((plans
+                 (collect-file-journal-symbol-plans
+                  events placeholders decoder-package)))
+           (resolve-file-journal-symbol-placeholders events plans))
+      (delete-package decoder-package))))
 
 (defun read-bounded-file-journal-source (stream)
   (let ((size (file-length stream)))
@@ -353,30 +596,39 @@ extensions are not emitted by the writer and are rejected before invoking READ."
        size +file-journal-max-bytes+))
     (let ((buffer (make-string size)))
       (let ((count (read-sequence buffer stream)))
+        (unless (= count size)
+          (fail-journal "File journal changed while replay was reading it."))
         (when (read-char stream nil nil)
           (fail-journal "File journal changed while replay was reading it."))
-        (subseq buffer 0 count)))))
+        buffer))))
 
 (defun parse-file-journal-source (source)
-  (validate-file-journal-source source)
-  (handler-case
-      (with-input-from-string (stream source)
-        (with-standard-io-syntax
-          (let ((*read-eval* nil)
-                (eof (gensym "EOF"))
-                (record-count 0))
-            (loop for event = (read stream nil eof)
-                  until (eq event eof)
-                  do (incf record-count)
-                     (when (> record-count +file-journal-max-records+)
-                       (fail-journal
-                        "File journal record count exceeds ~D."
-                        +file-journal-max-records+))
-                  collect event))))
-    (star-journal-error (condition)
-      (error condition))
-    (error ()
-      (fail-journal "File journal contains invalid readable data."))))
+  (multiple-value-bind (sanitized placeholders)
+      (sanitize-file-journal-source source)
+    (handler-case
+        (let ((events
+                (with-input-from-string (stream sanitized)
+                  (with-standard-io-syntax
+                    (let ((*read-eval* nil)
+                          (eof (gensym "EOF"))
+                          (record-count 0))
+                      (loop for event = (read stream nil eof)
+                            until (eq event eof)
+                            do (incf record-count)
+                               (when (> record-count +file-journal-max-records+)
+                                 (fail-journal
+                                  "File journal record count exceeds ~D."
+                                  +file-journal-max-records+))
+                            collect event))))))
+          (let* ((safe-events
+                   (validate-safe-file-journal-events events))
+                 (resolved
+                   (resolve-file-journal-symbols safe-events placeholders)))
+            (validate-safe-file-journal-events resolved)))
+      (star-journal-error (condition)
+        (error condition))
+      (error ()
+        (fail-journal "File journal contains invalid readable data.")))))
 
 (defun read-file-runtime-journal-events (path)
   (handler-case
