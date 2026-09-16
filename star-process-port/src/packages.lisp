@@ -1,21 +1,59 @@
 (defpackage :starprocessport
   (:use :cl)
   (:nicknames :star-process-port)
+  (:import-from :bordeaux-threads
+                #:join-thread
+                #:make-lock
+                #:make-thread
+                #:with-lock-held)
   (:export
    #:process-port-error
+   #:process-port-error-message
    #:invalid-process-command-error
    #:process-launch-error
+   #:process-launch-error-cause
    #:process-disposal-error
+   #:process-disposal-error-cause
+   #:process-result-error
+   #:process-result-error-result
+   #:process-exit-error
+   #:process-timeout-error
+   #:process-cancelled-error
+   #:process-output-error
+   #:process-output-error-cause
+   #:process-cancellation-token
+   #:make-process-cancellation-token
+   #:cancel-process-operation
+   #:process-cancellation-requested-p
    #:managed-process
    #:managed-process-p
    #:launch-process
+   #:run-process
    #:process-stdin
    #:process-stdout
    #:process-stderr
+   #:process-instance-id
+   #:process-generation
+   #:process-provenance
    #:process-alive-p
    #:process-reaped-p
    #:process-exit-code
+   #:process-signal
    #:wait-process
    #:terminate-process
    #:kill-process
-   #:dispose-process))
+   #:dispose-process
+   #:process-result
+   #:process-result-p
+   #:process-result-outcome
+   #:process-result-exit-code
+   #:process-result-signal
+   #:process-result-stdout
+   #:process-result-stderr
+   #:process-result-stdout-truncated-p
+   #:process-result-stderr-truncated-p
+   #:process-result-instance-id
+   #:process-result-generation
+   #:process-result-provenance
+   #:process-result-success-p
+   #:ensure-process-success))
