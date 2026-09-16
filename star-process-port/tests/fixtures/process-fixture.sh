@@ -27,6 +27,17 @@ case "$mode" in
     trap '' TERM
     while :; do :; done
     ;;
+  descendant-holds-pipes)
+    hold_seconds="${2:-2}"
+    sleep "$hold_seconds" &
+    printf 'root-exit'
+    exit 0
+    ;;
+  descendant-holds-pipes-spin)
+    hold_seconds="${2:-2}"
+    sleep "$hold_seconds" &
+    while :; do :; done
+    ;;
   *)
     printf 'unknown fixture mode: %s\n' "$mode" >&2
     exit 64
