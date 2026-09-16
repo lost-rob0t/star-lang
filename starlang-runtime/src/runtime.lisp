@@ -359,12 +359,14 @@
 (defun start-actor (runtime target)
   (ensure-runtime-running runtime)
   (let ((actor (resolve-actor runtime target)))
-    (unless (eq :running (actor-instance-status actor))
-      (incf (actor-instance-generation actor))
-      (setf (actor-instance-mailbox actor)
-            (fresh-actor-mailbox (actor-instance-definition actor))))
-    (setf (actor-instance-status actor) :running
-          (actor-instance-processing-p actor) nil
+    ;; START is idempotent for an actor that is already running. In particular,
+    ;; it must not clear PROCESSING-P while DISPATCH-NEXT owns that guard.
+    (when (eq :running (actor-instance-status actor))
+      (return-from start-actor actor))
+    (incf (actor-instance-generation actor))
+    (setf (actor-instance-mailbox actor)
+          (fresh-actor-mailbox (actor-instance-definition actor))
+          (actor-instance-status actor) :running
           (actor-instance-last-error actor) nil)
     actor))
 
