@@ -57,6 +57,22 @@
     (check (equal source snapshot)
            "Flat list cardinality consumed the recursive depth budget.")))
 
+(defun test-long-flat-list-traversal-is-stack-bounded ()
+  (let* ((length 40000)
+         (source (loop for index below length collect index))
+         (snapshot
+           (snapshot-portable-wire-value
+            source
+            :max-depth 2
+            :max-nodes 90000)))
+    (check (= length (length snapshot))
+           "Long flat snapshot changed list cardinality.")
+    (check
+     (loop for expected from 0 below length
+           for actual in snapshot
+           always (= expected actual))
+     "Long flat snapshot changed source order or values.")))
+
 (defun test-snapshot-rejects-aggregate-string-amplification ()
   (let* ((shared (copy-seq "abcdef"))
          (source (vector shared shared)))
@@ -132,6 +148,7 @@
   (test-snapshot-owns-mutable-wire-values)
   (test-snapshot-accepts-shared-acyclic-values-by-value)
   (test-flat-list-cardinality-does-not-consume-depth)
+  (test-long-flat-list-traversal-is-stack-bounded)
   (test-snapshot-rejects-aggregate-string-amplification)
   (test-snapshot-rejects-cycles)
   (test-snapshot-enforces-resource-bounds)
