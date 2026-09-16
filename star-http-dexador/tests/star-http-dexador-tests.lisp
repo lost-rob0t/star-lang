@@ -8,13 +8,16 @@
                 #:make-thread
                 #:signal-semaphore
                 #:wait-on-semaphore)
+  (:import-from :starhttpdexador
+                #:make-dexador-http-client)
   (:import-from :starhttpport
                 #:http-request-error
                 #:http-response-body
                 #:http-response-final-url
                 #:http-response-headers
                 #:http-response-status
-                #:make-dexador-http-client
+                #:http-transport-error
+                #:http-transport-error-kind
                 #:make-http-request
                 #:perform-http-request)
   (:import-from :usocket
@@ -115,9 +118,8 @@
            (lambda ()
              (signal-semaphore ready)
              (handler-case
-                 (dotimes (index request-count)
-                   (declare (ignore index))
-                   (serve-one-request listener))
+                 (loop repeat request-count
+                       do (serve-one-request listener))
                (error (condition)
                  (unless (fixture-server-stopping-p server)
                    (setf (fixture-server-failure server) condition)))))
@@ -218,6 +220,16 @@
                condition))))
     (unless failure
       (record-failure failures "Disconnect fixture did not produce an HTTP request failure."))
+    (when (and failure (not (typep failure 'http-transport-error)))
+      (record-failure failures
+                      "Transport failure was not the typed HTTP transport condition: ~S."
+                      (type-of failure)))
+    (when (typep failure 'http-transport-error)
+      (unless (member (http-transport-error-kind failure)
+                      '(:connection :timeout :tls :protocol :backend))
+        (record-failure failures
+                        "Transport failure had an unknown kind ~S."
+                        (http-transport-error-kind failure))))
     (when (and failure
                (search sentinel (princ-to-string failure) :test #'char-equal))
       (record-failure failures
@@ -234,7 +246,7 @@
            (test-transport-error-redaction client server '*failures*))
       (stop-fixture-server server))
     (when *failures*
-      (error "star-http-dexador RED regressions failed:~%~{ - ~A~%~}"
+      (error "star-http-dexador regressions failed:~%~{ - ~A~%~}"
              (nreverse *failures*))))
   (format t "~&star-http-dexador regression tests passed~%")
   t)
