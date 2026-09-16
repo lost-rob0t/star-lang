@@ -1,0 +1,227 @@
+#+title: Supervisor prototype — executable host API and syntax review
+#+startup: overview
+
+* Status and review location
+
+This is a review prototype for [[https://github.com/lost-rob0t/star-lang/issues/57][star-lang #57]], not a production-supervision claim and
+not an approval of new language grammar. Keep its pull request in draft for the
+owner's syntax/basis feedback. Do not auto-merge or close #57 from this slice.
+
+The code lives in =star-supervisor=, not =prototype/=. It uses the existing
+=starlang-runtime= and =star-mailbox= implementations. It does not introduce
+another actor engine, process supervisor, distributed registry, scheduler, or
+transport. StarIntel server continues to own its actor discovery/registry.
+
+* What runs now
+
+The native Common Lisp API supports one root with a flat ordered set of native
+children. Each supervisor creates and exclusively owns a fresh final runtime.
+The same specification can start multiple independent runtimes.
+
+| Operation | Implemented behavior |
+|-----------+----------------------|
+| =make-supervisor-spec= | Validate children, unique names/URIs, restart classes, and finite numeric bounds. |
+| =start-supervisor= | Start children in declaration order; shut down a partially started runtime on failure. |
+| =with-supervisor= | Ensure teardown even when the body signals an error. |
+| =supervisor-tell= | Use real bounded mailbox delivery; return accepted/full/stopped classification. |
+| =supervisor-step= | Dispatch at most one message per child, observe exits, apply due restarts. |
+| =run-supervisor= | Pump a bounded number of rounds; report idle, waiting, step-limit, stopped, or failed. |
+| =child-reference= | Return the runtime's generation-bearing reference. |
+| =stop-child= | Operator stop, including cancellation of a queued restart. |
+| =drain-supervisor= | Fence new supervised tells, suppress restart, drain a bounded number of rounds, then stop. |
+| =stop-supervisor= | Immediate idempotent shutdown; keep an existing terminal failure reason. |
+| =next-restart-at= | Absolute deadline in the injected clock's millisecond timebase; no sleeping. |
+| =supervisor-snapshot= | Fresh diagnostic plists, excluding actor business state and raw condition text. |
+
+A child specification is an existing =starlangruntime:actor-definition=.
+=make-native-actor-definition= remains the single constructor for handlers,
+initial state, contracts, mailbox capacity, and =:restart-policy=. There is no
+second conflicting restart-class field in the supervisor specification.
+
+* Run the tests and examples
+
+From the repository root, with SBCL and the project's ASDF dependencies available
+(the test system also needs FiveAM):
+
+#+begin_src sh
+export CL_SOURCE_REGISTRY="$PWD//:"
+sbcl --non-interactive \
+  --eval '(require :asdf)' \
+  --eval '(asdf:test-system "star-supervisor")'
+sbcl --script star-supervisor/examples/counter.lisp
+sbcl --script star-supervisor/examples/restart-classes.lisp
+sbcl --script star-supervisor/examples/backoff-and-drain.lisp
+#+end_src
+
+For the repository Nix environment, enter =nix develop= first, then run the same
+commands. The surrounding gates remain =asdf:test-system= for
+=starlang-runtime=, =star-mailbox=, and the repository's full final/prototype and
+real-Sento suites, plus =nix flake check -L=. A successful load alone is not test
+execution. The supervisor ASDF test operation explicitly signals an error when
+FiveAM reports failure; it cannot turn a false return into a green ASDF result.
+
+=bash ci/run-supervisor-review.sh= runs the mailbox, runtime, and supervisor
+ASDF suites in fresh SBCL processes, followed by all three examples. It is an
+opt-in local/Forgejo runner, not a newly installed workflow or background task.
+The ownership/promotion record is
+[[file:../docs/implementation-slices/SUPERVISOR-REVIEW-PROTOTYPE.org][SUPERVISOR-REVIEW-PROTOTYPE.org]].
+
+The three examples contain assertions, not just printed illustrations:
+
+1. =counter.lisp=: a real failed mailbox transition, generation advance, stale
+   reference rejection, recovery preserving committed state, and teardown.
+2. =restart-classes.lisp=: all six normal/failure × restart-class outcomes.
+3. =backoff-and-drain.lisp=: a fake clock only, real actors/mailboxes, deadline
+   restart, and drain without sleeping.
+
+These commands have not been executed in the authoring sandbox: it has no SBCL
+or Nix, and package/repository downloads are unavailable there. Added tests and
+examples are executable artifacts, not a claimed passing test result. Record
+actual focused, surrounding, full-suite and Nix results in the PR before promotion.
+
+* Executable Common Lisp syntax
+
+This is trusted host code, not portable StarLang source and not manifest data.
+Loading this Lisp file is ordinary application code execution.
+
+#+begin_src lisp
+(starsupervisor:with-supervisor
+    (root
+     (starsupervisor:make-supervisor-spec
+      "ingest-workers"
+      (list
+       (starlangruntime:make-native-actor-definition
+        "normalizer"
+        (lambda (message count runtime)
+          (declare (ignore runtime))
+          (if (eq message :crash)
+              (error "deliberate demo failure")
+              (values message (1+ count))))
+        :initial-state 0
+        :restart-policy :permanent
+        :mailbox-capacity 32))
+      :strategy :one-for-one
+      :max-restarts 3
+      :period-ms 10000
+      :backoff-ms 0))
+  (starsupervisor:supervisor-tell root "normalizer" :hello)
+  (starsupervisor:run-supervisor root)
+  (starsupervisor:supervisor-tell root "normalizer" :crash)
+  (starsupervisor:run-supervisor root)
+  (starsupervisor:supervisor-snapshot root))
+#+end_src
+
+An embedding application calls =supervisor-step= from its own event loop.
+=run-supervisor= returns =:waiting= while a restart deadline is in the future;
+it does not schedule a timer behind your back. Call it again at or after
+=next-restart-at=. Calling it repeatedly without advancing time is not useful.
+The default clock is monotonic elapsed milliseconds, not Unix epoch time.
+
+* Proposed .star syntax — NOT parsed or compiled by this PR
+
+The following is a review sketch only. It is intentionally an =example= block,
+not a runnable =.star= fixture, and no Lisp reader is used to parse =.star=.
+=starlang check/compile/run= do not gain supervisor declarations from this PR.
+
+#+begin_example
+(supervisor ingestSupervisor
+  (:strategy :one-for-one)
+  (:maxRestarts 3)
+  (:periodMs 10000)
+  (:backoffMs 250)
+  (:children fetcher normalizer oneShot))
+#+end_example
+
+The child names refer to actor declarations. The sketch preserves the current
+actor-definition ownership of each child's restart class and mailbox bound.
+Its future lowering would produce data-only supervisor IR containing resolved
+actor identities and integer policy values, never function objects. Host
+handlers would be bound separately by the existing runtime boundary.
+
+Questions to answer in the draft PR:
+
+| Decision | Prototype choice | Useful feedback |
+|----------+------------------+-----------------|
+| Declaration | Separate =supervisor= form naming existing actors | Prefer nested child declarations or references? |
+| Strategies | Only =one-for-one= executes; other names are rejected | Prioritize =rest-for-one=, =one-for-all=, or nesting next? |
+| Restart class | Kept on the existing actor definition | Move it to each supervisor-child binding? |
+| Intensity syntax | Explicit =maxRestarts= and =periodMs= | Prefer a grouped =restartIntensity= clause? |
+| Backoff | Fixed integer milliseconds; no jitter | Prefer a bounded exponential declaration? |
+| Child state | Keep the runtime's committed state across restart | Should restart rebuild state from an initializer instead? |
+| Host API | Constructors plus =with-supervisor= | Is a declarative Lisp =defsupervisor= macro useful? |
+| Shutdown | Immediate stop or bounded message-round drain | What acknowledgment/deadline contract should the concrete backend expose? |
+
+* Exact lifecycle semantics
+
+** Restart classification
+
+| Child class | Normal observed stop | Failed dispatch | Operator stop / supervisor drain |
+|-------------+----------------------+-----------------+----------------------------------|
+| =permanent= | Restart | Restart | Do not restart |
+| =transient= | Remain stopped | Restart | Do not restart |
+| =temporary= | Remain stopped | Remain stopped | Do not restart |
+
+Failed =dispatch-result= values count as abnormal exits in this prototype,
+including contract-validation failures. This is an explicit policy choice, not
+an assertion that every rejected input should kill a production actor. A child
+that stops itself through =starlangruntime:stop-actor= is observed as a normal
+exit. The runtime currently does not expose distinct shutdown-reason messages.
+
+** Limits, time, and generation
+
+Restart attempts share one supervisor budget. Initial starts do not count.
+At a due deadline, attempt timestamps are retained in =(now - periodMs, now]=.
+An attempt at exactly the window boundary no longer counts. Once the next
+attempt would exceed =maxRestarts=, the supervisor becomes =:failed= with
+=:restart-intensity-exceeded= and stops all children. Zero allowed restarts is
+valid. Failure to perform a permitted runtime restart is terminal
+=:restart-failed=, not silently retried.
+
+Backoff children remain stopped and reject mailbox delivery. Successful restart
+uses =starlangruntime:restart-actor=, which advances generation, creates a fresh
+mailbox, drops queued work, and preserves already committed actor state.
+Neither failed messages nor discarded queued messages are replayed. Side effects
+performed before an error are NOT rolled back or deduplicated by the supervisor.
+Use a fresh initial-state function for mutable initial objects; definitions and
+host handler closures must not be mutated while their supervisor is live.
+
+References are generation-checked within their owning runtime. This is not a
+cross-runtime incarnation, durable fencing, or distributed lease guarantee.
+Restarting an entire host is separate work under #59.
+
+** Drain and embedding limits
+
+Only =supervisor-tell= is fenced at drain entry. Existing messages can still make
+raw actor-to-actor =starlangruntime:tell= calls. A self-feeding actor therefore
+hits the bounded drain limit and its remaining queue is discarded. Drain never
+restarts a failed child or a child waiting in backoff. Stop order is reverse
+startup order. Clock errors during drain still run teardown through
+=unwind-protect=.
+
+This driver is single-threaded and non-reentrant. =max-steps= bounds dispatch
+rounds, NOT wall time: a blocking native handler can block the tick. Do not use
+this prototype as a production host for blocking external operations. Read-only
+runtime inspection is exposed as =supervisor-runtime=; external spawn/restart/
+unregister/dispatch, raw runtime =ask=, and raw =run-until-idle= bypass supervisor
+observation and are not supported driving paths. There is no supervised =ask=
+API in this slice. Actor-to-actor =tell= continues to use the real runtime.
+
+* Basis and deliberate exclusions
+
+Basis, in order:
+
+- [[https://github.com/lost-rob0t/star-lang/issues/57][Issue #57]]: final ownership, restart classes, bounded intensity, generation,
+  stale references, shutdown suppression, and sibling isolation.
+- [[https://github.com/lost-rob0t/star-lang/issues/42][Issue #42]]: real runtime/mailboxes for actor-semantic tests; real Sento evidence
+  required before making concrete backend claims.
+- [[https://github.com/lost-rob0t/starintel-auto-research/blob/main/roam/design/star-lang/STAR-LANG-002-durable-actor-runtime.org][STAR-LANG-002 Durable Actor Runtime]]: supervisor/runtime separation and policy
+  vocabulary. That document itself is REVIEW, not an approval of this syntax.
+- [[https://www.erlang.org/doc/system/sup_princ.html][Erlang/OTP supervision principles]]: inspiration for restart classes,
+  one-for-one isolation, intensity bounds, and startup/shutdown ordering.
+
+This is not an OTP implementation or Sento lifecycle-equivalence claim. There
+are no watch/link notifications, Sento supervision hooks, nested supervisor
+actors, dynamic children, process kill/reap deadlines, remote actor management,
+readiness protocol, exponential backoff/jitter, journals, leases, or durable
+recovery in this PR. Those are not hidden behind fake success or placeholder
+methods. Actor registry and transport routing remain outside this package.

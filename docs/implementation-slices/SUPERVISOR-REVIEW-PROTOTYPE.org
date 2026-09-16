@@ -1,0 +1,57 @@
+#+title: Supervisor review prototype — ownership and promotion gates
+
+* Scope of this branch
+
+This is the owner's requested executable supervisor experiment and GitHub syntax
+review, related to #57 and #42. It does not close either issue. See
+[[file:../../star-supervisor/README.org][the tutorial, exact lifecycle contract, and proposed .star syntax]].
+
+This addendum qualifies the supervision/restart-strategy rows in
+[[file:ACTOR-RUNTIME-MIGRATION-MATRIX.md][the production migration ledger]] for this review branch. The baseline's empty
+=star-supervisor= package now contains a flat, host-driven =one-for-one=
+prototype. Its status is *REVIEW PROTOTYPE*, not FINAL. Existing distributed
+prototype behavior has not been migrated or replaced. No existing production
+host is switched to this driver and no syntax/compiler authority has moved.
+
+| Concern | Owner in this experiment |
+|---------+--------------------------|
+| Policy, restart window/backoff, drain suppression | =star-supervisor/src/supervisor.lisp= |
+| Native actor definitions, mailbox-mediated transitions, spawn/stop/restart | Existing =starlang-runtime= |
+| FIFO capacity, closed mailbox behavior | Existing =star-mailbox= |
+| Generation-bearing references and service URI contract | Existing =star-actor-protocol= |
+| Concrete Sento implementation | Existing =star-sento-compat=; not wired to this experiment |
+| .star parsing/validation/lowering | Existing =starlang-compiler=; deliberately unchanged |
+| StarIntel actor discovery/registry | StarIntel server; not implemented here |
+| Business persistence and external effects | Embedding host; never supervisor metadata |
+
+Dependency graph remains acyclic:
+
+#+begin_example
+star-supervisor -> starlang-runtime -> star-actor-protocol
+                                   -> star-mailbox
+#+end_example
+
+The supervisor test system additionally depends on FiveAM. Actor operations in
+the tests use the real final runtime and its mailboxes; only the time port is
+simulated. A lexical delimiter check is not executable actor evidence.
+
+* Before promoting the prototype
+
+- Obtain owner feedback in the draft PR on syntax, state preservation vs reset,
+  restart-class placement, strategy priority, and nesting.
+- Execute the focused supervisor ASDF suite and all three example scripts.
+  The authoring sandbox has no SBCL/Nix; these have not been run there.
+- Execute surrounding runtime/mailbox suites and the full repository ASDF/Nix
+  gates. The existing CI's system-load checks alone cannot certify this suite.
+- Prove automatic lifecycle observation and supervised request/reply through the
+  actual embedding boundary before advertising a service-host supervisor.
+- Extend =star-sento-compat= only with real Sento integration evidence. Do not
+  equate this deterministic driver with watch/link or concrete supervision.
+- Add nested/dynamic children, other strategies, initialization/reset policy,
+  bounded process shutdown/readiness only in separately reviewed slices.
+- Once the owner approves .star syntax, add closed-parser grammar, data-only IR,
+  validation and lowering tests. Do not parse .star through the Lisp reader.
+- Update the production ledger only to the exact semantics actually proven.
+
+No claims are made here for durable restart, leases, cross-runtime fencing,
+distributed delivery, persistence migration, or completion of #57/#59.
