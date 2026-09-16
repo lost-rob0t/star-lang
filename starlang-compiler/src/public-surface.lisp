@@ -1,5 +1,6 @@
-;;;; Public starlang-compiler surface: re-export the final parser, actor
-;;;; lowering, manifest emission, and diagnostics from the core package.
+;;;; Public starlang-compiler surface: re-export the final parser, macro
+;;;; expander, actor lowering, manifest emission, and diagnostics from the core
+;;;; package.
 
 (in-package #:starlangcompiler)
 
@@ -29,6 +30,16 @@
     #:validate-star-core
     #:+normalized-ir-schema+
     #:+normalized-ir-version+
+    ;; Declarative hygienic macro surface.
+    #:collect-star-macro-environment
+    #:expanded-star-source
+    #:expand-star-syntax-1
+    #:make-star-expansion-limits
+    #:merge-star-macro-environments
+    #:star-expansion-limits
+    #:star-expansion-trace
+    #:star-macro-dependencies
+    #:star-macro-environment
     ;; Diagnostics.
     #:star-lang-core-error
     #:star-lang-core-error-code
@@ -48,6 +59,10 @@
     #:invalid-envelope-error
     #:invalid-field-error
     #:invalid-library-error
+    #:invalid-macro-error
     #:invalid-star-service-uri-error
     #:invalid-type-error
+    #:macro-context-error
+    #:macro-expansion-error
+    #:macro-limit-error
     #:unsupported-macro-error))

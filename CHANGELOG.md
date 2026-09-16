@@ -58,6 +58,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Moved the bounded declarative hygienic macro expander into
+  `starlang-compiler`: macro collection, deterministic expansion, fresh
+  introduction scopes, definition/use-site provenance, imported macro
+  environments, dependency/trace reporting, one-step expansion, resource
+  ceilings, and expanded-source rendering are now final-owned and covered by
+  the final compiler test system. `prototype/macro-expander-prototype.lisp` is
+  now a compatibility symbol-forwarding shell.
 - Moved the closed StarLang compiler core (parser, syntax model, expansion
   boundary, grammar validation, specification lowering) from
   `prototype/core-surface-prototype.lisp` into

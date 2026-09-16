@@ -48,3 +48,9 @@
 (do-external-symbols (symbol :star-lang.compiler.core)
   (import symbol)
   (export symbol))
+
+;; Historical loader code used this marker to decide whether the old macro
+;; implementation had to be loaded. Loading this compatibility shell has
+;; already loaded the final compiler, including its macro expander, so keep the
+;; marker bound here without restoring any macro behavior to prototype/.
+(defvar *declarative-macro-expander-loaded* t)

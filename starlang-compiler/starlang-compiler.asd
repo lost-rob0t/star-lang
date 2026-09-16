@@ -10,6 +10,7 @@
     :components
     ((:file "packages")
      (:file "core-surface")
+     (:file "macro-expander")
      (:file "actor-ir")
      (:file "actor-manifest")
      (:file "actor-source")
