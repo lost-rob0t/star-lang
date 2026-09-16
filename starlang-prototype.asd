@@ -18,7 +18,6 @@
     (;; Core surface defines the shared package everything else uses
      (:file "core-surface-prototype")
      (:file "service-uri-prototype")
-     (:file "macro-expander-prototype")
      (:file "actor-wire-prototype")
      (:file "core-semantics-prototype")
      (:file "canonical-json-prototype")

@@ -13,5 +13,6 @@
      (:file "actor-reference")
      (:file "message-lifecycle")
      (:file "portable-wire")
+     (:file "portable-snapshot")
      (:file "portable-payload"))))
   :in-order-to ((test-op (test-op "star-actor-protocol-tests"))))

@@ -6,9 +6,11 @@
   :serial t
   :components
   ((:file "starlang-compiler-tests")
-   (:file "actor-compiler-tests"))
+   (:file "actor-compiler-tests")
+   (:file "macro-expander-tests"))
   :perform
   (test-op (op c)
     (declare (ignore op c))
     (uiop:symbol-call :starlangcompiler-tests :run-tests)
-    (uiop:symbol-call :starlang-actor-compiler-tests :run-tests)))
+    (uiop:symbol-call :starlang-actor-compiler-tests :run-tests)
+    (uiop:symbol-call :starlang-macro-expander-tests :run-tests)))
