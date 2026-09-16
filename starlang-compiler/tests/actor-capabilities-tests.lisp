@@ -69,7 +69,7 @@
            :produces ()
            :restart temporary
            :mailbox (bounded 1)
-           :capabilities ,capabilities)))))
+           :capabilities ,capabilities))))))
 
 (test omitted-empty-and-valid-capabilities-remain-distinct-at-validation
   "Omission and explicit empty are valid; valid identifiers are preserved in order."
