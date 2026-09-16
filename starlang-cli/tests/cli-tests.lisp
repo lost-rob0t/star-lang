@@ -1,6 +1,4 @@
-;;;; Final CLI tests: version, check, compile, and run commands over the
-;;;; final systems only. Actor-semantic checks execute the real deterministic
-;;;; wire dispatcher from starlang-runtime; no mocks replace actor semantics.
+;;;; Final CLI tests: every command runs over final systems only.
 
 (defpackage :star-lang.cli-tests
   (:use :cl :fiveam)
@@ -16,6 +14,9 @@
 (defun actor-fixture ()
   (asdf:system-relative-pathname :starlang-cli
                                  "../fixtures/actor-compiler/enrichment-worker.star"))
+
+(defun loader-fixture ()
+  (asdf:system-relative-pathname :starlang-cli "../fixtures/star-cl.star"))
 
 (defun unknown-option-fixture ()
   (asdf:system-relative-pathname
@@ -33,7 +34,6 @@
             (get-output-stream-string stderr))))
 
 (test no-arguments-exit-two-with-usage-on-stderr
-  "Missing arguments print usage to stderr and exit 2."
   (multiple-value-bind (code stdout stderr)
       (run-capturing '())
     (is (= 2 code))
@@ -41,7 +41,6 @@
     (is (search "Usage:" stderr))))
 
 (test help-variants-exit-zero-with-usage-on-stdout
-  "help, -h, and --help print usage to stdout and exit 0."
   (dolist (variant '("help" "-h" "--help"))
     (multiple-value-bind (code stdout stderr)
         (run-capturing (list variant))
@@ -49,8 +48,8 @@
       (is (search "Usage:" stdout))
       (is (string= "" stderr)))))
 
-(test usage-lists-all-commands-including-prototype-delegation
-  "The usage surface lists every command and the prototype loader delegation."
+(test usage-lists-all-final-commands
+  "The public usage surface exposes load/load-url as final commands."
   (multiple-value-bind (code stdout stderr)
       (run-capturing '("--help"))
     (declare (ignore stderr))
@@ -61,10 +60,10 @@
     (is (search "run" stdout))
     (is (search "load FILE" stdout))
     (is (search "load-url" stdout))
-    (is (search "prototype" stdout))))
+    (is (search "final systems only" stdout))
+    (is (null (search "prototype" stdout)))))
 
 (test unknown-command-exits-two
-  "An unknown command is a usage error with exit 2."
   (multiple-value-bind (code stdout stderr)
       (run-capturing '("transmute" "x.star"))
     (is (= 2 code))
@@ -72,7 +71,6 @@
     (is (search "Usage:" stderr))))
 
 (test version-exits-zero-with-cli-and-compiler-versions
-  "version reports the CLI version and the compiler system version."
   (multiple-value-bind (code stdout stderr)
       (run-capturing '("version"))
     (declare (ignore stderr))
@@ -81,7 +79,6 @@
     (is (search "starlang-compiler" stdout))))
 
 (test check-compiles-fixture-and-exits-zero
-  "check runs the full closed pipeline on the actor fixture and exits 0."
   (multiple-value-bind (code stdout stderr)
       (run-capturing (list "check" (namestring (actor-fixture))))
     (declare (ignore stderr))
@@ -89,7 +86,6 @@
     (is (search "ok: actor enrichment-worker" stdout))))
 
 (test check-failure-exits-one-with-star-diagnostic
-  "A .star unit with an unknown option fails with exit 1 and a diagnostic."
   (multiple-value-bind (code stdout stderr)
       (run-capturing
        (list "check" (namestring (unknown-option-fixture))))
@@ -98,7 +94,6 @@
     (is (search "starlang:" stderr))))
 
 (test compile-emits-deterministic-canonical-manifest-to-stdout
-  "Two compile invocations emit byte-identical canonical JSON wire data."
   (let ((argv (list "compile" (namestring (actor-fixture)))))
     (multiple-value-bind (code1 out1 err1) (run-capturing argv)
       (declare (ignore err1))
@@ -114,7 +109,6 @@
         (is (char= #\newline (char out1 (1- (length out1)))))))))
 
 (test compile-writes-manifest-file-with-trailing-newline
-  "compile --manifest writes canonical JSON with a trailing newline."
   (uiop:with-temporary-file (:pathname manifest :suffix ".json" :keep t)
     (multiple-value-bind (code stdout stderr)
         (run-capturing
@@ -128,8 +122,28 @@
         (is (search "enrichment-worker" text))
         (is (char= #\newline (char text (1- (length text)))))))))
 
+(test load-command-uses-final-loader
+  (let ((cache
+          (merge-pathnames
+           (format nil "star-lang-cli-test-~36R/" (random most-positive-fixnum))
+           (uiop:temporary-directory))))
+    (unwind-protect
+         (progn
+           (ensure-directories-exist (merge-pathnames ".keep" cache))
+           (multiple-value-bind (code stdout stderr)
+               (run-capturing
+                (list "load" (namestring (loader-fixture))
+                      "--cache" (namestring cache)))
+             (declare (ignore stderr))
+             (is (= 0 code))
+             (is (search "Loaded org.starintel/star-cl@1 version 1.0.0" stdout))
+             (is (find-package "STAR-LANG.LOADER"))
+             (is (null (find-package "STAR-LANG.PROTOTYPE")))))
+      (uiop:delete-directory-tree cache
+                                  :validate t
+                                  :if-does-not-exist :ignore))))
+
 (test run-reports-materialization-summary
-  "run compiles, materializes through the real dispatcher, and exits 0."
   (multiple-value-bind (code stdout stderr)
       (run-capturing
        (list "run" (namestring (actor-fixture))
@@ -140,8 +154,6 @@
     (is (search "run: materialized 1 actor(s); processed 0 command(s)" stdout))))
 
 (test run-actor-program-registers-handler-with-the-real-dispatcher
-  "The run path registers the package handler on the real deterministic
-dispatcher, and the real dispatcher routes a live command through it."
   (let* ((manifest
            (starlangcompiler:emit-portable-manifest
             (list :kind :spec-library
@@ -188,7 +200,6 @@ dispatcher, and the real dispatcher routes a live command through it."
             (is (eq :completed (getf (getf ack :payload) :status)))))))))
 
 (test run-without-resolvable-handler-fails-before-dispatching
-  "run exits 1 with a structured diagnostic when a native handler is absent."
   (multiple-value-bind (code stdout stderr)
       (run-capturing (list "run" (namestring (actor-fixture))))
     (declare (ignore stdout))
@@ -198,7 +209,6 @@ dispatcher, and the real dispatcher routes a live command through it."
     (is (search "enrichment-worker" stderr))))
 
 (test fresh-sbcl-process-runs-cli-proof-without-prototype
-  "A fresh SBCL process loads starlang-cli and never sees prototype packages."
   (let* ((script
            (asdf:system-relative-pathname :starlang-cli "tests/cli-proof.lisp"))
          (output
@@ -213,7 +223,5 @@ dispatcher, and the real dispatcher routes a live command through it."
     (is (search "CLI-PROOF-OK" output))))
 
 (defun run-tests ()
-  ;; fiveam's run! returns T only when every check passed; surface failures
-  ;; through the process exit code so ASDF/Nix/CI gates cannot pass silently.
   (unless (run! 'star-lang.cli-tests)
     (error "starlang-cli tests failed.")))
