@@ -6,6 +6,7 @@
                 #:actor-already-registered-error
                 #:actor-stopped-error
                 #:actor-stale-reference-error
+                #:actor-stale-completion-error
                 #:actor-ask-timeout-error
                 #:actor-external-dispatch-required-error
                 #:actor-contract-error
@@ -23,6 +24,7 @@
                 #:actor-mailbox-depth
                 #:delivery-result-status
                 #:dispatch-result-status
+                #:dispatch-result-condition
                 #:make-native-actor-definition
                 #:create-native-actor
                 #:create-external-actor
@@ -341,9 +343,12 @@
                          (incf overlaps))
                        :inner))))))
            (tell runtime actor :outer)
-           (check (eq :completed
-                      (dispatch-result-status (dispatch-next runtime actor)))
-                  "Stop/start guard fixture did not complete its outer transition.")
+           (let ((result (dispatch-next runtime actor)))
+             (check (eq :failed (dispatch-result-status result))
+                    "Stop/start old-generation completion was not rejected.")
+             (check (typep (dispatch-result-condition result)
+                           'actor-stale-completion-error)
+                    "Stop/start old-generation completion was not typed stale."))
            (check (zerop overlaps)
                   "STOP followed by START cleared an in-flight dispatch guard and enabled reentry."))
       (shutdown-runtime runtime))))
@@ -383,8 +388,11 @@
                 (:restart
                  (restart-actor owner "restart-guard-target")
                  :restarted))))
-           (check (eq :outer (ask runtime "restart-guard-target" :outer))
-                  "Cross-actor restart fixture did not complete its outer transition.")
+           (check
+            (signals-p 'actor-stale-completion-error
+                       (lambda ()
+                         (ask runtime "restart-guard-target" :outer)))
+            "Cross-actor restart published the old-generation completion.")
            (check (zerop overlaps)
                   "A second actor cleared the target dispatch guard through RESTART-ACTOR."))
       (shutdown-runtime runtime))))
@@ -426,8 +434,11 @@
                       "Old-generation handler completion incremented the new generation's success count.")
                (check (null (actor-instance-last-error actor))
                       "Old-generation handler completion changed replacement diagnostics.")
-               (check (not (eq :completed (dispatch-result-status result)))
-                      "Old-generation handler completion was published as successful.")
+               (check (eq :failed (dispatch-result-status result))
+                      "Old-generation handler completion was not rejected.")
+               (check (typep (dispatch-result-condition result)
+                             'actor-stale-completion-error)
+                      "Old-generation handler completion did not return a typed stale outcome.")
                (check (= 1 (actor-mailbox-depth actor))
                       "Old-generation completion consumed or replaced the new generation mailbox."))
              (let ((fresh-result (dispatch-next runtime actor)))
