@@ -186,7 +186,7 @@
       (is (not timed-out-p)
           "run-process exceeded the outer watchdog after the owned root exited (~,3Fs)."
           elapsed)
-      (is result)
+      (is (not (null result)))
       (when result
         (is (eq :exited (process-result-outcome result)))
         (is (= 0 (process-result-exit-code result))))
@@ -205,7 +205,7 @@
       (is (not timed-out-p)
           "timeout cleanup exceeded the outer watchdog with inherited pipe writers (~,3Fs)."
           elapsed)
-      (is result)
+      (is (not (null result)))
       (when result
         (is (eq :timeout (process-result-outcome result))))
       (is (= capture-count-before (%capture-thread-count))
@@ -230,7 +230,7 @@
            (is (not timed-out-p)
                "cancellation cleanup exceeded the outer watchdog with inherited pipe writers (~,3Fs)."
                elapsed)
-           (is result)
+           (is (not (null result)))
            (when result
              (is (eq :cancelled (process-result-outcome result))))
            (is (= capture-count-before (%capture-thread-count))
