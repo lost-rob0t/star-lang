@@ -36,6 +36,30 @@
           :produces '()
           :capabilities '()))))
 
+(defun default-manifest-fixture ()
+  (list
+   :wire-version 1
+   :library (list :name "defaults" :version "1" :digest "sha256:test")
+   :imports '()
+   :types '()
+   :predicates '()
+   :messages
+   (list
+    (list :kind :message
+          :name "test/defaults@1"
+          :fields
+          (list
+           (list :name "noDefault" :type "string" :required nil)
+           (list :name "enabled" :type "boolean" :required nil :default nil)
+           (list :name "nullable" :type (list :optional "string")
+                 :required nil :default nil)
+           (list :name "tags" :type (list :list "string")
+                 :required nil :default nil)
+           (list :name "metadata" :type "map" :required nil :default nil)
+           (list :name "count" :type "integer" :required nil :default 0)
+           (list :name "label" :type "string" :required nil :default ""))))
+   :actors '()))
+
 (defun test-canonical-manifest-bytes ()
   (check
    (string=
@@ -49,6 +73,50 @@
            :messages '()
            :actors '())))
    "Canonical portable manifest bytes changed."))
+
+(defun test-manifest-default-presence-is-type-aware ()
+  (let ((json (canonical-manifest-json (default-manifest-fixture))))
+    (check
+     (search "{\"name\":\"noDefault\",\"required\":false,\"type\":\"string\"}"
+             json)
+     "A field without a default acquired one during manifest serialization.")
+    (check
+     (search "{\"default\":false,\"name\":\"enabled\",\"required\":false,\"type\":\"boolean\"}"
+             json)
+     "An explicit boolean false default was omitted or encoded incorrectly.")
+    (check
+     (search "{\"default\":null,\"name\":\"nullable\",\"required\":false,\"type\":{\"optional\":\"string\"}}"
+             json)
+     "An explicit optional null default was omitted or encoded incorrectly.")
+    (check
+     (search "{\"default\":[],\"name\":\"tags\",\"required\":false,\"type\":{\"list\":\"string\"}}"
+             json)
+     "An explicit empty list default was omitted or encoded incorrectly.")
+    (check
+     (search "{\"default\":{},\"name\":\"metadata\",\"required\":false,\"type\":\"map\"}"
+             json)
+     "An explicit empty map default was omitted or encoded incorrectly.")
+    (check
+     (search "{\"default\":0,\"name\":\"count\",\"required\":false,\"type\":\"integer\"}"
+             json)
+     "A zero default changed during manifest serialization.")
+    (check
+     (search "{\"default\":\"\",\"name\":\"label\",\"required\":false,\"type\":\"string\"}"
+             json)
+     "An empty string default changed during manifest serialization.")))
+
+(defun test-invalid-manifest-default-is-rejected-by-type ()
+  (let* ((manifest (default-manifest-fixture))
+         (message (first (getf manifest :messages)))
+         (enabled (second (getf message :fields))))
+    (setf (getf enabled :default) "not-a-boolean")
+    (check
+     (handler-case
+         (progn
+           (canonical-manifest-json manifest)
+           nil)
+       (staractorprotocol:invalid-wire-envelope-error () t))
+     "Manifest serialization accepted a default that violates its declared type.")))
 
 (defun test-canonical-legacy-envelope-bytes ()
   (let ((manifest (wire-manifest-fixture))
@@ -125,6 +193,8 @@
 
 (defun run-tests ()
   (test-canonical-manifest-bytes)
+  (test-manifest-default-presence-is-type-aware)
+  (test-invalid-manifest-default-is-rejected-by-type)
   (test-canonical-legacy-envelope-bytes)
   (test-canonical-command-lifecycle-bytes)
   (test-canonical-control-lifecycle-bytes)
