@@ -180,8 +180,7 @@ deterministic string alist."
          (options (third elements)))
     (declare (ignore operator))
     (let ((*star-current-syntax*
-            (or (and (star-syntax-p form) form) *star-current-syntax*))
-          (*star-current-phase* :lower))
+            (or (and (star-syntax-p form) form) *star-current-syntax*)))
       (ensure-plist options "actor" 'invalid-actor-error)
       (validate-actor-option-keys options +actor-all-option-keys+)
       (let* ((runtime (normalize-runtime
