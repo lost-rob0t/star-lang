@@ -36,6 +36,7 @@
                 #:make-runtime
                 #:runtime-status
                 #:resolve-actor
+                #:start-actor
                 #:restart-actor
                 #:shutdown-runtime
                 #:runtime-actor-count
@@ -204,6 +205,60 @@
      (signals-p 'actor-ask-timeout-error
                 (lambda () (ask runtime "self-ask" :loop)))
      "Busy actor was re-entered instead of timing out its self-ASK.")))
+
+(defun test-start-running-actor-is-idempotent ()
+  (let ((runtime (make-runtime)))
+    (unwind-protect
+         (let ((actor
+                 (create-native-actor
+                  runtime
+                  "idempotent-start"
+                  (lambda (message state actor-runtime)
+                    (declare (ignore state actor-runtime))
+                    message))))
+           (tell runtime actor :queued)
+           (let ((generation (actor-instance-generation actor))
+                 (depth (actor-mailbox-depth actor)))
+             (start-actor runtime actor)
+             (check (= generation (actor-instance-generation actor))
+                    "Starting a running actor advanced its generation.")
+             (check (= depth (actor-mailbox-depth actor))
+                    "Starting a running actor replaced or changed its mailbox.")))
+      (shutdown-runtime runtime))))
+
+(defun test-start-does-not-enable-reentry ()
+  (let ((runtime (make-runtime))
+        (inside-outer nil)
+        (overlaps 0))
+    (unwind-protect
+         (let ((actor
+                 (create-native-actor
+                  runtime
+                  "guarded"
+                  (lambda (message state owner)
+                    (declare (ignore state))
+                    (ecase message
+                      (:outer
+                       (setf inside-outer t)
+                       (unwind-protect
+                            (progn
+                              (start-actor owner "guarded")
+                              (handler-case
+                                  (ask owner "guarded" :inner :timeout-steps 1)
+                                (actor-runtime-error () :blocked)))
+                         (setf inside-outer nil))
+                       :outer)
+                      (:inner
+                       (when inside-outer
+                         (incf overlaps))
+                       :inner))))))
+           (tell runtime actor :outer)
+           (check (eq :completed
+                      (dispatch-result-status (dispatch-next runtime actor)))
+                  "Outer fixture transition did not complete.")
+           (check (zerop overlaps)
+                  "Starting a running actor cleared the active dispatch guard and enabled reentry."))
+      (shutdown-runtime runtime))))
 
 (defun test-spawn-and-shutdown ()
   (let* ((runtime (make-runtime))
@@ -490,6 +545,8 @@
   (test-contract-failure-does-not-commit)
   (test-two-actor-ask-exchange)
   (test-no-reentrant-self-ask)
+  (test-start-running-actor-is-idempotent)
+  (test-start-does-not-enable-reentry)
   (test-spawn-and-shutdown)
   (test-runtime-registry-and-external-boundary)
   (test-run-until-idle)
