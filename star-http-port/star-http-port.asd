@@ -1,5 +1,5 @@
 (defsystem "star-http-port"
-  :description "HTTP adapter port with injectable and optional Dexador backends"
+  :description "Backend-neutral synchronous HTTP request/response port"
   :author "lost-rob0t"
   :license "AGPL-3.0-only"
   :version "0.1.0"
