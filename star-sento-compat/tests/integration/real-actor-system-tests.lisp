@@ -130,4 +130,4 @@
                       (setf destroyed-p t)))
           (error 'deliberate-fixture-body-error))
       (deliberate-fixture-body-error () nil))
-    (is destroyed-p)))
+    (is (not (null destroyed-p)))))
