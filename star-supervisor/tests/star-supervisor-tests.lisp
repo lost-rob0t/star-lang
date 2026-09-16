@@ -135,7 +135,7 @@
            :clock (lambda () now))
         (start-supervisor supervisor)
         (dotimes (index 2)
-          (declare (ignore index))
+          (declare (ignorable index))
           (tell runtime (child-reference supervisor "worker") :crash)
           (step-supervisor supervisor))
         (tell runtime (child-reference supervisor "worker") :crash)
@@ -144,7 +144,7 @@
               (step-supervisor supervisor)
             (error (condition)
               (setf caught condition)))
-          (is caught)
+          (is (not (null caught)))
           (is (string= "RESTART-BUDGET-EXHAUSTED-ERROR"
                        (condition-name caught))))
         (is (eq :failed
