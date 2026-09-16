@@ -8,6 +8,7 @@
    #:actor-not-found-error
    #:actor-stopped-error
    #:actor-stale-reference-error
+   #:actor-stale-completion-error
    #:actor-mailbox-full-error
    #:actor-ask-timeout-error
    #:actor-external-dispatch-required-error
