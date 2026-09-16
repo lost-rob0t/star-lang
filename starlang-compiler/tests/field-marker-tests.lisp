@@ -121,6 +121,16 @@
       (is (getf field :default-p))
       (is (null (getf field :default))))))
 
+(test required-field-default-survives-public-source-lowering
+  "A required field may carry an explicit default through public source lowering."
+  (let ((field
+          (first-compiled-field
+           (compile-document-field
+            "(retries integer :required :default 7)"))))
+    (is (getf field :required))
+    (is (getf field :default-p))
+    (is (= 7 (getf field :default)))))
+
 (test message-fields-use-the-same-closed-marker-grammar
   "Message :fields entries cannot bypass the document field grammar."
   (let ((condition
