@@ -29,7 +29,7 @@
                    root))
          (replay
            (format nil
-                   "(progn (format t \"STARLANG-JOURNAL-REPLAY-BEGIN~%\") (finish-output) (handler-case (progn (starjournal:runtime-journal-replay (starjournal:make-file-runtime-journal-port #p~S)) (uiop:quit 2)) (starjournal:star-journal-error (condition) (format t \"STARLANG-JOURNAL-REJECTED: ~A~%\" condition) (finish-output) (uiop:quit 0))))"
+                   "(progn (format t \"STARLANG-JOURNAL-REPLAY-BEGIN~~%\") (finish-output) (handler-case (progn (starjournal:runtime-journal-replay (starjournal:make-file-runtime-journal-port #p~S)) (uiop:quit 2)) (starjournal:star-journal-error (condition) (format t \"STARLANG-JOURNAL-REJECTED: ~~A~~%\" condition) (finish-output) (uiop:quit 0))))"
                    path-string)))
     (uiop:run-program
      (list "timeout"
