@@ -141,6 +141,14 @@
                "RFC 8785 Appendix B mismatch for ~A: expected ~A, got ~A."
                hex expected actual)))))
 
+(defun test-shortest-roundtrip-lower-bound-regression ()
+  (let* ((hex "4363c0c7485b9a7e")
+         (actual (canonical-json-string (double-float-from-bits hex))))
+    (check
+     (string= "44479893619921900" actual)
+     "Binary64 lower-bound shortening regressed for ~A: got ~A."
+     hex actual)))
+
 (defun test-rfc8785-non-finite-values-are-rejected ()
   (dolist (hex '("7ff0000000000000"
                  "fff0000000000000"
@@ -209,6 +217,7 @@
   (test-nested-structures)
   (test-pinned-double-float-is-ieee-binary64)
   (test-rfc8785-appendix-b-binary64-vectors)
+  (test-shortest-roundtrip-lower-bound-regression)
   (test-rfc8785-non-finite-values-are-rejected)
   (test-binary64-output-is-printer-state-independent)
   (test-binary64-implementation-does-not-delegate-number-printing)
