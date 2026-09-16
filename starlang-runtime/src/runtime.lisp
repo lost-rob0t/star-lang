@@ -11,6 +11,7 @@
 (define-condition actor-not-found-error (actor-runtime-error) ())
 (define-condition actor-stopped-error (actor-runtime-error) ())
 (define-condition actor-stale-reference-error (actor-runtime-error) ())
+(define-condition actor-stale-completion-error (actor-runtime-error) ())
 (define-condition actor-mailbox-full-error (actor-runtime-error) ())
 (define-condition actor-ask-timeout-error (actor-runtime-error) ())
 (define-condition actor-external-dispatch-required-error (actor-runtime-error) ())
@@ -405,7 +406,33 @@
                 contract
                 value)))
 
-(defun invoke-native-transition (actor message runtime)
+(defun dispatch-incarnation-current-p (runtime actor reference)
+  (and (eq :running (runtime-status runtime))
+       (actor-running-p actor)
+       (= (actor-instance-generation actor)
+          (staractorprotocol:star-actor-reference-generation reference))
+       (eq actor
+           (gethash (actor-name actor)
+                    (runtime-actors-by-name runtime)))
+       (eq actor
+           (gethash (actor-service-uri actor)
+                    (runtime-actors-by-uri runtime)))))
+
+(defun make-stale-completion-condition (actor reference)
+  (make-condition
+   'actor-stale-completion-error
+   :message
+   (format nil
+           "Actor ~A dispatch from generation ~D completed after its dispatch incarnation became stale."
+           (actor-name actor)
+           (staractorprotocol:star-actor-reference-generation reference))))
+
+(defun ensure-dispatch-incarnation-current (runtime actor reference)
+  (unless (dispatch-incarnation-current-p runtime actor reference)
+    (error (make-stale-completion-condition actor reference)))
+  actor)
+
+(defun invoke-native-transition (actor message runtime reference)
   (let* ((definition (actor-instance-definition actor))
          (values
            (multiple-value-list
@@ -413,6 +440,10 @@
                      message
                      (actor-instance-data actor)
                      runtime))))
+    ;; A handler may stop, restart, unregister, or shut down its own actor via
+    ;; another real actor. Once that happens this dispatch no longer owns any
+    ;; actor-local completion state.
+    (ensure-dispatch-incarnation-current runtime actor reference)
     (unless values
       (fail-actor 'actor-contract-error
                   "Actor ~A returned no values."
@@ -425,7 +456,9 @@
        (actor-definition-output-validator definition)
        (actor-definition-produces definition)
        result actor)
-      ;; Actor-local state commits only after the complete transition succeeds.
+      ;; Validators are trusted host code and may themselves change lifecycle.
+      ;; Recheck immediately before the only actor-local success commit.
+      (ensure-dispatch-incarnation-current runtime actor reference)
       (when state-supplied-p
         (setf (actor-instance-data actor) next-state))
       (incf (actor-instance-invocation-count actor))
@@ -508,9 +541,13 @@
             (actor-instance-definition actor))
            (runtime-message-payload envelope)
            actor)
+          (ensure-dispatch-incarnation-current runtime actor reference)
           (let ((result
                   (invoke-native-transition
-                   actor (runtime-message-payload envelope) runtime)))
+                   actor
+                   (runtime-message-payload envelope)
+                   runtime
+                   reference)))
             (complete-ask-cell cell result)
             (%make-dispatch-result
              :status :completed
@@ -518,15 +555,22 @@
              :correlation-id correlation-id
              :value result)))
       (error (condition)
-        ;; Failed transitions never commit their proposed state. Async tells
-        ;; surface failure through dispatch results; ask re-signals from its cell.
-        (setf (actor-instance-last-error actor) condition)
-        (fail-ask-cell cell condition)
-        (%make-dispatch-result
-         :status :failed
-         :reference reference
-         :correlation-id correlation-id
-         :condition condition)))))
+        ;; A stale dispatch may fail only its own reply. It no longer owns the
+        ;; replacement actor's diagnostic state.
+        (let ((effective-condition
+                (if (dispatch-incarnation-current-p runtime actor reference)
+                    condition
+                    (if (typep condition 'actor-stale-completion-error)
+                        condition
+                        (make-stale-completion-condition actor reference)))))
+          (when (dispatch-incarnation-current-p runtime actor reference)
+            (setf (actor-instance-last-error actor) effective-condition))
+          (fail-ask-cell cell effective-condition)
+          (%make-dispatch-result
+           :status :failed
+           :reference reference
+           :correlation-id correlation-id
+           :condition effective-condition))))))
 
 (defun dispatch-next (runtime target)
   "Execute at most one FIFO message for TARGET. Never re-enters a busy actor."
