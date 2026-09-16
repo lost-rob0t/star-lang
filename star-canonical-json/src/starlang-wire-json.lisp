@@ -9,28 +9,51 @@
             :accepts :produces :capabilities)
           :test #'eq))
 
-(defun starlang-manifest-json-object (plist)
+(defun starlang-plist-key-present-p (plist key)
+  (loop for tail on plist by #'cddr
+        thereis (eq (first tail) key)))
+
+(defun starlang-manifest-field-object-p (plist)
+  (and (staractorprotocol:portable-keyword-plist-p plist)
+       (starlang-plist-key-present-p plist :name)
+       (starlang-plist-key-present-p plist :type)
+       (starlang-plist-key-present-p plist :required)))
+
+(defun starlang-manifest-json-object (plist &optional manifest)
   (let ((entries '()))
     (loop for (key value) on plist by #'cddr
           do (unless (and (null value)
                           (not (eq key :required))
+                          (not (eq key :default))
                           (not (starlang-json-array-key-p key)))
                (push
                 (cons
                  (staractorprotocol:portable-field-key-string key)
-                 (starlang-manifest-json-value value key))
+                 (starlang-manifest-json-value
+                  value key manifest plist))
                 entries)))
     (make-json-object entries)))
 
-(defun starlang-manifest-json-value (value &optional key)
+(defun starlang-manifest-json-value
+    (value &optional key manifest container)
   (cond
+    ((and (eq key :default)
+          manifest
+          (starlang-manifest-field-object-p container))
+     (starlang-wire-json-value-for-type
+      manifest
+      (getf container :type)
+      value
+      (format nil
+              "Manifest field ~A default"
+              (getf container :name))))
     ((eq key :required)
      (if value +json-true+ +json-false+))
     ((starlang-json-array-key-p key)
      (make-json-array
       (mapcar
        (lambda (item)
-         (starlang-manifest-json-value item))
+         (starlang-manifest-json-value item nil manifest))
        (or value '()))))
     ((eq value t) +json-true+)
     ((null value) +json-null+)
@@ -40,17 +63,21 @@
     ((symbolp value)
      (staractorprotocol:portable-wire-identifier-string value))
     ((staractorprotocol:portable-keyword-plist-p value)
-     (starlang-manifest-json-object value))
+     (starlang-manifest-json-object value manifest))
     ((staractorprotocol:portable-string-alist-p value)
      (make-json-object
       (mapcar
        (lambda (entry)
          (cons (car entry)
-               (starlang-manifest-json-value (cdr entry))))
+               (starlang-manifest-json-value
+                (cdr entry) nil manifest)))
        value)))
     ((listp value)
      (make-json-array
-      (mapcar #'starlang-manifest-json-value value)))
+      (mapcar
+       (lambda (item)
+         (starlang-manifest-json-value item nil manifest))
+       value)))
     (t
      (fail-canonical-json
       "Cannot convert ~S to canonical JSON."
@@ -58,7 +85,7 @@
 
 (defun canonical-manifest-json (manifest)
   (canonical-json-string
-   (starlang-manifest-json-object manifest)))
+   (starlang-manifest-json-object manifest manifest)))
 
 (defun starlang-generic-wire-json-value (value)
   (cond
