@@ -17,6 +17,25 @@
 
 (in-package :starlangruntime-wire-failure-tests)
 
+(defparameter +max-handler-error-wire-message-chars+ 512)
+
+(define-condition exploding-report-condition (error) ()
+  (:report
+   (lambda (condition stream)
+     (declare (ignore condition stream))
+     (error "condition reporter exploded"))))
+
+(defvar *oversized-report-calls* 0)
+
+(define-condition oversized-report-condition (error) ()
+  (:report
+   (lambda (condition stream)
+     (declare (ignore condition))
+     (incf *oversized-report-calls*)
+     (write-string
+      (make-string 100000 :initial-element #\X)
+      stream))))
+
 (defun check (truth control &rest arguments)
   (apply #'starlangruntime-wire-tests::check truth control arguments))
 
@@ -35,6 +54,12 @@
           (find :error outcomes :key (lambda (envelope) (getf envelope :kind)))))
     (and error-envelope
          (getf (getf error-envelope :payload) :code))))
+
+(defun error-envelope-message (outcomes)
+  (let ((error-envelope
+          (find :error outcomes :key (lambda (envelope) (getf envelope :kind)))))
+    (and error-envelope
+         (getf (getf error-envelope :payload) :message))))
 
 (defun check-terminal-handler-failure (handler label)
   (let* ((dispatcher (make-fixture-dispatcher))
@@ -67,6 +92,62 @@
      "handler exception")
     (check (= 1 calls)
            "Failure-settlement fixture did not reach the handler exactly once.")))
+
+(defun test-condition-report-failure-does-not-wedge-command ()
+  (let* ((dispatcher (make-fixture-dispatcher))
+         (command
+           (dispatcher-command
+            :message-id "report-failure-1"
+            :idempotency-key "report-failure-key"))
+         (result nil))
+    (register-dispatch-actor
+     dispatcher "worker"
+     (lambda (runtime envelope)
+       (declare (ignore runtime envelope))
+       (error 'exploding-report-condition)))
+    (submit-dispatch-envelope dispatcher command)
+    (setf result
+          (handler-case
+              (run-dispatcher-next dispatcher)
+            (error () :escaped-cleanup-error)))
+    (check (eq :failed result)
+           "Condition-report failure escaped terminal settlement: ~S"
+           result)
+    (check (eq :terminal (deferred-dispatch-status dispatcher command))
+           "Condition-report failure left the accepted command in progress.")
+    (let ((outcomes (drain-dispatcher-emitted dispatcher)))
+      (check (equal '(:ack :error) (emitted-kinds outcomes))
+             "Condition-report failure emitted the wrong lifecycle chain: ~S"
+             (emitted-kinds outcomes))
+      (check (string= "star.native-handler-error"
+                      (or (error-envelope-code outcomes) ""))
+             "Condition-report failure changed the typed terminal error."))))
+
+(defun test-condition-reporting-cannot-amplify-wire-message ()
+  (let* ((dispatcher (make-fixture-dispatcher))
+         (command
+           (dispatcher-command
+            :message-id "oversized-report-1"
+            :idempotency-key "oversized-report-key")))
+    (setf *oversized-report-calls* 0)
+    (register-dispatch-actor
+     dispatcher "worker"
+     (lambda (runtime envelope)
+       (declare (ignore runtime envelope))
+       (error 'oversized-report-condition)))
+    (submit-dispatch-envelope dispatcher command)
+    (check (eq :failed (run-dispatcher-next dispatcher))
+           "Oversized condition report did not settle terminally.")
+    (check (eq :terminal (deferred-dispatch-status dispatcher command))
+           "Oversized condition report left the command active.")
+    (let* ((outcomes (drain-dispatcher-emitted dispatcher))
+           (message (or (error-envelope-message outcomes) "")))
+      (check (= 0 *oversized-report-calls*)
+             "Failure settlement invoked arbitrary condition reporting ~D time(s)."
+             *oversized-report-calls*)
+      (check (<= (length message) +max-handler-error-wire-message-chars+)
+             "Failure diagnostic escaped the bounded wire-message budget: ~D chars."
+             (length message)))))
 
 (defun test-result-contract-errors-settle-terminally ()
   (check-terminal-handler-failure
@@ -238,6 +319,8 @@
 
 (defun run-tests ()
   (test-handler-error-does-not-leave-active-record)
+  (test-condition-report-failure-does-not-wedge-command)
+  (test-condition-reporting-cannot-amplify-wire-message)
   (test-result-contract-errors-settle-terminally)
   (test-legitimate-defer-remains-active)
   (test-explicit-retryable-failure-remains-retryable)
