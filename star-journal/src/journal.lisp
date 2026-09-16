@@ -126,10 +126,10 @@
   (unless (runtime-journal-port-p port)
     (fail-journal "Runtime journal append requires a journal port."))
   (handler-case
-      (progn
-        (validate-runtime-journal-event event)
-        (funcall (runtime-journal-port-append-fn port)
-                 (snapshot-journal-value event "Runtime journal event")))
+      (let ((owned-event
+              (snapshot-journal-value event "Runtime journal event")))
+        (validate-runtime-journal-event owned-event)
+        (funcall (runtime-journal-port-append-fn port) owned-event))
     (star-journal-error (condition)
       (error condition))
     (error (condition)
