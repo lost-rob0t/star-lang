@@ -519,12 +519,12 @@ validated separately and is never silently rewritten."
                 :start-column (star-source-parser-column parser)
                 :end-line (star-source-parser-line parser)
                 :end-column (1+ (star-source-parser-column parser)))))
-  (error 'star-lang-source-error
-         :message (apply #'format nil control arguments)
-         :code code
-         :span span
-         :origin (star-source-parser-origin parser)
-         :phase :read)))
+    (error 'star-lang-source-error
+           :message (apply #'format nil control arguments)
+           :code code
+           :span span
+           :origin (star-source-parser-origin parser)
+           :phase :read)))
 
 (defun star-source-whitespace-p (character)
   (and character
@@ -580,44 +580,44 @@ validated separately and is never silently rewritten."
   (let ((start-byte (star-source-parser-index parser))
         (start-line (star-source-parser-line parser))
         (start-column (star-source-parser-column parser)))
-  (advance-star-source parser)
-  (let ((value (make-array 32
-                           :element-type 'character
-                           :adjustable t
-                           :fill-pointer 0)))
-    (loop
-      (when (star-source-end-p parser)
-        (fail-star-source parser :unterminated-string
-                          "Unterminated string literal."))
-      (let ((character (advance-star-source parser)))
-        (cond
-          ((char= character #\")
-           (let ((span (parser-span parser start-byte start-line start-column)))
-             (return (make-parsed-star-syntax parser :string value nil span))))
-          ((char= character #\\)
-           (when (star-source-end-p parser)
-             (fail-star-source parser :unterminated-string-escape
-                               "Unterminated string escape."))
-           (let ((escaped (advance-star-source parser)))
-             (vector-push-extend
-              (case escaped
-                (#\n #\Newline)
-                (#\r #\Return)
-                (#\t #\Tab)
-                (#\\ #\\)
-                (#\" #\")
-                (otherwise
-                 (fail-star-source parser :invalid-string-escape
-                                   "Unsupported string escape \\~C." escaped)))
-              value)))
-          (t
-           (vector-push-extend character value)))
-        (when (> (- (star-source-parser-index parser) start-byte 1)
-                 (star-parser-limits-string-bytes
-                  (star-source-parser-limits parser)))
-          (fail-star-limit parser :string-byte-limit
-                           start-byte start-line start-column
-                           "String literal exceeds the configured byte limit.")))))))
+    (advance-star-source parser)
+    (let ((value (make-array 32
+                             :element-type 'character
+                             :adjustable t
+                             :fill-pointer 0)))
+      (loop
+        (when (star-source-end-p parser)
+          (fail-star-source parser :unterminated-string
+                            "Unterminated string literal."))
+        (let ((character (advance-star-source parser)))
+          (cond
+            ((char= character #\")
+             (let ((span (parser-span parser start-byte start-line start-column)))
+               (return (make-parsed-star-syntax parser :string value nil span))))
+            ((char= character #\\)
+             (when (star-source-end-p parser)
+               (fail-star-source parser :unterminated-string-escape
+                                 "Unterminated string escape."))
+             (let ((escaped (advance-star-source parser)))
+               (vector-push-extend
+                (case escaped
+                  (#\n #\Newline)
+                  (#\r #\Return)
+                  (#\t #\Tab)
+                  (#\\ #\\)
+                  (#\" #\")
+                  (otherwise
+                   (fail-star-source parser :invalid-string-escape
+                                     "Unsupported string escape \\~C." escaped)))
+                value)))
+            (t
+             (vector-push-extend character value)))
+          (when (> (- (star-source-parser-index parser) start-byte 1)
+                   (star-parser-limits-string-bytes
+                    (star-source-parser-limits parser)))
+            (fail-star-limit parser :string-byte-limit
+                             start-byte start-line start-column
+                             "String literal exceeds the configured byte limit.")))))))
 
 (defun star-source-integer (token limits)
   (let* ((length (length token))
@@ -769,6 +769,11 @@ validated separately and is never silently rewritten."
        (parse-star-source-atom parser)))))
 
 (defun string-to-utf-8-octets (source)
+  (let ((result (make-array (max 16 (length source))
+                            :element-type 'character
+                            :adjustable t
+                            :fill-pointer 0)))
+    (declare (ignore result)))
   (let ((result (make-array (max 16 (length source))
                             :element-type '(unsigned-byte 8)
                             :adjustable t
@@ -1373,31 +1378,68 @@ the approved declarative hygienic macro language is implemented."
             :values normalized))))
 
 (defun parse-field-markers (options field-name)
-  (flet ((marker-p (node marker)
-           (and (star-syntax-p node)
-                (not (syntax-list-p node))
-                (eq (star-syntax-datum node) marker))))
-  (let* ((required-p (find-if (lambda (node) (marker-p node :required)) options))
-         (optional-p (find-if (lambda (node) (marker-p node :optional)) options))
-         (default-position
-           (position-if (lambda (node) (marker-p node :default)) options))
-         (default-p (not (null default-position)))
-         (default
-           (when default-p
-             (unless (< default-position (1- (length options)))
-               (fail 'invalid-field-error
+  (labels ((marker-p (node marker)
+             (and (star-syntax-p node)
+                  (not (syntax-list-p node))
+                  (eq (star-syntax-datum node) marker)))
+           (node-span (node)
+             (and (star-syntax-p node) (star-syntax-span node)))
+           (field-error (node related-spans control &rest arguments)
+             (let ((syntax (and (star-syntax-p node) node)))
+               (error 'invalid-field-error
+                      :message (apply #'format nil control arguments)
+                      :span (and syntax (star-syntax-span syntax))
+                      :origin (and syntax (star-syntax-origin syntax))
+                      :syntax-kind (and syntax (star-syntax-kind syntax))
+                      :related-spans (remove nil related-spans)
+                      :phase *star-current-phase*))))
+    (let ((remaining options)
+          (presence-node nil)
+          (required-p nil)
+          (default-node nil)
+          (default-p nil)
+          (default nil)
+          (name (identifier-string field-name)))
+      (loop while remaining
+            for item = (pop remaining)
+            do (cond
+                 ((or (marker-p item :required)
+                      (marker-p item :optional))
+                  (when presence-node
+                    (field-error
+                     item
+                     (list (node-span presence-node))
+                     "Field ~A declares more than one presence marker."
+                     name))
+                  (setf presence-node item
+                        required-p (marker-p item :required)))
+                 ((marker-p item :default)
+                  (when default-node
+                    (field-error
+                     item
+                     (list (node-span default-node))
+                     "Field ~A declares :default more than once."
+                     name))
+                  (unless remaining
+                    (field-error
+                     item nil
                      "Field ~A declares :default without a value."
-                     field-name))
-             (star-syntax-to-datum (nth (1+ default-position) options)))))
-    (when (and required-p optional-p)
-      (fail 'invalid-field-error
-            "Field ~A cannot be both required and optional."
-            field-name))
-    (unless (or required-p optional-p)
-      (fail 'invalid-field-error
-            "Field ~A must declare :required or :optional."
-            field-name))
-    (values (not (null required-p)) default default-p))))
+                     name))
+                  (setf default-node item
+                        default-p t
+                        default (star-syntax-to-datum (pop remaining))))
+                 (t
+                  (field-error
+                   item nil
+                   "Field ~A contains unrecognized field option ~S."
+                   name
+                   (star-syntax-to-datum item)))))
+      (unless presence-node
+        (field-error
+         field-name nil
+         "Field ~A must declare :required or :optional."
+         name))
+      (values required-p default default-p))))
 
 (defun compile-field (field library-name local-types)
   (with-star-source-position (field)
