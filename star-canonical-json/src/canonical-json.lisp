@@ -52,6 +52,8 @@
      (write-json-escaped-string value stream))
     ((integerp value)
      (format stream "~D" value))
+    ((typep value 'double-float)
+     (write-canonical-binary64 value stream))
     ((json-array-p value)
      (write-char #\[ stream)
      (loop for item in (json-array-values value)
