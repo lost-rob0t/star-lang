@@ -108,8 +108,9 @@
                 vm (floor (ash mm e2) denominator))
           (when (<= q 21)
             (cond
-              ((%multiple-of-power-p mv 5 q)
-               (setf vr-trailing-zero-p t))
+              ((zerop (mod mv 5))
+               (setf vr-trailing-zero-p
+                     (%multiple-of-power-p mv 5 q)))
               (accept-bounds-p
                (setf vm-trailing-zero-p
                      (%multiple-of-power-p mm 5 q)))
