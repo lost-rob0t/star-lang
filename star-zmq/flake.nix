@@ -1,5 +1,5 @@
 {
-  description = "StarLang local ZMQ binding and CL/Nim interoperability gate (draft)";
+  description = "StarLang local ZMQ libraries, example actor and interoperability gates (draft)";
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
   outputs = { self, nixpkgs }:
     let
@@ -12,9 +12,9 @@
           zmqLibrary = "${lib.getLib pkgs.zeromq}/lib/libzmq.so";
           lisp = pkgs.sbcl.withPackages (ps: [ ps.cffi ps.bordeaux-threads ]);
           python = pkgs.python3.withPackages (ps: [ ps.pyzmq ]);
-          nimPeer = pkgs.stdenv.mkDerivation {
-            pname = "star-zmq-peer";
-            version = "0.1.0";
+          makeNimProgram = { name, entry, description }: pkgs.stdenv.mkDerivation {
+            pname = name;
+            version = "0.2.0";
             src = self;
             nativeBuildInputs = [ pkgs.nim ];
             dontConfigure = true;
@@ -25,20 +25,30 @@
               nim c --threads:off -d:release \
                 --nimcache:"$TMPDIR/nimcache" \
                 -d:StarZmqLibrary=${zmqLibrary} \
-                --out:star-zmq-peer nim/peer.nim
+                --out:${name} nim/${entry}
               runHook postBuild
             '';
             installPhase = ''
               runHook preInstall
-              install -Dm755 star-zmq-peer "$out/bin/star-zmq-peer"
+              install -Dm755 ${name} "$out/bin/${name}"
               runHook postInstall
             '';
             meta = {
-              description = "One-shot Nim ZMQ byte peer; not a federation service";
+              inherit description;
               license = lib.licenses.agpl3Only;
-              mainProgram = "star-zmq-peer";
+              mainProgram = name;
               platforms = systems;
             };
+          };
+          nimPeer = makeNimProgram {
+            name = "star-zmq-peer";
+            entry = "peer.nim";
+            description = "One-shot Nim ZMQ byte fixture; not a federation service";
+          };
+          nimActor = makeNimProgram {
+            name = "star-zmq-actor";
+            entry = "actor.nim";
+            description = "Persistent local lifecycle-envelope example actor";
           };
           pythonClient = pkgs.python3Packages.buildPythonPackage {
             pname = "star-zmq-local";
@@ -48,9 +58,9 @@
             build-system = [ pkgs.python3Packages.setuptools ];
             dependencies = [ pkgs.python3Packages.pyzmq ];
           };
-          clSource = pkgs.runCommand "star-zmq-cl-source-0.1.0" { } ''
+          clSource = pkgs.runCommand "star-zmq-cl-source-0.2.0" { } ''
             mkdir -p "$out/share/common-lisp/source/star-zmq"
-            cp -R ${self}/src ${self}/tests ${self}/star-zmq.asd \
+            cp -R ${self}/src ${self}/tests ${self}/star-zmq.asd ${self}/star-zmq-actors.asd \
               "$out/share/common-lisp/source/star-zmq/"
           '';
           nimSource = pkgs.runCommand "star-zmq-nim-source-0.1.0" { } ''
@@ -78,10 +88,20 @@
             python -m unittest discover -s ${self}/tests -p 'test_*.py' -v
             touch "$out"
           '';
+          actorCheck = pkgs.runCommand "star-zmq-nim-actor-conformance" {
+            nativeBuildInputs = [ python ];
+            STAR_ZMQ_ACTOR = "${nimActor}/bin/star-zmq-actor";
+          } ''
+            export HOME="$TMPDIR/home"
+            mkdir -p "$HOME"
+            python ${self}/tests/actor_conformance.py
+            touch "$out"
+          '';
         in {
           packages = {
             default = nimPeer;
             star-zmq-peer = nimPeer;
+            star-zmq-actor = nimActor;
             star-zmq-cl = clSource;
             star-zmq-nim = nimSource;
             star-zmq-python = pythonClient;
@@ -89,9 +109,11 @@
           apps = {
             default = { type = "app"; program = "${nimPeer}/bin/star-zmq-peer"; };
             peer = { type = "app"; program = "${nimPeer}/bin/star-zmq-peer"; };
+            actor = { type = "app"; program = "${nimActor}/bin/star-zmq-actor"; };
           };
           checks = {
             native-interop = nativeCheck;
+            nim-actor-conformance = actorCheck;
             python-transport = pythonCheck;
             python-package = pythonClient;
           };
