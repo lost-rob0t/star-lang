@@ -56,6 +56,8 @@
     (starlangcompiler:emit-a2a-agent-card
      (a2a-test-actor)
      "http://workers.starintel.actor/gov-catalog"))
+  (is (not (starlangcompiler:valid-a2a-interface-url-p
+            "http://localhost.evil.example/gov-catalog")))
   (is (starlangcompiler:valid-a2a-interface-url-p
        "http://127.0.0.1:9999/gov-catalog"))
   (is (starlangcompiler:valid-a2a-interface-url-p
@@ -73,8 +75,8 @@
     (starlangcompiler:emit-a2a-agent-card
      (a2a-test-actor)
      "https://workers.starintel.actor/gov-catalog"
-     :skills '(((`"id`" . "dup"))
-               ((`"id`" . "dup"))))))
+     :skills '((('"id" . "dup"))
+               (('"id" . "dup"))))))
 
 (defun run-tests ()
   (unless (run! 'starlang-a2a-manifest-tests)
