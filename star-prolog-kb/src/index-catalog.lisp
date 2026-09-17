@@ -105,13 +105,16 @@ still present, allowing a formerly dynamic index to be promoted into source."
                             (graph-name +default-graph-name+)
                             rebuild-indexes)
   "Open the Tek9 KB and rehydrate runtime-defined indexes from its catalog."
+  ;; The underlying opener intentionally skips rebuild here. Rehydrate first so
+  ;; :REBUILD-INDEXES rebuilds source-declared and runtime-catalog indexes once,
+  ;; under one consistent definition set.
   (let ((kb
           (funcall *open-starintel-kb-without-index-catalog*
                    program spec-ir
                    :path path
                    :max-dbs max-dbs
                    :graph-name graph-name
-                   :rebuild-indexes rebuild-indexes)))
+                   :rebuild-indexes nil)))
     (handler-case
         (progn
           (%rehydrate-runtime-indexes kb)
@@ -125,11 +128,25 @@ still present, allowing a formerly dynamic index to be promoted into source."
         (ignore-errors (close-starintel-kb kb))
         (error condition)))))
 
+(defun %forget-process-index (kb spec)
+  (ignore-errors
+    (%tek9-call "UNREGISTER-INDEX"
+                (starintel-kb-database kb)
+                (kb-index-spec-name spec)))
+  (setf (starintel-kb-indexes kb)
+        (remove (kb-index-spec-name spec)
+                (starintel-kb-indexes kb)
+                :test #'string=
+                :key #'kb-index-spec-name))
+  kb)
+
 (defun define-index (kb name &key source fields (kind :auto) (rebuild t))
   "Define, build, and durably catalog a new Tek9 index.
 
 The definition is written only after registration/rebuild succeeds. On the next
-OPEN-STARINTEL-KB it is re-registered against the same durable Tek9 index DB."
+OPEN-STARINTEL-KB it is re-registered against the same durable Tek9 index DB.
+If catalog persistence fails, process-local registration is rolled back and the
+operation fails closed."
   (let ((spec
           (funcall *define-index-without-index-catalog*
                    kb name
@@ -137,5 +154,10 @@ OPEN-STARINTEL-KB it is re-registered against the same durable Tek9 index DB."
                    :fields fields
                    :kind kind
                    :rebuild rebuild)))
-    (%persist-runtime-index-spec kb spec)
-    spec))
+    (handler-case
+        (progn
+          (%persist-runtime-index-spec kb spec)
+          spec)
+      (error (condition)
+        (%forget-process-index kb spec)
+        (error condition)))))
