@@ -49,7 +49,7 @@
                       (replace-once text "\"attempt\":1" "\"attempt\":true")
                       (replace-once text "\"attempt\":1" "\"attempt\":1,\"attempt\":2")
                       (replace-once text "\"payload\":{" "\"payload\":{\"extra\":1,")
-                      (concatenate 'string text "{}"))))
+                      (concatenate 'string text "{}")))
       (fails 'star-zmq-actors:wire-error
              (lambda () (star-zmq-actors:decode-envelope contract (bytes bad)))))
     (fails 'star-zmq-actors:wire-error
