@@ -29,6 +29,15 @@
    #:star-actor-reference-service-uri
    #:star-actor-reference-same-logical-actor-p
    #:+lifecycle-wire-version+
+   #:+portable-manifest-wire-version+
+   #:+portable-manifest-max-types+
+   #:+portable-manifest-max-predicates+
+   #:+portable-manifest-max-messages+
+   #:+portable-manifest-max-actors+
+   #:+portable-manifest-max-fields+
+   #:+portable-manifest-max-capabilities+
+   #:+portable-manifest-max-metadata-entries+
+   #:+portable-manifest-max-name-bytes+
    #:+ack-message-type+
    #:+error-message-type+
    #:+cancel-message-type+
@@ -50,6 +59,7 @@
    #:cancel-target-correlation-id
    #:make-wire-envelope
    #:validate-wire-envelope
+   #:validate-portable-manifest
    #:portable-manifest-message-contract
    #:portable-manifest-type-contract
    #:portable-manifest-document-fields
