@@ -6,6 +6,9 @@ on:
       - 'star-actor-protocol/**'
       - 'star-canonical-json/**'
       - 'star-process-port/**'
+      - 'starlang-compiler/**'
+      - 'starlang-runtime/**'
+      - 'star-mailbox/**'
       - '.github/workflows/zmq-local.yml'
   workflow_dispatch:
 permissions:
@@ -68,11 +71,20 @@ jobs:
             --eval '(require :asdf)' \
             --eval '(asdf:initialize-source-registry `(:source-registry (:tree ,(uiop:getcwd)) :inherit-configuration))' \
             --eval '(asdf:test-system "star-zmq-actors")'
+      - name: Exercise compiled StarLang through the real mailbox and Nim ZMQ peer
+        shell: bash
+        run: |
+          set -euo pipefail
+          export STAR_ZMQ_ACTOR="$RUNNER_TEMP/star-zmq-actor"
+          sbcl --non-interactive \
+            --eval '(require :asdf)' \
+            --eval '(asdf:initialize-source-registry `(:source-registry (:tree ,(uiop:getcwd)) :inherit-configuration))' \
+            --eval '(asdf:test-system "star-zmq-runtime")'
       - name: Exercise surrounding protocol, canonical JSON and process-port suites
         shell: bash
         run: |
           set -euo pipefail
-          for system in star-actor-protocol star-canonical-json star-process-port; do
+          for system in star-actor-protocol star-canonical-json star-process-port starlang-runtime starlang-compiler; do
             sbcl --non-interactive \
               --eval '(require :asdf)' \
               --eval '(asdf:initialize-source-registry `(:source-registry (:tree ,(uiop:getcwd)) :inherit-configuration))' \
