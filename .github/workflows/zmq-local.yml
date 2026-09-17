@@ -1,0 +1,125 @@
+name: ZMQ local native interoperability
+on:
+  pull_request:
+    paths:
+      - 'star-zmq/**'
+      - 'star-actor-protocol/**'
+      - 'star-canonical-json/**'
+      - 'star-process-port/**'
+      - 'starlang-compiler/**'
+      - 'starlang-runtime/**'
+      - 'star-mailbox/**'
+      - '.github/workflows/zmq-local.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: zmq-local-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Read the exact PR head or dispatched commit
+        shell: bash
+        env:
+          TEST_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          git fetch --depth=1 origin "$TEST_SHA"
+          git checkout --detach FETCH_HEAD
+      - name: Install native test dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y sbcl cl-cffi cl-bordeaux-threads cl-babel cl-yason cl-fiveam libzmq3-dev nim python3-venv
+          python3 -m venv .venv
+          .venv/bin/pip install ./star-zmq/python
+      - name: Build the external Nim fixture and persistent actor
+        shell: bash
+        run: |
+          set -euo pipefail
+          nim c --threads:off --out:"$RUNNER_TEMP/star-zmq-peer" star-zmq/nim/peer.nim
+          nim c --threads:off --out:"$RUNNER_TEMP/star-zmq-actor" star-zmq/nim/actor.nim
+      - name: Check persistent Nim wire conformance over IPC and TCP
+        shell: bash
+        run: |
+          set -euo pipefail
+          STAR_ZMQ_ACTOR="$RUNNER_TEMP/star-zmq-actor" .venv/bin/python star-zmq/tests/actor_conformance.py
+      - name: Exercise Common Lisp CFFI and Lisp-launched Nim
+        shell: bash
+        run: |
+          set -euo pipefail
+          export STAR_ZMQ_PEER="$RUNNER_TEMP/star-zmq-peer"
+          sbcl --non-interactive \
+            --eval '(require :asdf)' \
+            --eval '(asdf:load-asd (truename "star-zmq/star-zmq.asd"))' \
+            --eval '(asdf:test-system "star-zmq")'
+      - name: Exercise lifecycle codec, persistent actor and real process faults
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PATH="$PWD/.venv/bin:$PATH"
+          export STAR_ZMQ_ACTOR="$RUNNER_TEMP/star-zmq-actor"
+          export STAR_ZMQ_FAULT_PEER="$PWD/star-zmq/tests/adversarial_peer.py"
+          chmod +x "$STAR_ZMQ_FAULT_PEER"
+          sbcl --non-interactive \
+            --eval '(require :asdf)' \
+            --eval '(asdf:initialize-source-registry `(:source-registry (:tree ,(uiop:getcwd)) :inherit-configuration))' \
+            --eval '(asdf:test-system "star-zmq-actors")'
+      - name: Exercise compiled StarLang through the real mailbox and Nim ZMQ peer
+        shell: bash
+        run: |
+          set -uo pipefail
+          export STAR_ZMQ_ACTOR="$RUNNER_TEMP/star-zmq-actor"
+          log="$RUNNER_TEMP/star-zmq-runtime-e2e.log"
+          set +e
+          sbcl --non-interactive \
+            --eval '(require :asdf)' \
+            --eval '(asdf:initialize-source-registry `(:source-registry (:tree ,(uiop:getcwd)) :inherit-configuration))' \
+            --eval '(asdf:test-system "star-zmq-runtime")' >"$log" 2>&1
+          status=$?
+          set -e
+          cat "$log"
+          exit "$status"
+      - name: Upload StarLang runtime E2E failure log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: star-zmq-runtime-e2e-failure
+          path: ${{ runner.temp }}/star-zmq-runtime-e2e.log
+          if-no-files-found: ignore
+          retention-days: 1
+      - name: Exercise surrounding transport/protocol authority suites
+        shell: bash
+        run: |
+          set -euo pipefail
+          for system in star-actor-protocol star-canonical-json star-process-port; do
+            sbcl --non-interactive \
+              --eval '(require :asdf)' \
+              --eval '(asdf:initialize-source-registry `(:source-registry (:tree ,(uiop:getcwd)) :inherit-configuration))' \
+              --eval "(asdf:test-system \"$system\")"
+          done
+      - name: Exercise Python byte framing separately
+        run: .venv/bin/python -m unittest discover -s star-zmq/tests -p 'test_*.py' -v
+  standalone-nix:
+    name: Standalone ZMQ flake
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: DeterminateSystems/determinate-nix-action@v3
+      - name: Check the locked local transport flake
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix flake check ./star-zmq --no-update-lock-file --print-build-logs
+          nix build ./star-zmq#star-zmq-actor ./star-zmq#star-zmq-cl \
+            ./star-zmq#star-zmq-nim ./star-zmq#star-zmq-python --no-link --no-update-lock-file
