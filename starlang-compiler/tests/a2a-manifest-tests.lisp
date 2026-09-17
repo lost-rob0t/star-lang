@@ -75,8 +75,8 @@
     (starlangcompiler:emit-a2a-agent-card
      (a2a-test-actor)
      "https://workers.starintel.actor/gov-catalog"
-     :skills '((('"id" . "dup"))
-               (('"id" . "dup"))))))
+     :skills '((("id" . "dup"))
+               (("id" . "dup"))))))
 
 (defun run-tests ()
   (unless (run! 'starlang-a2a-manifest-tests)
