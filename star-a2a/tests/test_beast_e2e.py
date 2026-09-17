@@ -8,7 +8,6 @@ from typing import Any
 
 import httpx
 
-from star_a2a import EXPECTED_WORKERS if False else None
 from star_a2a.host import build_app, load_beast_catalog
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -98,7 +97,7 @@ class BeastA2AE2E(unittest.IsolatedAsyncioTestCase):
         self.assertGreaterEqual(self.state.counts["gov-catalog"], 2)
         self.assertEqual(self.state.counts["beast-orchestrator"], 1)
 
-    async def test_v1_header_and_required_message_fields_are_present(self) -> None:
+    async def test_v1_required_message_fields_are_present(self) -> None:
         request = message_request("gov-catalog", "fixture")
         self.assertEqual(request["method"], "SendMessage")
         message = request["params"]["message"]
