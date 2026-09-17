@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import asyncio
 import json
+import threading
 from collections import defaultdict
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+import pykka
 from a2a.helpers import get_message_text, new_task_from_user_message, new_text_message, new_text_part
 from a2a.server.agent_execution import AgentExecutor, RequestContext
 from a2a.server.events import EventQueue
@@ -38,10 +41,50 @@ Delegate = Callable[[str, str], Awaitable[dict[str, Any]]]
 class InvocationState:
     counts: dict[str, int] = field(default_factory=lambda: defaultdict(int))
     last_input: dict[str, str] = field(default_factory=dict)
+    actor_refs: dict[str, pykka.ActorRef[Any]] = field(default_factory=dict)
+    _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
     def record(self, worker_id: str, text: str) -> None:
-        self.counts[worker_id] += 1
-        self.last_input[worker_id] = text
+        with self._lock:
+            self.counts[worker_id] += 1
+            self.last_input[worker_id] = text
+
+    def register_actor(self, worker_id: str, actor_ref: pykka.ActorRef[Any]) -> None:
+        if worker_id in self.actor_refs:
+            raise ValueError(f"duplicate worker actor: {worker_id}")
+        self.actor_refs[worker_id] = actor_ref
+
+    def stop_workers(self) -> None:
+        refs = list(self.actor_refs.values())
+        self.actor_refs.clear()
+        for actor_ref in refs:
+            actor_ref.stop(block=True, timeout=5)
+
+
+class ReferenceWorkerActor(pykka.ThreadingActor):
+    """One bounded-mailbox execution identity behind one public A2A endpoint.
+
+    Production deployments can replace this reference actor with domain-specific
+    implementations while preserving the same StarLang/A2A contract. Inter-worker
+    coordination remains A2A; Pykka owns the local worker mailbox/lifecycle only.
+    """
+
+    def __init__(self, worker_id: str, state: InvocationState) -> None:
+        super().__init__()
+        self.worker_id = worker_id
+        self.state = state
+
+    def on_receive(self, message: Any) -> dict[str, Any]:
+        if not isinstance(message, dict) or message.get("type") != "execute":
+            raise ValueError("unsupported worker actor message")
+        text = str(message.get("text") or "")
+        self.state.record(self.worker_id, text)
+        return {
+            "worker": self.worker_id,
+            "accepted": True,
+            "input": text,
+            "runtime": "pykka",
+        }
 
 
 def load_beast_catalog(path: str | Path) -> dict[str, Any]:
@@ -101,11 +144,11 @@ class ReferenceWorkerExecutor(AgentExecutor):
     def __init__(
         self,
         worker_id: str,
-        state: InvocationState,
+        actor_ref: pykka.ActorRef[Any],
         delegate: Delegate | None = None,
     ) -> None:
         self.worker_id = worker_id
-        self.state = state
+        self.actor_ref = actor_ref
         self.delegate = delegate
 
     async def execute(self, context: RequestContext, event_queue: EventQueue) -> None:
@@ -124,12 +167,15 @@ class ReferenceWorkerExecutor(AgentExecutor):
         )
 
         text = get_message_text(context.message) or ""
-        self.state.record(self.worker_id, text)
-        result: dict[str, Any] = {
-            "worker": self.worker_id,
-            "accepted": True,
-            "input": text,
-        }
+        result = await asyncio.to_thread(
+            lambda: self.actor_ref.ask(
+                {"type": "execute", "text": text},
+                block=True,
+                timeout=10,
+            )
+        )
+        if not isinstance(result, dict):
+            raise TypeError("worker actor returned a non-object result")
 
         if self.worker_id == "beast-orchestrator" and self.delegate is not None:
             result["delegated"] = await self.delegate("gov-catalog", text)
@@ -168,22 +214,28 @@ def build_app(
     runtime_state = state or InvocationState()
     routes = []
 
-    for worker in catalog["workers"]:
-        worker_id = worker["id"]
-        path = f"/a2a/{worker_id}"
-        card = _worker_card(worker, path, public_url)
-        executor = ReferenceWorkerExecutor(worker_id, runtime_state, delegate)
-        handler = DefaultRequestHandler(
-            agent_executor=executor,
-            task_store=InMemoryTaskStore(),
-            agent_card=card,
-        )
-        routes.extend(
-            create_agent_card_routes(
-                card,
-                card_url=f"{path}{AGENT_CARD_WELL_KNOWN_PATH}",
+    try:
+        for worker in catalog["workers"]:
+            worker_id = worker["id"]
+            path = f"/a2a/{worker_id}"
+            card = _worker_card(worker, path, public_url)
+            actor_ref = ReferenceWorkerActor.start(worker_id, runtime_state)
+            runtime_state.register_actor(worker_id, actor_ref)
+            executor = ReferenceWorkerExecutor(worker_id, actor_ref, delegate)
+            handler = DefaultRequestHandler(
+                agent_executor=executor,
+                task_store=InMemoryTaskStore(),
+                agent_card=card,
             )
-        )
-        routes.extend(create_jsonrpc_routes(handler, rpc_url=path))
+            routes.extend(
+                create_agent_card_routes(
+                    card,
+                    card_url=f"{path}{AGENT_CARD_WELL_KNOWN_PATH}",
+                )
+            )
+            routes.extend(create_jsonrpc_routes(handler, rpc_url=path))
+    except Exception:
+        runtime_state.stop_workers()
+        raise
 
     return Starlette(routes=routes), runtime_state
