@@ -89,12 +89,13 @@ still present, allowing a formerly dynamic index to be promoted into source."
     (unless (%find-index-spec kb (kb-index-spec-name spec))
       (%register-rehydrated-index kb spec))))
 
-;; Keep the storage implementation focused on Tek9 operations. This final file
-;; adds durable catalog semantics without introducing a second storage layer.
-(defparameter *open-starintel-kb-without-index-catalog*
+;; Capture the underlying storage functions once. DEFVAR deliberately keeps the
+;; first binding when this file is reloaded interactively, avoiding wrapper-on-
+;; wrapper recursion during Lisp image development.
+(defvar *open-starintel-kb-without-index-catalog*
   (symbol-function 'open-starintel-kb))
 
-(defparameter *define-index-without-index-catalog*
+(defvar *define-index-without-index-catalog*
   (symbol-function 'define-index))
 
 (defun open-starintel-kb (program spec-ir
