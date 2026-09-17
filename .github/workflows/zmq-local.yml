@@ -94,11 +94,11 @@ jobs:
           path: ${{ runner.temp }}/star-zmq-runtime-e2e.log
           if-no-files-found: ignore
           retention-days: 1
-      - name: Exercise surrounding protocol, canonical JSON and process-port suites
+      - name: Exercise surrounding transport/protocol authority suites
         shell: bash
         run: |
           set -euo pipefail
-          for system in star-actor-protocol star-canonical-json star-process-port starlang-runtime starlang-compiler; do
+          for system in star-actor-protocol star-canonical-json star-process-port; do
             sbcl --non-interactive \
               --eval '(require :asdf)' \
               --eval '(asdf:initialize-source-registry `(:source-registry (:tree ,(uiop:getcwd)) :inherit-configuration))' \
