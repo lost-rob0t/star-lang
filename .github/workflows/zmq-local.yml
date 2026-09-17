@@ -74,12 +74,26 @@ jobs:
       - name: Exercise compiled StarLang through the real mailbox and Nim ZMQ peer
         shell: bash
         run: |
-          set -euo pipefail
+          set -uo pipefail
           export STAR_ZMQ_ACTOR="$RUNNER_TEMP/star-zmq-actor"
+          log="$RUNNER_TEMP/star-zmq-runtime-e2e.log"
+          set +e
           sbcl --non-interactive \
             --eval '(require :asdf)' \
             --eval '(asdf:initialize-source-registry `(:source-registry (:tree ,(uiop:getcwd)) :inherit-configuration))' \
-            --eval '(asdf:test-system "star-zmq-runtime")'
+            --eval '(asdf:test-system "star-zmq-runtime")' >"$log" 2>&1
+          status=$?
+          set -e
+          cat "$log"
+          exit "$status"
+      - name: Upload StarLang runtime E2E failure log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: star-zmq-runtime-e2e-failure
+          path: ${{ runner.temp }}/star-zmq-runtime-e2e.log
+          if-no-files-found: ignore
+          retention-days: 1
       - name: Exercise surrounding protocol, canonical JSON and process-port suites
         shell: bash
         run: |
