@@ -132,12 +132,30 @@
               "profile" ("provider" "example")))
            (check (= 1 (length (starprologkb:query-field kb "username" "alice")))
                   "Tek9 automatic field index returned wrong count")
+           (check (= 1 (length (starprologkb:query-field kb "tags" "beta")))
+                  "Tek9 list-field index did not expand values")
+           (check (= 1 (length (starprologkb:query-index
+                                kb "userByProvider" "alice" "example")))
+                  "StarLang-declared compound/path index returned wrong count")
            (starprologkb:define-index
             kb "byDataset" :source "document" :fields '("dataset"))
            (check (= 1 (length (starprologkb:query-index kb "byDataset" "demo")))
                   "runtime-defined Tek9 index returned wrong count")
            (check (search "reachable(A,B)" (starprologkb:prolog-snapshot-string kb))
-                  "raw Prolog block missing from snapshot"))
+                  "raw Prolog block missing from snapshot")
+
+           ;; Runtime index definitions are durable KB catalog state, not Lisp
+           ;; image state. Reopen the same LMDB environment and prove rehydrate.
+           (starprologkb:close-starintel-kb kb)
+           (setf kb nil)
+           (setf kb (starprologkb:open-starintel-kb program spec :path root))
+           (check (find "byDataset"
+                        (starprologkb:list-indexes kb)
+                        :test #'string=
+                        :key #'starprologkb:kb-index-spec-name)
+                  "runtime-defined index was not rehydrated after restart")
+           (check (= 1 (length (starprologkb:query-index kb "byDataset" "demo")))
+                  "rehydrated runtime index lost durable postings"))
       (when kb
         (ignore-errors (starprologkb:close-starintel-kb kb)))
       (when (probe-file root)
