@@ -9,10 +9,16 @@
 (define-condition peer-exited-error (peer-error) ())
 
 (defstruct (peer (:constructor %make-peer))
-  owner socket process identity actor manifest generation
+  owner socket process identity actor manifest control-manifest generation
   (state :starting) drainers
   (drain-lock (bordeaux-threads:make-lock "star-zmq process drains"))
   (drain-failed-p nil) (closing-p nil))
+
+(defun readiness-manifest ()
+  "Private transport contract. Applications never need to declare ZMQ readiness."
+  '(:messages
+    ((:name "star.zmq/ready@1"
+      :fields ((:name "generation" :type "integer" :required t))))))
 
 (defun require-peer-owner (peer)
   (check-type peer peer)
@@ -78,7 +84,7 @@
   (max 0 (ceiling (* 1000 (- deadline (get-internal-real-time)))
                   internal-time-units-per-second)))
 
-(defun await-envelope (peer deadline)
+(defun await-envelope (peer deadline &optional (manifest (peer-manifest peer)))
   (loop
     for remaining = (remaining-ms deadline)
     do (when (zerop remaining) (error 'peer-timeout-error))
@@ -93,7 +99,7 @@
            (let ((frames (star-zmq:receive-frames (peer-socket peer))))
              (unless (equalp (first frames) (peer-identity peer))
                (error 'peer-protocol-error))
-             (return (decode-envelope (peer-manifest peer) (second frames)))))
+             (return (decode-envelope manifest (second frames)))))
          (unless live (error 'peer-exited-error)))))
 
 (defun open-peer (context executable endpoint identity actor manifest
@@ -116,6 +122,7 @@ session is single-owner."
            (bytes (babel:string-to-octets route :encoding :utf-8))
            (peer (%make-peer :owner (bordeaux-threads:current-thread)
                              :identity bytes :actor actor :manifest manifest
+                             :control-manifest (readiness-manifest)
                              :generation generation)))
       (unless (and (<= 1 (length bytes) 255) (not (find (code-char 0) route)))
         (error 'peer-protocol-error))
@@ -130,7 +137,10 @@ session is single-owner."
                    :generation generation :element-type '(unsigned-byte 8)))
             (push (start-drainer peer (starprocessport:process-stdout (peer-process peer))) (peer-drainers peer))
             (push (start-drainer peer (starprocessport:process-stderr (peer-process peer))) (peer-drainers peer))
-            (let ((ready (await-envelope peer deadline)))
+            ;; Readiness belongs to this transport, not the compiled application's
+            ;; domain manifest. Keep the contracts separate so a real StarLang
+            ;; application does not need to know about star.zmq/ready@1.
+            (let ((ready (await-envelope peer deadline (peer-control-manifest peer))))
               (unless (and (eq (getf ready :kind) :event)
                            (string= (getf ready :message-type) "star.zmq/ready@1")
                            (string= (getf ready :actor) actor)
