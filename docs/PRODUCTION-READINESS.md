@@ -1,30 +1,49 @@
 # StarLang production readiness
 
-Status: **not production-ready**
+Status: **final-system migration complete on this branch; stable release still gated**
 
-StarLang becomes a production language when the product path is owned entirely by final `star-*` and `starlang-*` systems. Passing tests in `starlang-prototype` is necessary during migration, but it is not evidence that the migration is complete.
+StarLang's production product path is owned by final `star-*` and `starlang-*`
+systems. The retired `starlang-prototype.asd` system and `prototype/` source tree
+must not return.
 
-## Hard release gate
+This document separates two different claims:
 
-`ci/prototype-migration.tsv` is the machine-readable authority ledger for every implementation component still loaded by `starlang-prototype.asd`.
+1. **final-system authority** — compiler/runtime/CLI/package code no longer depends
+   on prototype authority;
+2. **stable production release** — all research-conformance, runtime, adapter,
+   packaging, security, and reproducibility gates pass on the same release commit.
+
+The first claim is enforced structurally. The second remains blocked until every
+release gate below is green.
+
+## Permanent final-authority gate
+
+Run:
 
 ```sh
-bash ci/check-prototype-migration.sh
-bash ci/check-prototype-migration.sh --require-final
+bash ci/check-final-authority.sh
 ```
 
-The first command is the normal structural CI gate. It fails when a prototype component is added, removed, or renamed without updating the ledger, when an invalid state is used, or when a component points at a final owner that is not independently load-checked.
+The gate fails if:
 
-The second command is the production release gate. It fails until every remaining prototype component is `compat`, meaning it contains compatibility composition/forwarding only and no authoritative language or runtime behavior.
+- `starlang-prototype.asd` exists;
+- `prototype/` exists;
+- active ASDF, CI, Nix, or shell configuration references prototype authority;
+- the final `starlang-loader` is missing from the independently load-checked
+  target systems;
+- final compiler program IR / semantic validation ownership disappears;
+- final Sento program binding disappears; or
+- the CLI delegates to retired prototype code.
 
-Do not change a ledger row to `compat` merely to satisfy the gate. The implementation must move first, its final-system tests must pass independently, and the prototype file must become a thin compatibility layer or leave the authoritative ASDF system.
+This is intentionally a one-way structural rule. There is no compatibility
+ledger whose state can be edited to make retirement appear complete.
 
-## P0: finish the compiler
+## Final compiler path
 
-The final `starlang-compiler` must own the complete source-to-IR path without loading `starlang-prototype`:
+`starlang-compiler` owns the closed source-to-IR path:
 
 ```text
-UTF-8 bytes
+UTF-8 source bytes
   -> read-star-syntax
   -> exact locked import resolution
   -> expand-star-syntax
@@ -33,78 +52,104 @@ UTF-8 bytes
   -> runtime-neutral normalized IR
 ```
 
-Extraction order:
+Production invariants include:
 
-1. syntax objects, source spans, structured diagnostics, and parser resource limits from `core-surface-prototype`;
-2. the closed `.star` parser and the no-Common-Lisp-reader invariant;
-3. bounded hygienic macro expansion from `macro-expander-prototype`;
-4. semantic validation and normalized IR from `core-semantics-prototype` and `compiler-ir-prototype`;
-5. specification/domain compilation and full SHA-256/HTTPS import policy;
-6. loader resolution and effect adapters;
-7. generated portable manifests and Python/TypeScript bindings;
-8. public compile/check APIs and CLI entry points.
+- `.star` source never reaches Common Lisp `READ`/`EVAL`;
+- parser/source work is explicitly bounded;
+- syntax occurrences retain source identity/spans;
+- imported specifications are exact-versioned and digest locked;
+- semantic validation happens before runtime binding;
+- normalized IR contains data, not Sento/cl-gserver objects or raw host handles;
+- portable manifests are emitted through final compiler/serialization systems.
 
-Items 1 through 3 are complete: the closed parser, syntax model, diagnostics,
-parser limits, and bounded declarative hygienic macro expander are final-owned by
-`starlang-compiler` (`star-lang.compiler.core`). Macro collection, expansion
-limits, fresh introduction scopes, definition/use-site provenance, imported
-macro environments, expansion traces/dependencies, one-step expansion, and
-stable expanded-source rendering are tested by the final compiler test system
-without loading prototype packages. Specification lowering and actor source
-lowering are also final-owned; the actor declaration is real `.star` source.
-The resolver effect protocol is a loader-boundary item already moved to the
-final compiler. Network and digest implementations remain adapters; compiler
-policy must not gain ambient shell/network authority.
+`star-sento-compat` owns concrete Sento translation after lowering. Backend names
+and objects do not become compiler IR authority.
 
-The next compiler authority slice is semantic validation and normalized IR from
-`core-semantics-prototype` and `compiler-ir-prototype`; loader migration must not
-skip ahead of those owners.
+## Final product path
 
-Before a stable release, the research-conformance blocker must be closed with executable regression coverage for field casing, canonical numbers/JSON, complete digests, source spelling/spans, parser bounds, secure imports, and runtime-neutral IR.
+The installed `starlang` command enters `starlang-cli` directly and loads final
+systems only. Stable commands are:
 
-## P0: finish the actor runtime
+```text
+starlang version
+starlang check FILE
+starlang compile FILE [--manifest FILE]
+starlang run FILE [--eval FORM]... [--load FILE]... [--package PKG] [--manifest FILE]
+starlang load FILE [--allow-network] [--cache DIR] [--manifest FILE]
+starlang load-url URL --name NAME --version VERSION --digest SHA256 [options]
+```
 
-`starlang-runtime` and the final actor systems must own one semantic path for:
+`load` and `load-url` are now final `starlang-loader` operations. Network
+resolution is opt-in. Product code must not fall back to a prototype loader.
 
-- actor definition materialization, registration, lifecycle, and generation;
-- bounded mailboxes and serialized state transitions;
-- tell and split-phase ask/reply without deadlocking nested actor exchanges;
-- command/reply/error/cancel wire lifecycle;
+Exit status is stable: 0 success, 1 runtime/diagnostic failure, 2 usage error.
+
+## Final actor/runtime path
+
+A stable production release must keep one final semantic authority for:
+
+- actor definition/materialization, lifecycle, identity, and generation;
+- bounded mailboxes and serialized actor-state transitions;
+- tell and split-phase ask/reply semantics;
+- command/reply/error/cancel lifecycle;
 - deterministic dispatch and external adapter dispatch;
-- runtime directory and remote registration/dispatch;
+- runtime directory / actor discovery;
 - supervision and restart policy;
-- journal, replay, idempotency, leases, and fencing;
+- journal/replay/idempotency and lease/fencing semantics;
 - concrete Sento/cl-gserver integration behind `star-sento-compat`;
-- deterministic shutdown with no leaked actor systems, processes, or workers.
+- deterministic drain/shutdown without leaked actors, workers, or processes.
 
-A fake operation port can prove argument forwarding. It does not count as evidence for actor semantics. Actor-semantic integration tests must execute through the real actor system/runtime boundary being claimed.
+Mocks may prove external-effect port behavior. They do not count as actor-semantic
+evidence. Shipped Sento behavior requires real Sento integration evidence.
 
-## P0: make the product path final-only
+## Research-conformance release blocker
 
-The installed `starlang` command must stop loading `starlang-prototype` as the product runtime. The stable command/API surface should provide explicit compile/check/run behavior, deterministic exit status, structured diagnostics, and version reporting while loading only final systems.
+Prototype retirement is not permission to call the language fully conformant.
+`RESEARCH-CONFORMANCE-000-009.md` remains authoritative for the approved research
+boundary, and issue #6 remains the integration gate.
 
-The final `starlang-cli` system now provides `version`, `check`, `compile`, and `run` commands with typed compiler/runtime diagnostics, deterministic exit codes (0 success, 1 diagnostic failure, 2 usage error), and the real deterministic dispatcher for `run`; `load`/`load-url` remain delegated to the transitional prototype loader because the spec-library loader is still prototype-owned. Nix and CI exercise that final CLI path, so the only product path left behind is the transitional loader.
+In particular, a stable release must not be claimed until the remaining
+conformance work — including the binary64 `float`/canonical-number contract,
+canonical relation positions, complete digest/import policy, generated binding
+coverage, and permanent research-conformance CI guards — is complete.
 
-Nix, ASDF, CI, and packaged artifacts must exercise that same path. A compatibility test suite may continue to load `starlang-prototype` until the directory is deleted, but production execution may not depend on it.
+## Reproducible release contract
 
-## P0: reproducible release contract
+A production release requires all applicable checks to pass on the **same commit**:
 
-A production release requires all of the following at the same commit:
+```sh
+bash ci/check-final-authority.sh
+nix flake check -L
+```
 
-- `bash ci/check-prototype-migration.sh --require-final` passes;
-- final compiler and runtime test systems pass in fresh SBCL processes;
-- real Sento integration passes when that backend is shipped;
-- real external logic adapters pass their pinned integration suites when shipped;
-- `nix flake check -L` passes from a clean checkout;
-- frozen canonical fixtures and generated bindings are reproducible;
+And, through CI/ASDF/package checks:
+
+- every system in `ci/target-systems.txt` loads independently in a fresh process;
+- final compiler, loader, CLI, runtime, journal, lease, mailbox, supervisor,
+  protocol, canonical JSON, and adapter suites pass;
+- real Sento integration and the final-only two-process remoting smoke pass;
+- shipped external logic adapters pass their pinned integration suites;
+- canonical fixtures and generated bindings reproduce exactly;
+- the installed `starlang` package executes the same final-only path tested by CI;
 - dependency/version locks, license inventory, and SBOM are current;
-- no implementation authority is hidden in example, fixture, or compatibility code;
-- the README no longer describes `prototype/` as authoritative.
+- no implementation authority is hidden in fixtures/examples/compatibility code;
+- no secret, credential, private dataset, or private evidence is present.
 
-Only then should the language move from a `0.x`/transitional contract to a stable production release policy.
+A green subset is not a release. A failed or skipped required check keeps the
+release blocked.
 
-## P1 after the semantic core is stable
+## Release policy
 
-Production ergonomics matter, but they come after language/runtime authority is settled: formatter, Emacs major mode/LSP-quality diagnostics, package/library UX, profiling, tracing, benchmark suites, compatibility policy, deprecation tooling, and release migration docs.
+StarLang remains a `0.x` contract while research conformance and the remaining
+service-grade runtime/embedding gates are still active. Moving to a stable
+release line requires:
 
-The rule is simple: do not make tooling polish hide an unfinished compiler/runtime port.
+1. issue #6 / research 000–009 conformance closed with permanent executable gates;
+2. final runtime and embedding acceptance profiles satisfied;
+3. exact-head ASDF, CI, Nix, native interoperability, and package checks green;
+4. release artifacts generated from that exact commit; and
+5. ownership/status documentation updated to match executable reality.
+
+Production ergonomics — formatter/LSP/editor UX, profiling, tracing, benchmarks,
+deprecation helpers, and migration guides — matter after semantic and release
+authority is proven. Tooling polish must not hide a red semantic gate.
