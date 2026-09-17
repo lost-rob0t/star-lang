@@ -103,10 +103,13 @@
 CONTEXT is host-owned. GENERATION is supplied by the existing supervisor; this
 port defines no restart/replay policy. IPC directory ownership is the caller's
 responsibility. A routing identity is not authentication. Only local endpoints
-accepted by star-zmq are allowed. The returned session is single-owner."
+accepted by star-zmq are allowed, excluding process-local inproc. The returned
+session is single-owner."
   (let ((deadline (request-deadline timeout-ms)))
     (unless (and (integerp generation) (<= 0 generation 2147483647)
-                 (stringp actor) (plusp (length actor))
+                 (stringp actor) (<= 1 (length actor) 1024)
+                 (not (find (code-char 0) actor))
+                 (stringp endpoint) (not (uiop:string-prefix-p "inproc://" endpoint))
                  (stringp identity) (plusp (length identity)))
       (error 'peer-protocol-error))
     (let* ((route (format nil "~A/~D" identity generation))
@@ -120,6 +123,7 @@ accepted by star-zmq are allowed. The returned session is single-owner."
           (progn
             (setf (peer-socket peer) (star-zmq:open-socket context :router :timeout-ms (min 100 timeout-ms)))
             (star-zmq:bind-endpoint (peer-socket peer) endpoint)
+            (when (zerop (remaining-ms deadline)) (error 'peer-timeout-error))
             (setf (peer-process peer)
                   (starprocessport:launch-process executable
                    (list endpoint route actor (write-to-string generation))
@@ -144,7 +148,8 @@ accepted by star-zmq are allowed. The returned session is single-owner."
 
 Timeout, peer exit, malformed replies and stale routes close the session. A
 failed request can have an UNKNOWN execution outcome; the existing journal and
-idempotency authority, not this port, decides whether another attempt is safe."
+idempotency authority, not this port, decides whether another attempt is safe.
+The example worker does not support lifecycle deadlines; reject them before send."
   (require-peer-owner peer)
   (unless (eq (peer-state peer) :ready) (error 'peer-exited-error))
   (let* ((deadline (request-deadline timeout-ms))
@@ -154,10 +159,12 @@ idempotency authority, not this port, decides whether another attempt is safe."
     ;; port does not implement event delivery or nested actor ask semantics.
     (unless (and (eq (getf envelope :kind) :command)
                  (string= (getf envelope :actor) (peer-actor peer))
-                 (stringp reply-to) (plusp (length reply-to)))
+                 (stringp reply-to) (plusp (length reply-to))
+                 (null (getf envelope :deadline)))
       (error 'peer-protocol-error))
     (handler-case
         (progn
+          (when (zerop (remaining-ms deadline)) (error 'peer-timeout-error))
           (star-zmq:set-socket-timeout (peer-socket peer) (max 1 (min 100 (remaining-ms deadline))))
           (star-zmq:send-frames (peer-socket peer) (list (peer-identity peer) bytes))
           (let ((reply (await-envelope peer deadline)))
@@ -170,6 +177,7 @@ idempotency authority, not this port, decides whether another attempt is safe."
                          (or (eq (getf reply :kind) :error)
                              (equal (getf reply :message-type) (getf envelope :message-type))))
               (error 'peer-protocol-error))
+            (when (zerop (remaining-ms deadline)) (error 'peer-timeout-error))
             reply))
       (error (condition)
         (close-peer peer)
