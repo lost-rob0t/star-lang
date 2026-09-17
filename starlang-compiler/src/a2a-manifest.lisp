@@ -17,10 +17,16 @@
        (eq (getf actor :runtime) :external)
        (string= (or (getf actor :protocol) "") +a2a-actor-protocol+)))
 
+(defun url-host-prefix-p (url prefix)
+  (and (uiop:string-prefix-p prefix url)
+       (let ((index (length prefix)))
+         (or (= index (length url))
+             (member (char url index) '(#\: #\/) :test #'char=)))))
+
 (defun loopback-http-url-p (url)
-  (or (uiop:string-prefix-p "http://localhost" url)
-      (uiop:string-prefix-p "http://127.0.0.1" url)
-      (uiop:string-prefix-p "http://[::1]" url)))
+  (or (url-host-prefix-p url "http://localhost")
+      (url-host-prefix-p url "http://127.0.0.1")
+      (url-host-prefix-p url "http://[::1]")))
 
 (defun valid-a2a-interface-url-p (url)
   "A2A production cards require HTTPS; literal loopback HTTP is allowed for local tests."
@@ -80,7 +86,7 @@
                              &key
                                (version "1.0.0")
                                description
-                               skills
+                               (skills nil skills-p)
                                (streaming t))
   "Project compiled ACTOR to A2A v1 Agent Card wire data.
 
@@ -91,15 +97,16 @@ names so language-neutral JSON encoders can serialize it without key rewriting."
   (require-a2a-interface-url interface-url)
   (unless (and (stringp version) (> (length version) 0))
     (fail 'invalid-actor-error "A2A agent version must be a non-empty string."))
-  (let* ((effective-skills (validate-a2a-skills
-                            (or skills (a2a-default-skills actor))))
+  (let* ((effective-skills
+           (validate-a2a-skills
+            (if skills-p skills (a2a-default-skills actor))))
          (capabilities (if streaming '(("streaming" . t)) '())))
     `(("name" . ,(getf actor :name))
       ("description" . ,(or description (a2a-default-description actor)))
       ("supportedInterfaces" .
-       (( ("url" . ,interface-url)
-          ("protocolBinding" . "JSONRPC")
-          ("protocolVersion" . ,+a2a-wire-version+) )))
+       ((("url" . ,interface-url)
+         ("protocolBinding" . "JSONRPC")
+         ("protocolVersion" . ,+a2a-wire-version+))))
       ("version" . ,version)
       ("capabilities" . ,capabilities)
       ("defaultInputModes" . ("application/json"))
