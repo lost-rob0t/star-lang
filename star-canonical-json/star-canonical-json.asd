@@ -9,6 +9,7 @@
   ((:module "src"
     :components
     ((:file "packages")
+     (:file "binary64")
      (:file "canonical-json")
      (:file "starlang-wire-json"))))
   :in-order-to ((test-op (test-op "star-canonical-json-tests"))))
