@@ -38,13 +38,13 @@ fail_with_logs() {
 
 cd "$work_dir"
 
-sbcl --script "$repo_root/prototype/bbp-sento-smoke-main.lisp" \
+sbcl --script "$repo_root/star-sento-compat/tests/integration/remoting-smoke-main.lisp" \
   >"$main_log" 2>&1 &
 main_pid=$!
 
 ready=0
 for _ in $(seq 1 300); do
-  if [[ -s bbp-sento-main.ready ]]; then
+  if [[ -s real-sento-main.ready ]]; then
     ready=1
     break
   fi
@@ -58,23 +58,23 @@ if [[ "$ready" -ne 1 ]]; then
   fail_with_logs
 fi
 
-sbcl --script "$repo_root/prototype/bbp-sento-smoke-worker.lisp" \
+sbcl --script "$repo_root/star-sento-compat/tests/integration/remoting-smoke-worker.lisp" \
   >"$worker_log" 2>&1 &
 worker_pid=$!
 
 main_status=0
 worker_status=0
-wait "$main_pid" || main_status=$?
 wait "$worker_pid" || worker_status=$?
-main_pid=""
 worker_pid=""
+wait "$main_pid" || main_status=$?
+main_pid=""
 
 if [[ "$main_status" -ne 0 || "$worker_status" -ne 0 ]]; then
   fail_with_logs
 fi
 
-if [[ ! -s bbp-sento-smoke.success ]]; then
+if [[ ! -s real-sento-smoke.success ]]; then
   fail_with_logs
 fi
 
-printf '%s\n' "Real two-process Sento remoting smoke passed."
+printf '%s\n' "Real final-only two-process Sento remoting smoke passed."

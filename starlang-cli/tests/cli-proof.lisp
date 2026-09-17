@@ -1,11 +1,8 @@
-;;;; Fresh-process acceptance proof: the installed starlang CLI path loads
-;;;; only final systems. Run as `sbcl --non-interactive --load cli-proof.lisp`.
-;;;; Exits 0 only when every claim holds with no prototype package loaded.
+;;;; Fresh-process acceptance proof: every installed starlang command loads
+;;;; final systems only. Run as `sbcl --non-interactive --load cli-proof.lisp`.
 
 (require :asdf)
 
-;; The proof script may run in a bare process without CL_SOURCE_REGISTRY;
-;; register this repository tree explicitly so the final systems resolve.
 (let* ((tests-directory
          (make-pathname :name nil :type nil :defaults *load-truename*))
        (repository-root (merge-pathnames "../../" tests-directory)))
@@ -25,22 +22,22 @@
 
 (asdf:load-system :starlang-cli)
 
-;; The final CLI path must not load starlang-prototype or any prototype-owned
-;; package: the loader, document runtime, constructor runtime, and public
-;; product API remain prototype-owned (ci/prototype-migration.tsv).
+(proof-assert (find-package "STAR-LANG.LOADER")
+              "final loader package must be present")
+
 (dolist (package-name '("STAR-LANG.PROTOTYPE"
-                        "STAR-LANG.LOADER"
+                        "STAR-LANG.CORE-SURFACE.PROTOTYPE"
+                        "STAR-LANG.COMPILER-IR.PROTOTYPE"
+                        "STAR-LANG.SPEC-DOMAIN.PROTOTYPE"
                         "STAR-LANG.DOCUMENT-RUNTIME"
                         "STAR-LANG.CONSTRUCTOR-RUNTIME"
                         "STAR-LANG.API"))
   (proof-assert (null (find-package package-name))
-                (format nil "package ~A must not exist" package-name)))
+                (format nil "legacy package ~A must not exist" package-name)))
 
-;; The installed command surface reports versions and exit status 0.
 (let ((code (star-lang.cli:run-cli '("version"))))
   (proof-assert (= code 0) "version command must exit 0"))
 
-;; check and compile exercise the closed pipeline without the prototype.
 (let ((fixture
         (merge-pathnames
          "../../fixtures/actor-compiler/enrichment-worker.star"
@@ -48,22 +45,41 @@
   (proof-assert
    (= (star-lang.cli:run-cli (list "check" (namestring fixture))) 0)
    "check must compile the actor fixture and exit 0")
-  (let ((manifest
-          (star-lang.cli:compile-program-manifest fixture)))
+  (let ((manifest (star-lang.cli:compile-program-manifest fixture)))
     (proof-assert (eql 1 (getf manifest :wire-version))
                   "program manifest must carry wire version 1")
-    (proof-assert
-     (= 1 (length (getf manifest :actors)))
-     "program manifest must carry the compiled actor unit")))
+    (proof-assert (= 1 (length (getf manifest :actors)))
+                  "program manifest must carry the compiled actor unit")))
 
-;; The prototype packages still must not exist after CLI execution.
+;; Exercise final loader command dispatch against the repository fixture.
+(let* ((fixture
+         (merge-pathnames "../../fixtures/star-cl.star" *load-truename*))
+       (cache
+         (merge-pathnames
+          (format nil "star-lang-cli-proof-~36R/" (get-universal-time))
+          (uiop:temporary-directory))))
+  (unwind-protect
+       (progn
+         (ensure-directories-exist (merge-pathnames ".keep" cache))
+         (proof-assert
+          (= (star-lang.cli:run-cli
+              (list "load" (namestring fixture)
+                    "--cache" (namestring cache)))
+             0)
+          "load command must use final loader and exit 0"))
+    (uiop:delete-directory-tree cache
+                                :validate t
+                                :if-does-not-exist :ignore)))
+
 (dolist (package-name '("STAR-LANG.PROTOTYPE"
-                        "STAR-LANG.LOADER"
+                        "STAR-LANG.CORE-SURFACE.PROTOTYPE"
+                        "STAR-LANG.COMPILER-IR.PROTOTYPE"
+                        "STAR-LANG.SPEC-DOMAIN.PROTOTYPE"
                         "STAR-LANG.DOCUMENT-RUNTIME"
                         "STAR-LANG.CONSTRUCTOR-RUNTIME"
                         "STAR-LANG.API"))
   (proof-assert (null (find-package package-name))
-                (format nil "package ~A must still not exist" package-name)))
+                (format nil "legacy package ~A must still not exist" package-name)))
 
 (format t "CLI-PROOF-OK~%")
 (force-output)

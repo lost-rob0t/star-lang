@@ -7,6 +7,8 @@
    #:sento-backend-unavailable-error
    #:sento-ask-failure-error
    #:sento-ask-failure-cause
+   #:invalid-program-binding-error
+   #:bind-normalized-program
    #:runtime-port
    #:runtime-port-p
    #:make-runtime-port

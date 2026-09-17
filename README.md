@@ -2,10 +2,10 @@
 
 Common Lisp-only **StarLang** compiler and durable actor runtime.
 
-`star-lang` hosts the reusable Common Lisp systems that power the StarIntel
-actor platform. The approved research and design evidence lives in
-[`lost-rob0t/starintel-auto-research`][research]; `starintel-server` consumes
-released runtime systems from this repository.
+`star-lang` hosts the reusable compiler, runtime, actor, protocol, logic, and
+adapter systems used by StarIntel. The approved research/design evidence lives
+in [`lost-rob0t/starintel-auto-research`][research]; product consumers depend on
+released final systems from this repository.
 
 [research]: https://github.com/lost-rob0t/starintel-auto-research
 
@@ -27,254 +27,204 @@ BEGIN STARLANG AGENT INSTRUCTIONS
 - Update ownership and migration documentation whenever executable ownership moves.
 END STARLANG AGENT INSTRUCTIONS
 
+## Authority model
+
+The production tree is final-only:
+
+- `starlang-compiler` owns the closed parser, expansion, validation, and
+  runtime-neutral normalized IR;
+- `starlang-loader` owns locked local/remote specification loading;
+- `starlang-runtime` owns portable actor/runtime semantics;
+- `starlang-cli` owns the installed command surface;
+- `star-*` systems own protocol, mailbox, supervision, durability, adapters,
+  canonical serialization, logic, verification, and other reusable boundaries;
+- `star-sento-compat` translates supported runtime operations to Sento/cl-gserver.
+
+`starlang-prototype.asd` and `prototype/` are retired. The permanent structural
+gate is:
+
+```sh
+bash ci/check-final-authority.sh
+```
+
+It is a regression if active product/build code reintroduces prototype authority.
+
 ## Research conformance
 
-The implementation is being hardened against the approved Star-Lang research
-sequence `STAR-LANG-RESEARCH-000` through `STAR-LANG-RESEARCH-009`.
+StarLang is being hardened against approved research
+`STAR-LANG-RESEARCH-000` through `STAR-LANG-RESEARCH-009`.
 
-**Current status: not yet fully conformant.** The authoritative implementation
-ledger is [`RESEARCH-CONFORMANCE-000-009.md`](RESEARCH-CONFORMANCE-000-009.md),
-and completion is blocked by [issue #6][conformance-issue]. Research approval
-does not imply that the current implementation already satisfies every rule.
-
-[conformance-issue]: https://github.com/lost-rob0t/star-lang/issues/6
-
-The required boundary is:
-
-- Common Lisp is the sole parser, compiler, semantic-engine, dispatcher, and
-  runtime implementation language.
-- `.star` source must be parsed by the closed Star-Lang parser and never by the
-  Common Lisp reader.
-- specification imports must be exact-versioned, full SHA-256 locked, locally
-  compiled, and HTTPS-only when remote resolution is explicitly enabled.
-- normalized IR must remain data-only and runtime-neutral; cl-gserver operations
-  may appear only in adapter manifests.
-- document, message, manifest, and serialized wire field names must use lower
-  camelCase and preserve source spelling.
-- canonical JSON must use lower camelCase keys, deterministic key ordering,
-  finite binary64 JSON numbers for `float`, and canonical strings for exact
-  `decimal`.
-- generated Python and TypeScript bindings consume the same portable manifest;
-  they do not implement StarLang.
+**Prototype retirement does not mean full research conformance.**
+[`RESEARCH-CONFORMANCE-000-009.md`](RESEARCH-CONFORMANCE-000-009.md) is the
+implementation ledger and issue #6 is the integration gate. Remaining stable
+release work includes the complete binary64 `float` contract, canonical relation
+positions, import/digest hardening, generated-binding coverage, and permanent
+research-conformance CI guards.
 
 The compiler front end is one explicit pipeline:
 
 ```text
 UTF-8 source bytes
-  → read-star-syntax
-  → locked import resolution
-  → expand-star-syntax
-  → validate-star-core
-  → compile-star-core
-  → normalized runtime-neutral IR
+  -> read-star-syntax
+  -> exact locked import resolution
+  -> expand-star-syntax
+  -> validate-star-core
+  -> compile-star-core
+  -> runtime-neutral normalized IR
 ```
 
-The expansion phase supports bounded, declarative format-1 macros in declaration
-context. Macro definitions are collected before expansion, imported macros retain
-their locked library identity, generated identifiers receive deterministic fresh
-scopes, and expansion records definition/use-site provenance without invoking the
-Common Lisp reader or evaluator. Parsed identifiers remain exact, uninterned
-strings. `star-syntax-to-datum` is an explicit lossy compatibility operation: it
-discards occurrence identity, spans, scopes, origins, and introduction metadata.
+Core invariants:
 
-A permanent conformance suite must guard these rules before this section can be
-changed to claim full compliance.
+- Common Lisp is the only compiler/runtime implementation language;
+- `.star` source never passes through Common Lisp `READ`/`EVAL`;
+- parser/source work is bounded and diagnostics retain source identity/spans;
+- specification imports are explicit, exact-versioned, and SHA-256 locked;
+- normalized IR is data-only and runtime-neutral;
+- Sento/cl-gserver objects exist only behind final runtime/adapter boundaries;
+- document/message/manifest/wire field names preserve approved lower-camelCase
+  spelling;
+- canonical JSON is deterministic;
+- generated bindings consume portable manifests and do not implement StarLang.
 
-## Scope
+## Final systems
 
-This repository is the **runtime home** for the following Common Lisp systems.
-It is not the design source and contains no live Franklin County data
-acquisition implementation.
+`ci/target-systems.txt` is the machine-checked list of independently loadable
+final systems. It currently includes:
 
 | System | Purpose |
 | --- | --- |
-| `star-actor-protocol` | Actor message and protocol definitions. |
-| `star-sento-compat` | Compatibility shim for the Sento / CL-GServer actor model. |
-| `star-mailbox` | Per-actor mailbox and single-message dispatch. |
-| `star-supervisor` | Supervision trees, restart strategies, and child lifecycle. |
-| `star-journal` | Durable write-ahead journal for recovery and replay. |
-| `star-lease` | Time-bound leases for actors and resources. |
-| `star-capability` | Capability tokens and authorization surface. |
-| `star-artifact` | Artifact storage and provenance attachment. |
-| `star-verification` | Immutable verification certificate, claim vocabulary, and evidence-scope contract. |
-| `star-adapter-sdk` | SDK for building inbound and outbound adapter ports. |
-| `star-http-port` | HTTP adapter port built on the adapter SDK. |
-| `star-process-port` | External-process adapter port. |
-| `star-canonical-json` | Canonical JSON serialization for deterministic interchange. |
-| `star-xlsx` | XLSX reading and writing for structured ingest. |
-| `starlang-compiler` | The StarLang parser, IR, and compiler. |
-| `starlang-runtime` | The durable actor runtime that executes compiled StarLang. |
-| `starlang-cli` | The installed `starlang` command surface: version, check, compile, and run over final systems. |
+| `star-actor-protocol` | Actor message/wire protocol contracts. |
+| `star-sento-compat` | Concrete Sento/cl-gserver translation boundary. |
+| `star-mailbox` | Bounded mailbox and serialized dispatch primitives. |
+| `star-supervisor` | Supervision/restart policy. |
+| `star-journal` | Durable runtime journal/replay primitives. |
+| `star-lease` | Lease/fencing primitives. |
+| `star-capability` | Capability/authorization values. |
+| `star-artifact` | Artifact/provenance storage contracts. |
+| `star-verification` | Verification certificate and claim vocabulary. |
+| `star-adapter-sdk` | Common adapter-port contracts. |
+| `star-http-port` | HTTP adapter port. |
+| `star-scrape` | Scraping adapter primitives. |
+| `star-process-port` | External-process adapter boundary. |
+| `star-canonical-json` | Deterministic canonical JSON/wire serialization. |
+| `star-logic-protocol` | Engine-neutral logic protocol. |
+| `star-logic-ir` | Engine-neutral logic IR. |
+| `star-logic-testing` | Logic adapter conformance fixtures. |
+| `star-logic-adapter-swi` | SWI-Prolog adapter behind the final logic protocol. |
+| `star-xlsx` | XLSX structured-data support. |
+| `starlang-compiler` | Closed parser, semantics, IR, manifests. |
+| `starlang-loader` | Locked specification/program loading. |
+| `starlang-runtime` | Durable actor runtime. |
+| `starlang-cli` | Installed StarLang CLI. |
 
-`star-verification` is authoritative only for the generic
-`star.verify.certificate/1` data contract and its closed vocabularies. It does
-not validate documents, match actor manifests, execute lifecycle transitions,
-model-check topologies, persist artifacts, or serialize canonical JSON. Those
-behaviors remain with their existing or later dependency-correct authorities.
+Local native ZMQ interoperability lives in the standalone `star-zmq` subflake
+and is exercised by its own native/Nix workflow. It is not a second StarLang
+compiler/runtime implementation.
 
-## Implementation language
+## CLI
 
-Common Lisp is the **sole** approved implementation language, per
-[STAR-LANG-INDEX-001][impl-index] in the research repository. Alternate parser,
-compiler, dispatcher, and runtime implementations are denied. Generated Python
-and TypeScript bindings may consume versioned JSON contracts at system
-boundaries but do not implement StarLang.
+The installed `starlang` command loads final systems only:
 
-[impl-index]: https://github.com/lost-rob0t/starintel-auto-research/blob/main/roam/indexes/star-lang/STAR-LANG-INDEX-001-implementation.org
+```text
+starlang version
+starlang check FILE
+starlang compile FILE [--manifest FILE]
+starlang run FILE [--eval FORM]... [--load FILE]... [--package PKG] [--manifest FILE]
+starlang load FILE [--allow-network] [--cache DIR] [--manifest FILE]
+starlang load-url URL --name NAME --version VERSION --digest SHA256 [options]
+```
 
-## Transitional architecture
+`load` and `load-url` use final `starlang-loader`. Network resolution is opt-in.
+Host-side `--load` / `--eval` on `run` are explicit trusted CLI operations; Star
+source itself is never sent to the Common Lisp reader.
 
-`prototype/` is migration debt, not a license for new runtime development. The
-installed `starlang` command's `load`/`load-url` commands and the broad
-compatibility suite still compose through `starlang-prototype`, while final
-`star-*` and `starlang-*` systems own the semantics already extracted from it.
+Exit status:
 
-The target systems must not duplicate or shadow prototype source files. A file
-moves only when its package ownership and dependencies can be represented by an
-acyclic final-system boundary. Until then, the working code remains owned by
-`starlang-prototype`.
-
-`ci/target-systems.txt` is the checked list of final systems. SBCL CI and Nix
-load each entry in a fresh process so incomplete package definitions and ASDF
-dependency errors cannot hide behind the prototype system.
-
-### Migration map
-
-| Prototype components | Intended final boundary |
-| --- | --- |
-| `core-surface-prototype`, `actor-wire-prototype`, message lifecycle files | `starlang-compiler` owns the closed parser, syntax model, validation, specification lowering, and actor lowering; `star-actor-protocol` owns the service-URI and wire contracts. `core-surface-prototype` is now a compatibility re-export shell. |
-| `canonical-json-prototype` | `star-canonical-json` |
-| `compiler-ir-prototype`, `spec-domain-prototype`, `binding-generator-prototype` | `starlang-compiler` |
-| dispatcher, runtime directory, loader, document, constructor, and API files | `starlang-runtime` |
-| transport and dispatcher transport adapter files | `star-adapter-sdk`, then concrete port systems |
-| `cl-gserver-runtime-facade-prototype` | `star-sento-compat` |
-| runtime and remoting journal files | `star-journal` |
-| remoting lease file | `star-lease` |
-| domain server and remoting files | `starlang-runtime` plus the relevant adapter-port systems |
-
-Mailbox, supervision, capability, artifact, HTTP, process, and XLSX ownership is
-filled as those APIs are extracted. Their target systems are load-checked now;
-that does not make placeholder packages authoritative over `prototype/`.
-
-### Current actor-runtime migration state
-
-- `starlang-compiler` owns the closed `.star` parser, syntax model, grammar
-  validation, specification lowering, and actor lowering. A real `.star`
-  actor declaration compiles into runtime-neutral IR without loading
-  `starlang-prototype`.
-- `star-actor-protocol`, `star-mailbox`, and `starlang-runtime` own the final
-  deterministic actor contract and execution path.
-- `star-sento-compat` owns concrete local Sento construction, spawn, tell,
-  asynchronous ask/reply translation, lookup, liveness, stop, and shutdown.
-- Real Sento integration tests hard-load the backend only in the test system;
-  the production compatibility system keeps a soft backend dependency.
-- Prototype domain-remoting code is a transitional composition wrapper over
-  final compatibility entry points. It no longer owns direct backend calls.
-- `starlang-prototype` remains in the product load graph for the
-  `load`/`load-url` commands, but the installed `starlang` command now also
-  provides final-only `version`, `check`, `compile`, and `run` commands
-  through `starlang-cli`, which never loads `starlang-prototype`. The overall
-  prototype migration is therefore not complete.
-- Split-phase nested actor ask, final supervision policy, and later durable
-  distributed-runtime extraction remain separate follow-up work.
+- `0` success;
+- `1` runtime or diagnostic failure;
+- `2` usage error.
 
 ## Validation
 
-ASDF owns the complete prototype test contract. The secondary
-`starlang-prototype/tests` system runs the baseline and every
-`prototype/*-tests.lisp` script in deterministic filename order, using a fresh
-SBCL process for each script.
+From a development environment:
 
 ```sh
-sbcl --non-interactive \
-  --eval '(require :asdf)' \
-  --eval '(asdf:load-system :starlang-prototype)' \
-  --eval '(asdf:test-system :starlang-prototype)' \
-  --eval '(sb-ext:quit)'
-```
-
-```sh
+bash ci/check-final-authority.sh
 nix flake check -L
 ```
 
-A failing child test process causes `asdf:test-system`, SBCL CI, and the Nix
-check to fail.
-
-## Nix
-
-The flake packages the complete StarLang source tree, loads the authoritative
-prototype and declared target systems, runs the prototype ASDF test operation,
-and exposes runnable development commands.
+The Nix package also exposes:
 
 ```sh
 nix build
-nix run
+nix run -- version
+nix run -- check fixtures/actor-compiler/enrichment-worker.star
 nix run .#tests
 nix develop
-nix flake check -L
 ```
 
-The installed package provides:
+The release matrix additionally exercises independent ASDF loads/tests, final
+CLI commands, real Sento integration, a final-only two-process Sento remoting
+smoke, SWI adapter conformance, canonical fixtures, generated artifacts, and
+native interoperability workflows.
 
-- `bin/starlang`: dispatches on the first argument. `load` and `load-url`
-  delegate to the transitional prototype loader script
-  (`prototype/run-star.lisp`) as before. Every other invocation enters the
-  final `starlang-cli` entrypoint, which loads only final systems:
-  - `starlang version`: report the CLI and compiler versions.
-  - `starlang check FILE`: compile a single-actor `.star` unit through the
-    closed parser pipeline and report `ok: actor <name>`.
-  - `starlang compile FILE [--manifest FILE]`: emit a canonical JSON
-    portable manifest (to stdout, or to `--manifest FILE`) for the compiled
-    unit; until program-level compilation lands in the compiler, the
-    manifest wraps the compiled unit in a synthetic spec-library envelope
-    whose digest is the SHA-256 of the `.star` source octets.
-  - `starlang run FILE [--eval FORM]... [--load FILE]... [--package PKG]
-    [--manifest FILE]`: compile the unit, materialize it on the real
-    deterministic dispatcher, evaluate trusted host-side `--load`/`--eval`
-    forms in `--package`, resolve every native actor handler from that
-    package, and drain the dispatcher. Exit status is 0 on success, 1 for
-    runtime or diagnostic failures, and 2 for usage errors.
-  - `starlang load FILE [...]` and `starlang load-url URL ...`: delegate to
-    the transitional prototype loader (`prototype/run-star.lisp`); the
-    spec-library loader is still prototype-owned, so these commands still
-    load `starlang-prototype`.
-- `bin/starlang-test`: runs `(asdf:test-system :starlang-prototype)` and the
-  final target systems, including `starlang-cli`.
-- `share/common-lisp/source/star-lang`: ASDF-visible StarLang sources.
+A green subset is not release evidence. Required checks must pass on the same
+commit that produces release artifacts.
+
+## Nix package
+
+`flake.nix` builds a final-only `star-lang` package containing:
+
+- `bin/starlang` — final CLI entrypoint;
+- `bin/starlang-test` — packaged final-system test entrypoint;
+- `share/common-lisp/source/star-lang` — ASDF-visible sources.
+
+The build independently loads every system in `ci/target-systems.txt` and asserts
+that package `STAR-LANG.PROTOTYPE` is absent. The check phase executes the final
+compiler/runtime/loader/CLI/adapter matrix and permanent final-authority gate.
+
+## Runtime evidence rule
+
+Actor semantics must be tested through the real actor/runtime boundary being
+claimed. Fake ports are acceptable for external effects, but they are not proof
+of actor semantics.
+
+For shipped Sento behavior the repository therefore carries both focused real
+Sento integration tests and a real two-process remoting smoke. Runtime-specific
+Sento binding happens after compiler lowering; portable IR does not contain raw
+Sento references.
 
 ## Layout
 
 ```text
-prototype/               Compatibility composition over final systems; migration debt
-fixtures/                .star and .sexp test fixtures
-ci/target-systems.txt    Final systems loaded independently by CI and Nix
-<system>/                Final ASDF system directories
-starlang-prototype.asd   Transitional compatibility and test ASDF systems
-flake.nix                Package, apps, checks, and development shell
-.github/workflows/       SBCL and Nix CI
+ci/                         Structural/release gates and target-system list
+fixtures/                    StarLang and interchange fixtures
+nix/                         Pinned Nix integration modules
+star-*/                      Final reusable runtime/protocol/adapter systems
+starlang-compiler/           Final compiler
+starlang-loader/             Final loader
+starlang-runtime/            Final actor runtime
+starlang-cli/                Final installed CLI
+star-zmq/                    Standalone local native ZMQ interoperability subflake
+.prolog/kb/                  Machine-checkable repository/authority facts
+.github/workflows/           CI, Nix, native, logic, and release gates
+flake.nix                    Main package/check/dev-shell definition
 ```
 
-## Tooling entry points
+There is deliberately no `prototype/` product tree.
 
-- **ASDF** loads `(asdf:load-system :starlang-prototype)` and tests
-  `(asdf:test-system :starlang-prototype)`.
-- **SBCL** is the primary Common Lisp implementation.
-- **Roswell** is available in the development shell when provided by Nixpkgs.
-- **Nix** builds, runs, and checks StarLang reproducibly.
+## Production readiness
+
+The final-authority migration is structural, but the project remains on a
+`0.x` contract until the stable-release gates in
+[`docs/PRODUCTION-READINESS.md`](docs/PRODUCTION-READINESS.md) are all green.
+The research-conformance ledger, final runtime/embedding acceptance, ASDF/CI/Nix
+matrix, native interoperability, license/SBOM inventory, and release artifacts
+must agree on one exact commit before a stable production release is declared.
 
 ## Licensing and SBOM
 
 - Source license: **GNU Affero General Public License v3.0 only**
   (`AGPL-3.0-only`).
-- Upstream contributions and fork policy: see `CONTRIBUTING.md`.
-- Source, license, and SBOM inventory: see `SECURITY.md`.
-
-## Status
-
-`prototype/` remains in the product and CLI composition paths, but ownership is
-component-specific. Final systems are authoritative for the closed compiler
-core (parser, syntax, validation, specification and actor lowering), the actor
-protocol, mailbox, deterministic runtime, and concrete Sento adapter described
-above; remaining prototype components stay migration debt until moved without
-duplication, dependency cycles, or lost coverage. Research 000–009 compliance
-remains an active hardening gate tracked in the implementation ledger.
+- Contribution/fork policy: [`CONTRIBUTING.md`](CONTRIBUTING.md).
+- Source/license/SBOM inventory: [`SECURITY.md`](SECURITY.md).

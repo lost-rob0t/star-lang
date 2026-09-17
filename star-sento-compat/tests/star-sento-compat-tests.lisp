@@ -4,6 +4,8 @@
                 #:star-sento-compat-error
                 #:unsupported-sento-operation-error
                 #:sento-backend-unavailable-error
+                #:invalid-program-binding-error
+                #:bind-normalized-program
                 #:runtime-port-p
                 #:make-runtime-port
                 #:make-sento-runtime-port
@@ -92,3 +94,49 @@
     (starsentocompat::sento-operation
      "STARLANG.TEST.MISSING-SENTO-PACKAGE"
      "NO-SUCH-OPERATION")))
+
+(test normalized-program-binding-is-final-owned
+  (let* ((program
+           (list :ir-version 2
+                 :ir-schema "org.star-lang/normalized-ir@2"
+                 :kind :program
+                 :spec-lock-digest
+                 "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                 :declarations
+                 (list
+                  (list :kind :actor
+                        :name "worker"
+                        :runtime :native
+                        :handler "handle-worker"
+                        :accepts '()
+                        :produces '()
+                        :mailbox '(:kind :bounded :capacity 8)
+                        :restart :temporary
+                        :capabilities '(:read))
+                  (list :kind :dataflow
+                        :name "flow"
+                        :nodes
+                        (list
+                         (list :node-id "flow/000"
+                               :op :send
+                               :target "worker"
+                               :message :current))))))
+         (bound (bind-normalized-program program))
+         (actor (first (getf bound :actors)))
+         (node (first (getf (first (getf bound :dataflows)) :nodes))))
+    (is (eq :cl-gserver (getf bound :runtime)))
+    (is (eq :cl-gserver (getf actor :runtime)))
+    (is (eq :tell (getf node :op)))
+    (is (string= "worker" (getf node :actor)))))
+
+(test normalized-program-binding-rejects-wrong-schema-and-external-actors
+  (signals invalid-program-binding-error
+    (bind-normalized-program
+     (list :ir-version 1 :ir-schema "legacy" :kind :program)))
+  (signals invalid-program-binding-error
+    (bind-normalized-program
+     (list :ir-version 2
+           :ir-schema "org.star-lang/normalized-ir@2"
+           :kind :program
+           :declarations
+           (list (list :kind :actor :name "remote" :runtime :external))))))

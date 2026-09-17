@@ -3,48 +3,47 @@ name: StarLang production readiness
 on:
   pull_request:
     paths:
-      - "prototype/**"
-      - "starlang-prototype.asd"
       - "starlang-compiler/**"
+      - "starlang-loader/**"
       - "starlang-runtime/**"
+      - "star-sento-compat/**"
       - "star-*/**"
-      - "ci/prototype-migration.tsv"
-      - "ci/check-prototype-migration.sh"
+      - "ci/check-final-authority.sh"
+      - "ci/target-systems.txt"
       - ".github/workflows/production-readiness.yml"
       - "docs/PRODUCTION-READINESS.md"
+      - "flake.nix"
   push:
-    branches:
-      - main
+    branches: [main]
     paths:
-      - "prototype/**"
-      - "starlang-prototype.asd"
       - "starlang-compiler/**"
+      - "starlang-loader/**"
       - "starlang-runtime/**"
+      - "star-sento-compat/**"
       - "star-*/**"
-      - "ci/prototype-migration.tsv"
-      - "ci/check-prototype-migration.sh"
+      - "ci/check-final-authority.sh"
+      - "ci/target-systems.txt"
       - ".github/workflows/production-readiness.yml"
       - "docs/PRODUCTION-READINESS.md"
+      - "flake.nix"
   workflow_dispatch:
-    inputs:
-      require_full_port:
-        description: Fail unless every prototype implementation is compatibility-only
-        required: false
-        default: false
-        type: boolean
 
 permissions:
   contents: read
 
 jobs:
-  migration-ledger:
-    name: Prototype authority ledger
+  final-authority:
+    name: Final authority certificate
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: Verify every prototype component has one tracked migration state
-        run: bash ci/check-prototype-migration.sh
-      - name: Enforce full production port
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.require_full_port }}
-        run: bash ci/check-prototype-migration.sh --require-final
+      - name: Prove prototype authority is retired
+        run: bash ci/check-final-authority.sh
+      - name: Prove prototype paths are absent from the Git tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e starlang-prototype.asd
+          test ! -e prototype
+          ! git ls-files | grep -Eq '^(prototype/|starlang-prototype\.asd$)'

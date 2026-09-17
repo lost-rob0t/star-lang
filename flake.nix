@@ -34,7 +34,7 @@
 
         starLang = pkgs.stdenvNoCC.mkDerivation {
           pname = "star-lang";
-          version = "0.1.0";
+          version = "0.2.0";
           src = lib.cleanSource ./.;
 
           strictDeps = true;
@@ -51,16 +51,8 @@
 
             export HOME="$TMPDIR/home"
             mkdir -p "$HOME"
-            # sbcl.withPackages prepends the dependency registry and its own
-            # ASDF inheritance marker; do not add a second trailing colon here.
             export CL_SOURCE_REGISTRY="$PWD//"
             export STARLANG_SWI_EXECUTABLE="${swipl}/bin/swipl"
-
-            sbcl --non-interactive \
-              --eval '(require :asdf)' \
-              --eval '(asdf:load-system :starlang-prototype)' \
-              --eval '(format t "~&starlang-prototype loaded successfully~%")' \
-              --eval '(sb-ext:quit)'
 
             while IFS= read -r target_system; do
               [ -n "$target_system" ] || continue
@@ -68,6 +60,7 @@
               sbcl --non-interactive \
                 --eval '(require :asdf)' \
                 --eval "(asdf:load-system :$target_system)" \
+                --eval '(assert (null (find-package "STAR-LANG.PROTOTYPE")))' \
                 --eval '(sb-ext:quit)'
             done < ci/target-systems.txt
 
@@ -103,10 +96,11 @@
               --eval '(asdf:test-system :star-logic-protocol)' \
               --eval '(asdf:test-system :star-logic-ir)' \
               --eval '(asdf:test-system :starlang-compiler)' \
+              --eval '(asdf:test-system :starlang-loader)' \
               --eval '(asdf:test-system :starlang-cli)' \
               --eval '(asdf:test-system :star-logic-adapter-swi)' \
+              --eval '(assert (find-package "STAR-LANG.LOADER"))' \
               --eval '(assert (null (find-package "STAR-LANG.PROTOTYPE")))' \
-              --eval '(asdf:test-system :starlang-prototype)' \
               --eval '(sb-ext:quit)'
 
             timeout 120 sbcl --non-interactive \
@@ -115,20 +109,17 @@
               --eval '(sb-ext:quit)'
 
             bash "$source_root/ci/check-swi-adapter-contracts.sh"
+            bash "$source_root/ci/check-final-authority.sh"
 
-            sbcl --script "$source_root/prototype/run-star.lisp" \
-              load "$source_root/fixtures/star-cl-constructors.star" \
-              --runtime-compiler eval \
-              --cache "$test_root/cli-cache"
-
-            # Final-only CLI smoke: the installed command surface loads only
-            # final systems and keeps starlang-prototype out of its process.
             sbcl --script "$source_root/starlang-cli/starlang-cli.lisp" version
             sbcl --script "$source_root/starlang-cli/starlang-cli.lisp" \
               check "$source_root/fixtures/actor-compiler/enrichment-worker.star"
             sbcl --script "$source_root/starlang-cli/starlang-cli.lisp" \
               compile "$source_root/fixtures/actor-compiler/enrichment-worker.star" \
               --manifest "$test_root/actor-manifest.json"
+            sbcl --script "$source_root/starlang-cli/starlang-cli.lisp" \
+              load "$source_root/fixtures/star-cl.star" \
+              --cache "$test_root/cli-cache"
             sbcl --script "$source_root/starlang-cli/starlang-cli.lisp" \
               run "$source_root/fixtures/actor-compiler/enrichment-worker.star" \
               --eval "(defun enrichment-worker-handler (dispatcher command) (declare (ignore dispatcher command)) (list :outcome :complete))"
@@ -151,23 +142,9 @@
             source_root="$out/share/common-lisp/source/star-lang"
             export CL_SOURCE_REGISTRY="\$source_root//"
 
-            # The installed starlang command dispatches on the first argument:
-            # load/load-url keep using the transitional prototype loader
-            # script, everything else (including no arguments) enters the
-            # final-only starlang-cli entrypoint.
-            first_arg="\$1"
-            case "\$first_arg" in
-              load|load-url)
-                exec ${sbcl}/bin/sbcl \
-                  --script "\$source_root/prototype/run-star.lisp" \
-                  "\$@"
-                ;;
-              *)
-                exec ${sbcl}/bin/sbcl \
-                  --script "\$source_root/starlang-cli/starlang-cli.lisp" \
-                  "\$@"
-                ;;
-            esac
+            exec ${sbcl}/bin/sbcl \
+              --script "\$source_root/starlang-cli/starlang-cli.lisp" \
+              "\$@"
             EOF_SCRIPT
 
             cat > "$out/bin/starlang-test" <<EOF_SCRIPT
@@ -199,10 +176,11 @@
               --eval '(asdf:test-system :star-logic-protocol)' \
               --eval '(asdf:test-system :star-logic-ir)' \
               --eval '(asdf:test-system :starlang-compiler)' \
+              --eval '(asdf:test-system :starlang-loader)' \
               --eval '(asdf:test-system :starlang-cli)' \
               --eval '(asdf:test-system :star-logic-adapter-swi)' \
+              --eval '(assert (find-package "STAR-LANG.LOADER"))' \
               --eval '(assert (null (find-package "STAR-LANG.PROTOTYPE")))' \
-              --eval '(asdf:test-system :starlang-prototype)' \
               --eval '(sb-ext:quit)'
 
             ${pkgs.coreutils}/bin/timeout 120 ${sbcl}/bin/sbcl --non-interactive \
@@ -211,6 +189,7 @@
               --eval '(sb-ext:quit)'
 
             ${pkgs.bash}/bin/bash "\$source_root/ci/check-swi-adapter-contracts.sh"
+            ${pkgs.bash}/bin/bash "\$source_root/ci/check-final-authority.sh"
             EOF_SCRIPT
 
             chmod +x "$out/bin/starlang" "$out/bin/starlang-test"

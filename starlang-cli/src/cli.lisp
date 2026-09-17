@@ -1,20 +1,10 @@
-;;;; Final starlang CLI implementation: explicit version/check/compile/run
-;;;; behavior with deterministic exit status and structured diagnostics.
-;;;; This system is a leaf over final systems only: it depends on the final
-;;;; compiler and runtime and never loads starlang-prototype or anything
-;;;; under prototype/. The transitional load/load-url commands stay in the
-;;;; prototype loader script (prototype/run-star.lisp) and reach the installed
-;;;; starlang wrapper through wrapper-level dispatch, never through here.
-;;;;
-;;;; Program manifests carry the compiled unit's digest inside a synthetic
-;;;; single-library envelope until program-level compilation (multi-actor and
-;;;; dataflow programs) lands in the compiler.
-;;;;
-;;;; Exit codes: 0 success; 1 runtime or diagnostic failure; 2 usage error.
+;;;; Canonical final-system StarLang CLI.
 
 (in-package :star-lang.cli)
 
-(defparameter +cli-version+ "0.1.0")
+(defparameter +cli-version+ "0.2.0")
+
+(defun cli-version () +cli-version+)
 
 (define-condition cli-error (error)
   ((message :initarg :message :reader cli-error-message))
@@ -27,32 +17,25 @@
   (error 'cli-error :message (apply #'format nil control arguments)))
 
 (defun fail-cli-usage (control &rest arguments)
-  (error 'cli-usage-error
-         :message (apply #'format nil control arguments)))
+  (error 'cli-usage-error :message (apply #'format nil control arguments)))
 
 (defun usage (&optional (stream *standard-output*))
   (format stream "Usage: starlang version~%")
   (format stream "       starlang check FILE~%")
   (format stream "       starlang compile FILE [--manifest FILE]~%")
   (format stream "       starlang run FILE [--eval FORM]... [--load FILE]... [--package PKG] [--manifest FILE]~%")
-  (format stream "       starlang load FILE [--allow-network] [--cache DIR] [--manifest FILE] [--runtime-compiler eval]~%")
+  (format stream "       starlang load FILE [--allow-network] [--cache DIR] [--manifest FILE]~%")
   (format stream "       starlang load-url URL --name NAME --version VERSION --digest SHA256 [options]~%")
-  (format stream "~%")
-  (format stream "Commands version, check, compile, and run load only final systems.~%")
-  (format stream "Commands load and load-url delegate to the transitional prototype loader~%")
-  (format stream "script (prototype/run-star.lisp) through the installed starlang wrapper.~%")
+  (format stream "~%All commands load final systems only. Network resolution is opt-in.~%")
   (format stream "Exit status: 0 success; 1 runtime or diagnostic failure; 2 usage error.~%")
   (values))
 
 (defun file-sha256 (file)
-  "SHA-256 hex digest of the file octets, with the sha256: scheme prefix."
   (let ((digest (ironclad:digest-file (ironclad:make-digest :sha256) file)))
-    (format nil "sha256:~A" (ironclad:byte-array-to-hex-string digest))))
+    (format nil "sha256:~A"
+            (string-downcase (ironclad:byte-array-to-hex-string digest)))))
 
 (defun program-library-envelope (file library-name library-version)
-  ;; Until program-level compilation (multi-actor/dataflow programs) lands in
-  ;; the compiler, a program manifest wraps the compiled unit in a synthetic
-  ;; single-library envelope whose digest pins the .star source octets.
   (list :kind :spec-library
         :name library-name
         :version library-version
@@ -62,8 +45,7 @@
 
 (defun compile-program (file &key (library-name (pathname-name file))
                                   (library-version "1"))
-  "Compile the single-actor .star unit FILE through the full closed pipeline
-and return (values actor-ir portable-manifest)."
+  "Compile a single actor unit and return actor IR plus portable manifest."
   (let* ((actor-ir (starlangcompiler:compile-actor-file file))
          (manifest
            (starlangcompiler:emit-portable-manifest
@@ -73,14 +55,14 @@ and return (values actor-ir portable-manifest)."
 
 (defun compile-program-manifest (file &key (library-name (pathname-name file))
                                            (library-version "1"))
-  "Compile the single-actor .star unit FILE and return its portable manifest."
-  (nth-value 1 (compile-program file
-                                :library-name library-name
-                                :library-version library-version)))
+  (nth-value 1
+             (compile-program file
+                              :library-name library-name
+                              :library-version library-version)))
 
 (defun evaluate-host-form (form package)
-  ;; --eval and --load are trusted host-side CLI options; only they reach
-  ;; EVAL. .star source never does: it enters through the closed parser.
+  ;; --eval/--load are explicit trusted host-side options. Star source never
+  ;; reaches the CL reader or EVAL.
   (let ((*package* package))
     (if (stringp form)
         (with-input-from-string (stream form)
@@ -91,9 +73,6 @@ and return (values actor-ir portable-manifest)."
   (values))
 
 (defun register-program-handlers (dispatcher actor-ir package package-name)
-  ;; Resolve each native actor's handler in the requested package and
-  ;; register it with the real deterministic dispatcher before running.
-  ;; External actors dispatch through their endpoints and need no handler.
   (when (eq (getf actor-ir :runtime) :native)
     (let* ((actor-name (getf actor-ir :name))
            (handler-name (getf actor-ir :handler))
@@ -109,19 +88,13 @@ and return (values actor-ir portable-manifest)."
 
 (defun run-actor-program (manifest actor-ir
                           &key (package-name "CL-USER")
-                          (eval-forms '())
-                          (load-files '()))
-  "Materialize the compiled actor program on the real deterministic wire
-dispatcher: evaluate trusted host-side --load files then --eval forms with
-*package* bound to PACKAGE-NAME, resolve and register every native handler
-from that package, and drain the dispatcher queue. Returns
-(values dispatcher actor-count processed-count)."
+                            (eval-forms '())
+                            (load-files '()))
   (let ((dispatcher (starlangruntime:make-deterministic-dispatcher manifest))
         (package (or (find-package (string-upcase package-name))
                      (fail-cli "Unknown package ~A." package-name))))
     (dolist (file load-files)
-      (let ((*package* package))
-        (load file)))
+      (let ((*package* package)) (load file)))
     (dolist (form eval-forms)
       (evaluate-host-form form package))
     (register-program-handlers dispatcher actor-ir package package-name)
@@ -150,7 +123,7 @@ from that package, and drain the dispatcher queue. Returns
       (let ((version (asdf:component-version compiler)))
         (when version
           (format *standard-output* "starlang-compiler ~A~%" version)))))
-  (values))
+  0)
 
 (defun require-option-value (arguments option)
   (unless arguments
@@ -165,12 +138,10 @@ from that package, and drain the dispatcher queue. Returns
   (first arguments))
 
 (defun plain-option-p (option)
-  (and (plusp (length option))
-       (char= (char option 0) #\-)))
+  (and (plusp (length option)) (char= (char option 0) #\-)))
 
 (defun parse-compile-arguments (arguments)
-  (let ((file nil)
-        (manifest nil))
+  (let ((file nil) (manifest nil))
     (loop while arguments
           for option = (pop arguments)
           do (cond
@@ -181,10 +152,8 @@ from that package, and drain the dispatcher queue. Returns
                 (fail-cli-usage "Unknown option ~A for compile." option))
                (file
                 (fail-cli-usage "compile takes exactly one FILE argument."))
-               (t
-                (setf file option))))
-    (unless file
-      (fail-cli-usage "compile requires a FILE argument."))
+               (t (setf file option))))
+    (unless file (fail-cli-usage "compile requires a FILE argument."))
     (values file manifest)))
 
 (defun parse-run-arguments (arguments)
@@ -216,15 +185,55 @@ from that package, and drain the dispatcher queue. Returns
                 (fail-cli-usage "Unknown option ~A for run." option))
                (file
                 (fail-cli-usage "run takes exactly one FILE argument."))
+               (t (setf file option))))
+    (unless file (fail-cli-usage "run requires a FILE argument."))
+    (values file (nreverse eval-forms) (nreverse load-files) package manifest)))
+
+(defun parse-loader-arguments (arguments command)
+  (unless arguments
+    (fail-cli-usage "~A requires a source argument." command))
+  (let ((source (pop arguments))
+        (allow-network nil)
+        (cache nil)
+        (manifest nil)
+        (name nil)
+        (version nil)
+        (digest nil))
+    (loop while arguments
+          for option = (pop arguments)
+          do (cond
+               ((string= option "--allow-network")
+                (setf allow-network t))
+               ((string= option "--cache")
+                (multiple-value-setq (cache arguments)
+                  (require-option-value arguments option)))
+               ((string= option "--manifest")
+                (multiple-value-setq (manifest arguments)
+                  (require-option-value arguments option)))
+               ((string= option "--name")
+                (multiple-value-setq (name arguments)
+                  (require-option-value arguments option)))
+               ((string= option "--version")
+                (multiple-value-setq (version arguments)
+                  (require-option-value arguments option)))
+               ((string= option "--digest")
+                (multiple-value-setq (digest arguments)
+                  (require-option-value arguments option)))
+               ((string= option "--runtime-compiler")
+                ;; Compatibility parse only. Compilation is now always final.
+                (multiple-value-bind (value rest)
+                    (require-option-value arguments option)
+                  (unless (string-equal value "eval")
+                    (fail-cli-usage
+                     "Unsupported runtime compiler ~S; supported value: eval."
+                     value))
+                  (setf arguments rest)))
                (t
-                (setf file option))))
-    (unless file
-      (fail-cli-usage "run requires a FILE argument."))
-    (values file
-            (nreverse eval-forms)
-            (nreverse load-files)
-            package
-            manifest)))
+                (fail-cli-usage "Unknown option ~A for ~A." option command))))
+    (values source allow-network cache manifest name version digest)))
+
+(defun default-loader-cache-directory ()
+  (merge-pathnames #P".cache/star-lang/specs/" (user-homedir-pathname)))
 
 (defun run-check-command (arguments)
   (let* ((file (require-single-file arguments "check"))
@@ -235,17 +244,16 @@ from that package, and drain the dispatcher queue. Returns
 (defun run-compile-command (arguments)
   (multiple-value-bind (file manifest-path)
       (parse-compile-arguments arguments)
-    (let ((manifest (compile-program-manifest file)))
-      (write-manifest-json
-       (starcanonicaljson:canonical-manifest-json manifest)
-       manifest-path)
-      0)))
+    (write-manifest-json
+     (starcanonicaljson:canonical-manifest-json
+      (compile-program-manifest file))
+     manifest-path)
+    0))
 
 (defun run-run-command (arguments)
   (multiple-value-bind (file eval-forms load-files package manifest-path)
       (parse-run-arguments arguments)
-    (multiple-value-bind (actor-ir manifest)
-        (compile-program file)
+    (multiple-value-bind (actor-ir manifest) (compile-program file)
       (when manifest-path
         (write-manifest-json
          (starcanonicaljson:canonical-manifest-json manifest)
@@ -261,27 +269,46 @@ from that package, and drain the dispatcher queue. Returns
                 actors processed)
         0))))
 
-(defun run-delegated-command (command)
-  (fail-cli-usage
-   "Command ~A delegates to the transitional prototype loader script ~
-    (prototype/run-star.lisp) and must be invoked through the installed ~
-    starlang wrapper." command))
+(defun run-loader-command (command arguments)
+  (multiple-value-bind (source allow-network cache manifest name version digest)
+      (parse-loader-arguments arguments command)
+    (let* ((cache-directory (or cache (default-loader-cache-directory)))
+           (graph
+             (if (string= command "load")
+                 (star-lang.loader:load-star-file
+                  source
+                  :allow-network allow-network
+                  :cache-directory cache-directory)
+                 (progn
+                   (unless (and name version digest)
+                     (fail-cli-usage
+                      "load-url requires --name, --version, and --digest."))
+                   (star-lang.loader:load-star-url
+                    source
+                    :name name
+                    :version version
+                    :digest digest
+                    :allow-network allow-network
+                    :cache-directory cache-directory)))))
+      (star-lang.loader:print-loaded-graph graph)
+      (when manifest
+        (with-open-file (stream manifest
+                                :direction :output
+                                :if-exists :supersede
+                                :if-does-not-exist :create)
+          (star-lang.loader:write-loaded-graph graph stream))
+        (format *standard-output* "Wrote loader manifest to ~A.~%" manifest))
+      0)))
 
 (defun dispatch-command (command arguments)
   (cond
-    ((string= command "version")
-     (run-version-command)
-     0)
-    ((string= command "check")
-     (run-check-command arguments))
-    ((string= command "compile")
-     (run-compile-command arguments))
-    ((string= command "run")
-     (run-run-command arguments))
+    ((string= command "version") (run-version-command))
+    ((string= command "check") (run-check-command arguments))
+    ((string= command "compile") (run-compile-command arguments))
+    ((string= command "run") (run-run-command arguments))
     ((member command '("load" "load-url") :test #'string=)
-     (run-delegated-command command))
-    (t
-     (fail-cli-usage "Unknown command ~A." command))))
+     (run-loader-command command arguments))
+    (t (fail-cli-usage "Unknown command ~A." command))))
 
 (defun print-star-diagnostic (condition)
   (let ((pathname (starlangcompiler:star-lang-core-error-pathname condition))
@@ -292,16 +319,12 @@ from that package, and drain the dispatcher queue. Returns
       (format *error-output* "~A" pathname)
       (when line
         (format *error-output* ":~D" line)
-        (when column
-          (format *error-output* ":~D" column)))
+        (when column (format *error-output* ":~D" column)))
       (write-string ": " *error-output*))
     (format *error-output* "~A~%"
             (starlangcompiler:star-lang-core-error-message condition))))
 
 (defun run-cli (argv)
-  "Execute the starlang command surface for ARGV (uiop:command-line-arguments)
-and return the integer exit code: 0 success, 1 runtime or diagnostic failure,
-2 usage error. The caller script quits with the returned code."
   (cond
     ((null argv)
      (usage *error-output*)
@@ -318,6 +341,9 @@ and return the integer exit code: 0 success, 1 runtime or diagnostic failure,
          2)
        (starlangcompiler:star-lang-core-error (condition)
          (print-star-diagnostic condition)
+         1)
+       (star-lang.loader:loader-error (condition)
+         (format *error-output* "starlang: ~A~%" condition)
          1)
        (starlangruntime:actor-runtime-error (condition)
          (format *error-output* "starlang: ~A~%" condition)

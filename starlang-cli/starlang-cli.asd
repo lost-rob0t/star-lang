@@ -2,9 +2,9 @@
   :description "First-class final-system starlang command-line interface"
   :author "lost-rob0t"
   :license "AGPL-3.0-only"
-  :version "0.1.0"
-  :depends-on ("star-actor-protocol" "starlang-compiler" "starlang-runtime"
-               "star-canonical-json" "ironclad")
+  :version "0.2.0"
+  :depends-on ("star-actor-protocol" "starlang-compiler" "starlang-loader"
+               "starlang-runtime" "star-canonical-json" "ironclad")
   :serial t
   :components
   ((:module "src"

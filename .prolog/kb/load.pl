@@ -8,8 +8,10 @@
    atomic_list_concat([Dir, '/compiler-ownership'], Ownership),
    atomic_list_concat([Dir, '/verification-workflow'], Workflow),
    atomic_list_concat([Dir, '/cli-surface'], CliSurface),
+   atomic_list_concat([Dir, '/final-authority'], FinalAuthority),
    consult(Toolchain),
    consult(Testing),
    consult(Ownership),
    consult(Workflow),
-   consult(CliSurface).
+   consult(CliSurface),
+   consult(FinalAuthority).
