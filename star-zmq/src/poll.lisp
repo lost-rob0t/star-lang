@@ -23,7 +23,8 @@
   timeout-ms)
 
 (defun poll-readable (socket timeout-ms)
-  "Wait without a busy loop; NIL means no readable message within the budget."
+  "Wait up to TIMEOUT-MS. NIL also permits an interrupted/spurious wakeup.
+The caller owns an absolute deadline; this function never resets or retries it."
   (bounded-integer timeout-ms 0 60000)
   (let ((handle (owned-handle socket)))
     (cffi:with-foreign-object (item '(:struct poll-item))
@@ -31,5 +32,13 @@
             (cffi:foreign-slot-value item '(:struct poll-item) 'fd) 0
             (cffi:foreign-slot-value item '(:struct poll-item) 'events) 1
             (cffi:foreign-slot-value item '(:struct poll-item) 'revents) 0)
-      (checked (%poll item 1 timeout-ms) :poll)
+      (handler-case
+          (checked (%poll item 1 timeout-ms) :poll)
+        (zmq-error (condition)
+          ;; SIGCHLD can interrupt native poll when a managed child exits.
+          ;; Surface liveness to the owner loop rather than losing the session
+          ;; to an unrelated transport error. All other native failures remain.
+          (if (= 4 (zmq-error-code condition))
+              (return-from poll-readable nil)
+              (error condition))))
       (logbitp 0 (cffi:foreign-slot-value item '(:struct poll-item) 'revents)))))
