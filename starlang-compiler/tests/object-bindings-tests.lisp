@@ -32,7 +32,7 @@
    :types
    (list
     (scalar-contract "test/id" "string")
-    (list :kind :enum :name "test/state" :values '("ready" "done"))
+    (list :kind :enum :name "test/state" :values '("ready" "1-ready" "done"))
     (list :kind :document
           :name "test/base"
           :extends nil
@@ -43,6 +43,7 @@
           :extends "test/base"
           :persistence :persistent
           :fields (list (field-contract "runState" "test/state" nil)
+                        (field-contract "observedOn" "iso-date" nil)
                         (field-contract "externalRecord"
                                         "org.external/record@1"
                                         nil))))
@@ -94,6 +95,58 @@
                    (starlangcompiler:generate-object-bindings manifest :python))))
       (is (search "orgalphathing1" python))
       (is (search "orgbetathing1" python)))))
+
+(test generated-symbol-constants-use-qualified-identities
+  (let ((manifest (test-manifest)))
+    (setf (getf manifest :predicates)
+          (append (getf manifest :predicates)
+                  (list
+                   (list :kind :predicate
+                         :name "org.alpha/related@1"
+                         :source "test/child"
+                         :destination "test/child")
+                   (list :kind :predicate
+                         :name "org.beta/related@1"
+                         :source "test/child"
+                         :destination "test/child"))))
+    (let ((java (string-downcase
+                 (starlangcompiler:generate-object-bindings manifest :java)))
+          (rust (string-downcase
+                 (starlangcompiler:generate-object-bindings manifest :rust))))
+      (is (search "predicate_org_alpha_related_1" java))
+      (is (search "predicate_org_beta_related_1" java))
+      (is (search "predicate_org_alpha_related_1" rust))
+      (is (search "predicate_org_beta_related_1" rust)))))
+
+(test prolog-quotes-hyphenated-built-in-types
+  (let ((prolog
+          (starlangcompiler:generate-object-bindings (test-manifest) :prolog)))
+    (is (search "'iso-date'" prolog))))
+
+(test java-actor-metadata-has-explicit-object-map-type
+  (let ((java
+          (starlangcompiler:generate-object-bindings (test-manifest) :java)))
+    (is (search "Map.<String, Object>ofEntries" java))))
+
+(test generated-enum-identifiers-remain-valid-for-hosts
+  (let ((java
+          (starlangcompiler:generate-object-bindings (test-manifest) :java))
+        (rust
+          (starlangcompiler:generate-object-bindings (test-manifest) :rust))
+        (nim
+          (starlangcompiler:generate-object-bindings (test-manifest) :nim)))
+    (is (search "VALUE_1_1_READY" java))
+    (is (search "Value11Ready" rust))
+    (is (search "Value11Ready" nim))))
+
+(test go-preserves-actor-optional-string-presence
+  (let ((go
+          (starlangcompiler:generate-object-bindings (test-manifest) :go)))
+    (is (search "ServiceURI *string" go))
+    (is (search "Protocol *string" go))
+    (is (search "Endpoint *string" go))
+    (is (search "Protocol: nil" go))
+    (is (search "Endpoint: nil" go))))
 
 (test manifest-rejects-unknown-top-level-keys
   (let ((manifest (append (test-manifest) (list :surprise t))))
