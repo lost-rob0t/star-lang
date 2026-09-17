@@ -66,10 +66,10 @@ proc close*(dealer: Dealer) =
     dealer.context = nil
     activeDealer = false
 
-proc openDealer*(endpoint, identity: string; timeoutMs = 5000): Dealer =
+proc openDealer*(endpoint, identity: string; timeoutMs = 5000; lingerMs = 0): Dealer =
   if not localEndpoint(endpoint) or identity.len notin 1..255 or
-      identity[0] == '\0' or timeoutMs notin 1..60000:
-    raise newException(ValueError, "Invalid local endpoint, identity, or timeout")
+      identity[0] == '\0' or timeoutMs notin 1..60000 or lingerMs notin 0..5000:
+    raise newException(ValueError, "Invalid local endpoint, identity, timeout, or linger")
   if activeDealer:
     raise newException(ValueError, "One peer/context per process in this binding")
   new(result)
@@ -80,7 +80,7 @@ proc openDealer*(endpoint, identity: string; timeoutMs = 5000): Dealer =
   try:
     result.socket = socketNew(result.context, 5) # DEALER
     if result.socket == nil: discard checked(-1, "socket")
-    for entry in [(17.cint, 0.cint), (23.cint, 64.cint), (24.cint, 64.cint),
+    for entry in [(17.cint, cint(lingerMs)), (23.cint, 64.cint), (24.cint, 64.cint),
                   (27.cint, cint(timeoutMs)), (28.cint, cint(timeoutMs)), (39.cint, 1.cint)]:
       var value = entry[1]
       discard checked(setOpt(result.socket, entry[0], addr value, csize_t(sizeof(value))), "setsockopt")
