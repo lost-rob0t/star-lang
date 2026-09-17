@@ -74,6 +74,9 @@
 
 (defun peer-tests (context executable fixture directory)
   (flet ((endpoint (name) (format nil "ipc://~A/~A.sock" directory name)))
+    (fails 'star-zmq-actors:peer-protocol-error
+           (lambda () (star-zmq-actors:open-peer context executable "inproc://not-a-child-port"
+                                                "bad-endpoint" "nim.echo" (manifest))))
     (let ((peer (star-zmq-actors:open-peer context executable (endpoint "nim")
                                          "nim-test" "nim.echo" (manifest) :generation 12)))
       (unwind-protect
@@ -86,6 +89,12 @@
                  (check (eq :reply (getf reply :kind)))
                  (check (equal (getf reply :payload) (getf request :payload)))
                  (check (equal (getf reply :causation-id) id))))
+             (let ((request (command "unsupportedDeadline")))
+               (setf (getf request :deadline) "2000-01-01T00:00:00Z")
+               (fails 'star-zmq-actors:peer-protocol-error
+                      (lambda () (star-zmq-actors:peer-request peer request))))
+             (check (star-zmq-actors:peer-live-p peer))
+             (check (eq :reply (getf (star-zmq-actors:peer-request peer (command "afterRejection")) :kind)))
              (let ((caught nil))
                (bordeaux-threads:join-thread
                 (bordeaux-threads:make-thread
