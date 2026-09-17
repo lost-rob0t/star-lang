@@ -42,6 +42,11 @@ jobs:
           set -euo pipefail
           nim c --threads:off --out:"$RUNNER_TEMP/star-zmq-peer" star-zmq/nim/peer.nim
           nim c --threads:off --out:"$RUNNER_TEMP/star-zmq-actor" star-zmq/nim/actor.nim
+      - name: Check persistent Nim wire conformance over IPC and TCP
+        shell: bash
+        run: |
+          set -euo pipefail
+          STAR_ZMQ_ACTOR="$RUNNER_TEMP/star-zmq-actor" .venv/bin/python star-zmq/tests/actor_conformance.py
       - name: Exercise Common Lisp CFFI and Lisp-launched Nim
         shell: bash
         run: |
@@ -75,3 +80,20 @@ jobs:
           done
       - name: Exercise Python byte framing separately
         run: .venv/bin/python -m unittest discover -s star-zmq/tests -p 'test_*.py' -v
+  standalone-nix:
+    name: Standalone ZMQ flake
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: DeterminateSystems/determinate-nix-action@v3
+      - name: Check the locked local transport flake
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix flake check ./star-zmq --no-update-lock-file --print-build-logs
+          nix build ./star-zmq#star-zmq-actor ./star-zmq#star-zmq-cl \
+            ./star-zmq#star-zmq-nim ./star-zmq#star-zmq-python --no-link --no-update-lock-file
