@@ -14,6 +14,9 @@
       (concatenate 'string "_" name)
       name))
 
+(defun binding-jvm-enum-constant (value index)
+  (format nil "VALUE_~D_~A" index (binding-upper-snake-name value)))
+
 (defun binding-java-list (values)
   (if values
       (format nil "List.of(~{~A~^, ~})" (mapcar #'binding-string values))
@@ -21,7 +24,7 @@
 
 (defun binding-java-metadata (metadata)
   (if metadata
-      (format nil "Map.ofEntries(~{~A~^, ~})"
+      (format nil "Map.<String, Object>ofEntries(~{~A~^, ~})"
               (mapcar
                (lambda (entry)
                  (format nil "Map.entry(~A, ~A)"
@@ -53,7 +56,9 @@
           (:enum
            (format stream "enum ~A { ~{~A~^, ~} }~%~%"
                    name
-                   (mapcar #'binding-upper-snake-name (getf contract :values))))
+                   (loop for value in (getf contract :values)
+                         for index from 0
+                         collect (binding-jvm-enum-constant value index))))
           (:document
            (format stream "class ~A~@[ extends ~A~] {~%"
                    name
@@ -81,13 +86,13 @@
     (format stream "final class StarContracts {~%  private StarContracts() {}~%")
     (dolist (predicate (getf manifest :predicates))
       (format stream "  static final List<String> PREDICATE_~A = List.of(~A, ~A, ~A);~%"
-              (binding-upper-snake-name (getf predicate :name))
+              (binding-upper-snake-name (getf predicate :name) :local-only nil)
               (binding-string (getf predicate :name))
               (binding-string (getf predicate :source))
               (binding-string (getf predicate :destination))))
     (dolist (actor (getf manifest :actors))
       (format stream "  static final StarActorContract ACTOR_~A = new StarActorContract(~A, ~A, "
-              (binding-upper-snake-name (getf actor :name))
+              (binding-upper-snake-name (getf actor :name) :local-only nil)
               (binding-string (getf actor :name))
               (binding-string (string-downcase (symbol-name (getf actor :runtime)))))
       (binding-write-nullable-string stream (getf actor :service-uri) "null")
@@ -157,7 +162,9 @@
           (:enum
            (format stream "enum class ~A { ~{~A~^, ~} }~%~%"
                    name
-                   (mapcar #'binding-upper-snake-name (getf contract :values))))
+                   (loop for value in (getf contract :values)
+                         for index from 0
+                         collect (binding-jvm-enum-constant value index))))
           (:document
            (binding-generate-kotlin-class
             stream name (binding-document-fields manifest contract))))))
@@ -168,14 +175,14 @@
        (getf message :fields)))
     (dolist (predicate (getf manifest :predicates))
       (format stream "val PREDICATE_~A = Triple(~A, ~A, ~A)~%"
-              (binding-upper-snake-name (getf predicate :name))
+              (binding-upper-snake-name (getf predicate :name) :local-only nil)
               (binding-string (getf predicate :name))
               (binding-string (getf predicate :source))
               (binding-string (getf predicate :destination))))
     (terpri stream)
     (dolist (actor (getf manifest :actors))
       (format stream "val ACTOR_~A = StarActorContract(~A, ~A, "
-              (binding-upper-snake-name (getf actor :name))
+              (binding-upper-snake-name (getf actor :name) :local-only nil)
               (binding-string (getf actor :name))
               (binding-string (string-downcase (symbol-name (getf actor :runtime)))))
       (binding-write-nullable-string stream (getf actor :service-uri) "null")
