@@ -36,14 +36,14 @@
       (format stream ")~%~%"))
     (dolist (predicate (getf manifest :predicates))
       (format stream "(defparameter +predicate-~A+ '(:name ~S :source ~S :destination ~S))~%"
-              (binding-kebab-name (getf predicate :name))
+              (binding-kebab-name (getf predicate :name) :local-only nil)
               (getf predicate :name)
               (getf predicate :source)
               (getf predicate :destination)))
     (terpri stream)
     (dolist (actor (getf manifest :actors))
       (format stream "(defparameter +actor-~A+ '~S)~%"
-              (binding-kebab-name (getf actor :name))
+              (binding-kebab-name (getf actor :name) :local-only nil)
               actor))))
 
 (defun binding-generate-elisp (manifest)
@@ -82,12 +82,27 @@
                       (getf message :fields))))
     (dolist (predicate (getf manifest :predicates))
       (format stream "(defconst star-predicate-~A '~S)~%"
-              (binding-kebab-name (getf predicate :name))
+              (binding-kebab-name (getf predicate :name) :local-only nil)
               predicate))
     (dolist (actor (getf manifest :actors))
       (format stream "(defconst star-actor-~A '~S)~%"
-              (binding-kebab-name (getf actor :name))
+              (binding-kebab-name (getf actor :name) :local-only nil)
               actor))))
+
+(defun binding-prolog-type (type)
+  (cond
+    ((and (listp type)
+          (= (length type) 2)
+          (eq (first type) :list))
+     (format nil "list(~A)" (binding-prolog-type (second type))))
+    ((and (listp type)
+          (= (length type) 2)
+          (eq (first type) :optional))
+     (format nil "optional(~A)" (binding-prolog-type (second type))))
+    ((stringp type)
+     (binding-prolog-atom type))
+    (t
+     (error "Invalid Prolog binding type ~S." type))))
 
 (defun binding-generate-prolog (manifest)
   (with-output-to-string (stream)
@@ -117,7 +132,7 @@
            (format stream "star_field(~A, ~A, ~A, ~A).~%"
                    (binding-prolog-atom (getf contract :name))
                    (binding-prolog-atom (getf field :name))
-                   (binding-type-expression :prolog (getf field :type))
+                   (binding-prolog-type (getf field :type))
                    (if (getf field :required) "required" "optional"))))))
     (dolist (message (getf manifest :messages))
       (format stream "star_message(~A).~%"
@@ -126,7 +141,7 @@
         (format stream "star_message_field(~A, ~A, ~A, ~A).~%"
                 (binding-prolog-atom (getf message :name))
                 (binding-prolog-atom (getf field :name))
-                (binding-type-expression :prolog (getf field :type))
+                (binding-prolog-type (getf field :type))
                 (if (getf field :required) "required" "optional"))))
     (dolist (predicate (getf manifest :predicates))
       (format stream "star_predicate(~A, ~A, ~A).~%"
