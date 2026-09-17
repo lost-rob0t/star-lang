@@ -1,5 +1,5 @@
 {
-  description = "StarLang local ZMQ libraries, example actor and interoperability gates (draft)";
+  description = "StarLang local ZMQ libraries, runtime adapter, example actor and interoperability gates (draft)";
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
   outputs = { self, nixpkgs }:
     let
@@ -58,10 +58,10 @@
             build-system = [ pkgs.python3Packages.setuptools ];
             dependencies = [ pkgs.python3Packages.pyzmq ];
           };
-          clSource = pkgs.runCommand "star-zmq-cl-source-0.2.0" { } ''
+          clSource = pkgs.runCommand "star-zmq-cl-source-0.3.0" { } ''
             mkdir -p "$out/share/common-lisp/source/star-zmq"
             cp -R ${self}/src ${self}/tests ${self}/star-zmq.asd ${self}/star-zmq-actors.asd \
-              "$out/share/common-lisp/source/star-zmq/"
+              ${self}/star-zmq-runtime.asd "$out/share/common-lisp/source/star-zmq/"
           '';
           nimSource = pkgs.runCommand "star-zmq-nim-source-0.1.0" { } ''
             mkdir -p "$out/share/nim/star-zmq"
