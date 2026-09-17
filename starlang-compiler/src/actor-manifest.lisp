@@ -75,17 +75,23 @@
   (unless (and (listp library) (eq (getf library :kind) :spec-library))
     (fail 'invalid-library-error
           "Portable manifest requires compiled spec library IR."))
-  (list :wire-version 1
-        :library (list :name (getf library :name)
-                       :version (getf library :version)
-                       :digest (getf library :digest))
-        :imports (copy-tree (getf library :imports))
-        :types (mapcar #'portable-declaration
-                       (append (declarations-of-kind library :scalar)
-                               (declarations-of-kind library :enum)
-                               (declarations-of-kind library :document)))
-        :predicates (mapcar #'portable-declaration
-                            (declarations-of-kind library :predicate))
-        :messages (mapcar #'portable-declaration
-                          (declarations-of-kind library :message))
-        :actors (mapcar #'portable-actor actors)))
+  (let ((manifest
+          (list :wire-version staractorprotocol:+portable-manifest-wire-version+
+                :library (list :name (getf library :name)
+                               :version (getf library :version)
+                               :digest (getf library :digest))
+                :imports (copy-tree (getf library :imports))
+                :types (mapcar #'portable-declaration
+                               (append (declarations-of-kind library :scalar)
+                                       (declarations-of-kind library :enum)
+                                       (declarations-of-kind library :document)))
+                :predicates (mapcar #'portable-declaration
+                                    (declarations-of-kind library :predicate))
+                :messages (mapcar #'portable-declaration
+                                  (declarations-of-kind library :message))
+                :actors (mapcar #'portable-actor actors))))
+    ;; Compiler output is never exempt from the same boundary validation used
+    ;; for manifests received over the wire. This keeps local and remote
+    ;; semantics from drifting and makes malformed compiler IR fail closed.
+    (staractorprotocol:validate-portable-manifest manifest)
+    manifest))

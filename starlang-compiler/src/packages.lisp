@@ -22,5 +22,8 @@
    #:logic-policy-compiler-error-cause
    #:compile-logic-call
    #:materialize-compiled-logic-call
+   #:+object-binding-targets+
+   #:generate-object-bindings
+   #:generate-all-object-bindings
    #:generate-python-lifecycle-bindings
    #:generate-typescript-lifecycle-bindings))
