@@ -12,5 +12,6 @@
      (:file "grammar")
      (:file "schema")
      (:file "tek9-store")
+     (:file "index-catalog")
      (:file "prolog"))))
   :in-order-to ((test-op (test-op "star-prolog-kb-tests"))))
