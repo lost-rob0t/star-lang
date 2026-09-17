@@ -1,0 +1,73 @@
+name: Beast A2A v1
+
+on:
+  pull_request:
+    paths:
+      - 'catalog/starintel/**'
+      - 'examples/starintel/beast/**'
+      - 'star-a2a/**'
+      - 'starlang-compiler/**'
+      - '.github/workflows/a2a-beast.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: beast-a2a-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  protocol-e2e:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install reference A2A host
+        run: python -m pip install --disable-pip-version-check -e ./star-a2a
+
+      - name: Exercise all ten A2A workers and nested delegation
+        run: python -m unittest discover -s star-a2a/tests -p 'test_*.py' -v
+
+  compiler:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Install Common Lisp test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y sbcl cl-fiveam cl-bordeaux-threads cl-babel cl-yason
+
+      - name: Exercise StarLang compiler including A2A projection
+        shell: bash
+        run: |
+          set -euo pipefail
+          sbcl --non-interactive \
+            --eval '(require :asdf)' \
+            --eval '(asdf:initialize-source-registry `(:source-registry (:tree ,(uiop:getcwd)) :inherit-configuration))' \
+            --eval '(asdf:test-system "starlang-compiler")'
+
+      - name: Compile all Beast actor contracts through the closed parser
+        shell: bash
+        run: |
+          set -euo pipefail
+          for actor in examples/starintel/beast/*.star; do
+            ACTOR="$actor" sbcl --non-interactive \
+              --eval '(require :asdf)' \
+              --eval '(asdf:initialize-source-registry `(:source-registry (:tree ,(uiop:getcwd)) :inherit-configuration))' \
+              --eval '(asdf:load-system "starlang-compiler")' \
+              --eval '(starlangcompiler:compile-actor-file (uiop:getenv "ACTOR"))'
+          done

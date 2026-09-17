@@ -1,0 +1,101 @@
+{
+  "$schema": "org.starintel/beast-worker-catalog@1",
+  "version": "1.0.0",
+  "a2a_protocol": "1.0.0",
+  "goal_documents": 100000000,
+  "authority": {
+    "definitions": "lost-rob0t/star-lang",
+    "configuration": "starintel-biz",
+    "deployment": "starintel-infra"
+  },
+  "safety": {
+    "public_or_authorized_sources_only": true,
+    "challenge_handling": "human-or-authorized-provider",
+    "proxy_evasion": "forbidden",
+    "rate_limit_evasion": "forbidden",
+    "preserve_original_source": true,
+    "record_provenance": true
+  },
+  "workers": [
+    {
+      "id": "beast-orchestrator",
+      "star_uri": "star://starintel:beast:beast-orchestrator",
+      "definition": "examples/starintel/beast/beast-orchestrator.star",
+      "a2a_endpoint_env": "STARINTEL_A2A_BEAST_ORCHESTRATOR_URL",
+      "budget_env": "STARINTEL_WORKER_BEAST_ORCHESTRATOR_COST_UNITS",
+      "skills": ["plan", "delegate", "checkpoint", "backpressure", "resume"]
+    },
+    {
+      "id": "gov-catalog",
+      "star_uri": "star://starintel:beast:gov-catalog",
+      "definition": "examples/starintel/beast/gov-catalog.star",
+      "a2a_endpoint_env": "STARINTEL_A2A_GOV_CATALOG_URL",
+      "budget_env": "STARINTEL_WORKER_GOV_CATALOG_COST_UNITS",
+      "skills": ["socrata-discovery", "ckan-discovery", "arcgis-discovery", "feed-inventory"]
+    },
+    {
+      "id": "gov-harvester",
+      "star_uri": "star://starintel:beast:gov-harvester",
+      "definition": "examples/starintel/beast/gov-harvester.star",
+      "a2a_endpoint_env": "STARINTEL_A2A_GOV_HARVESTER_URL",
+      "budget_env": "STARINTEL_WORKER_GOV_HARVESTER_COST_UNITS",
+      "skills": ["bulk-export", "incremental-fetch", "partition", "resume", "dedupe-input"]
+    },
+    {
+      "id": "challenge-broker",
+      "star_uri": "star://starintel:beast:challenge-broker",
+      "definition": "examples/starintel/beast/challenge-broker.star",
+      "a2a_endpoint_env": "STARINTEL_A2A_CHALLENGE_BROKER_URL",
+      "budget_env": "STARINTEL_WORKER_CHALLENGE_BROKER_COST_UNITS",
+      "skills": ["detect-challenge", "human-in-loop", "authorized-solver", "audit"]
+    },
+    {
+      "id": "proxy-egress",
+      "star_uri": "star://starintel:beast:proxy-egress",
+      "definition": "examples/starintel/beast/proxy-egress.star",
+      "a2a_endpoint_env": "STARINTEL_A2A_PROXY_EGRESS_URL",
+      "budget_env": "STARINTEL_WORKER_PROXY_EGRESS_COST_UNITS",
+      "skills": ["policy-route", "tenant-isolation", "rate-limit", "health", "egress-accounting"]
+    },
+    {
+      "id": "recon-domain",
+      "star_uri": "star://starintel:beast:recon-domain",
+      "definition": "examples/starintel/beast/recon-domain.star",
+      "a2a_endpoint_env": "STARINTEL_A2A_RECON_DOMAIN_URL",
+      "budget_env": "STARINTEL_WORKER_RECON_DOMAIN_COST_UNITS",
+      "skills": ["dns", "rdap", "certificate-transparency", "http-metadata", "star-bbp-programs"]
+    },
+    {
+      "id": "normalize-provenance",
+      "star_uri": "star://starintel:beast:normalize-provenance",
+      "definition": "examples/starintel/beast/normalize-provenance.star",
+      "a2a_endpoint_env": "STARINTEL_A2A_NORMALIZE_PROVENANCE_URL",
+      "budget_env": "STARINTEL_WORKER_NORMALIZE_PROVENANCE_COST_UNITS",
+      "skills": ["normalize", "canonicalize", "source-link", "hash", "schema-validate"]
+    },
+    {
+      "id": "archive-preserve",
+      "star_uri": "star://starintel:beast:archive-preserve",
+      "definition": "examples/starintel/beast/archive-preserve.star",
+      "a2a_endpoint_env": "STARINTEL_A2A_ARCHIVE_PRESERVE_URL",
+      "budget_env": "STARINTEL_WORKER_ARCHIVE_PRESERVE_COST_UNITS",
+      "skills": ["archive", "hash", "timestamp", "chain-of-custody", "object-storage"]
+    },
+    {
+      "id": "corroborate-verify",
+      "star_uri": "star://starintel:beast:corroborate-verify",
+      "definition": "examples/starintel/beast/corroborate-verify.star",
+      "a2a_endpoint_env": "STARINTEL_A2A_CORROBORATE_VERIFY_URL",
+      "budget_env": "STARINTEL_WORKER_CORROBORATE_VERIFY_COST_UNITS",
+      "skills": ["cross-source", "confidence", "contradiction", "lineage", "review-queue"]
+    },
+    {
+      "id": "graph-index-publisher",
+      "star_uri": "star://starintel:beast:graph-index-publisher",
+      "definition": "examples/starintel/beast/graph-index-publisher.star",
+      "a2a_endpoint_env": "STARINTEL_A2A_GRAPH_INDEX_PUBLISHER_URL",
+      "budget_env": "STARINTEL_WORKER_GRAPH_INDEX_PUBLISHER_COST_UNITS",
+      "skills": ["graph-upsert", "search-index", "dataset-accounting", "publish", "checkpoint"]
+    }
+  ]
+}

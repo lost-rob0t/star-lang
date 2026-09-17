@@ -22,6 +22,11 @@
     #:compile-spec-library
     #:compile-star-core
     #:emit-portable-manifest
+    #:emit-a2a-agent-card
+    #:a2a-actor-p
+    #:valid-a2a-interface-url-p
+    #:+a2a-actor-protocol+
+    #:+a2a-wire-version+
     #:expand-star-syntax
     #:load-star-form
     #:portable-actor
