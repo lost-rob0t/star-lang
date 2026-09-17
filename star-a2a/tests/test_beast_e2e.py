@@ -61,11 +61,14 @@ class BeastA2AE2E(unittest.IsolatedAsyncioTestCase):
 
     async def asyncTearDown(self) -> None:
         await self.client.aclose()
+        self.state.stop_workers()
 
     async def test_cards_and_send_message_for_all_ten_workers(self) -> None:
         worker_ids = [worker["id"] for worker in self.catalog["workers"]]
         self.assertEqual(len(worker_ids), 10)
         self.assertEqual(len(set(worker_ids)), 10)
+        self.assertEqual(set(self.state.actor_refs), set(worker_ids))
+        self.assertTrue(all(ref.is_alive() for ref in self.state.actor_refs.values()))
 
         for worker_id in worker_ids:
             card_response = await self.client.get(
