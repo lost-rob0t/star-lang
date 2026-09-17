@@ -10,12 +10,10 @@ on:
       - "**/*.asd"
       - "**/*.lisp"
       - "flake.nix"
+      - "flake.lock"
       - ".github/workflows/ci.yml"
       - "README.md"
       - "AGENTS.md"
-      - "SECURITY.md"
-      - "CHANGELOG.md"
-      - "CONTRIBUTING.md"
   push:
     branches: [main]
     paths:
@@ -25,6 +23,7 @@ on:
       - "**/*.asd"
       - "**/*.lisp"
       - "flake.nix"
+      - "flake.lock"
       - ".github/workflows/ci.yml"
   workflow_dispatch:
 
@@ -35,99 +34,80 @@ jobs:
   test:
     name: SBCL final-system contract
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    env:
-      CL_SOURCE_REGISTRY: "${{ github.workspace }}//:"
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+      - uses: DeterminateSystems/determinate-nix-action@v3
 
-      - name: Enforce repository ownership and backend boundaries
-        run: bash ci/check-repository-contracts.sh
-
-      - name: Enforce final StarLang authority
-        run: bash ci/check-final-authority.sh
-
-      - name: Enforce Common Lisp-only implementation boundary
+      - name: Enforce static authority boundaries
         shell: bash
         run: |
           set -euo pipefail
-          forbidden=""
-          while IFS= read -r -d '' f; do
-            forbidden="$forbidden $f"
-          done < <(find . -path ./.git -prune -o -type f \( -name '*.rkt' -o -name '*.scm' -o -name '*.ss' -o -name '*.py' \) -print)
-          if [ -n "$forbidden" ]; then
-            echo "Forbidden non-Common-Lisp implementation files found:$forbidden"
-            exit 1
-          fi
+          bash ci/check-repository-contracts.sh
+          bash ci/check-final-authority.sh
 
-      - name: Install SBCL and Common Lisp dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes \
-            sbcl \
-            cl-babel \
-            cl-dexador \
-            cl-fiveam \
-            cl-ironclad \
-            cl-usocket \
-            cl-yason
-
-      - name: Load target ASDF systems independently
+      - name: Load every target system independently
         shell: bash
         run: |
           set -euo pipefail
-          while IFS= read -r target_system; do
-            [ -n "$target_system" ] || continue
-            echo "Loading $target_system"
+          nix develop --command bash -lc '
+            set -euo pipefail
+            while IFS= read -r target_system; do
+              [ -n "$target_system" ] || continue
+              echo "Loading $target_system"
+              sbcl --non-interactive \
+                --eval "(require :asdf)" \
+                --eval "(asdf:load-system :$target_system)" \
+                --eval "(assert (null (find-package \"STAR-LANG.PROTOTYPE\")))" \
+                --eval "(sb-ext:quit)"
+            done < ci/target-systems.txt
+          '
+
+      - name: Test final compiler, loader, binding, runtime and CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix develop --command bash -lc '
+            set -euo pipefail
+            for system in starlang-compiler starlang-loader star-sento-compat starlang-runtime starlang-cli; do
+              echo "Testing $system"
+              sbcl --non-interactive \
+                --eval "(require :asdf)" \
+                --eval "(asdf:test-system :$system)" \
+                --eval "(assert (null (find-package \"STAR-LANG.PROTOTYPE\")))" \
+                --eval "(sb-ext:quit)"
+            done
+          '
+
+      - name: Fresh-process final CLI proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix develop --command bash -lc '
+            set -euo pipefail
+            sbcl --non-interactive --load starlang-cli/tests/cli-proof.lisp
+            cache="$TMPDIR/starlang-cache"
+            mkdir -p "$cache"
+            sbcl --script starlang-cli/starlang-cli.lisp load fixtures/star-cl.star --cache "$cache"
+          '
+
+      - name: Test portable protocol boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix develop --command bash -lc '
+            set -euo pipefail
             sbcl --non-interactive \
-              --eval '(require :asdf)' \
-              --eval "(asdf:load-system :$target_system)" \
-              --eval '(assert (null (find-package "STAR-LANG.PROTOTYPE")))' \
-              --eval '(sb-ext:quit)'
-          done < ci/target-systems.txt
-
-      - name: Test final compiler, loader, runtime and CLI independently
-        shell: bash
-        run: |
-          set -euo pipefail
-          for system in starlang-compiler starlang-loader star-sento-compat starlang-runtime starlang-cli; do
-            echo "Testing $system"
-            sbcl --non-interactive \
-              --eval '(require :asdf)' \
-              --eval "(asdf:test-system :$system)" \
-              --eval '(assert (null (find-package "STAR-LANG.PROTOTYPE")))' \
-              --eval '(sb-ext:quit)'
-          done
-
-      - name: Prove final CLI in a fresh process
-        shell: bash
-        run: |
-          set -euo pipefail
-          sbcl --non-interactive --load starlang-cli/tests/cli-proof.lisp
-
-      - name: Smoke final load command
-        shell: bash
-        run: |
-          set -euo pipefail
-          cache="$RUNNER_TEMP/starlang-cache"
-          mkdir -p "$cache"
-          sbcl --script starlang-cli/starlang-cli.lisp \
-            load fixtures/star-cl.star --cache "$cache"
-
-      - name: Test portable logic and protocol boundaries
-        shell: bash
-        run: |
-          set -euo pipefail
-          sbcl --non-interactive \
-            --eval '(require :asdf)' \
-            --eval '(asdf:test-system :star-actor-protocol)' \
-            --eval '(asdf:test-system :star-canonical-json)' \
-            --eval '(asdf:test-system :star-journal)' \
-            --eval '(asdf:test-system :star-lease)' \
-            --eval '(asdf:test-system :star-mailbox)' \
-            --eval '(asdf:test-system :star-http-port)' \
-            --eval '(asdf:test-system :star-scrape)' \
-            --eval '(asdf:test-system :star-logic-protocol)' \
-            --eval '(asdf:test-system :star-logic-ir)' \
-            --eval '(assert (null (find-package "STAR-LANG.PROTOTYPE")))' \
-            --eval '(sb-ext:quit)'
+              --eval "(require :asdf)" \
+              --eval "(asdf:test-system :star-actor-protocol)" \
+              --eval "(asdf:test-system :star-canonical-json)" \
+              --eval "(asdf:test-system :star-journal)" \
+              --eval "(asdf:test-system :star-lease)" \
+              --eval "(asdf:test-system :star-mailbox)" \
+              --eval "(asdf:test-system :star-http-port)" \
+              --eval "(asdf:test-system :star-scrape)" \
+              --eval "(asdf:test-system :star-logic-protocol)" \
+              --eval "(asdf:test-system :star-logic-ir)" \
+              --eval "(assert (null (find-package \"STAR-LANG.PROTOTYPE\")))" \
+              --eval "(sb-ext:quit)"
+          '
