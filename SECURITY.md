@@ -21,6 +21,7 @@ policy for `star-lang`.
 | star-lease | first-party | AGPL-3.0-only | Time-bound leases. |
 | star-capability | first-party | AGPL-3.0-only | Capability tokens. |
 | star-artifact | first-party | AGPL-3.0-only | Artifact storage. |
+| star-fs | first-party | AGPL-3.0-only | Unified filesystem and deterministic map/reduce plan execution. |
 | star-adapter-sdk | first-party | AGPL-3.0-only | Adapter port SDK. |
 | star-http-port | first-party | AGPL-3.0-only | HTTP adapter port. |
 | star-process-port | first-party | AGPL-3.0-only | External-process adapter port. |
