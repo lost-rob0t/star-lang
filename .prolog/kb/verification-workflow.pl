@@ -25,3 +25,19 @@ flake_source_note('flake source contains only git-tracked files; git add before 
 % via .git/info/exclude; .prolog/kb is durable and tracked.
 prolog_runtime_state(local_only).
 prolog_kb(tracked).
+
+% prolog-verify observe records only exit(0) successes; RED/failed runs
+% stay out of the machine evidence and must be narrated in the run log.
+observe_records_successful_exits_only(true).
+
+% Host-environment flake failure (verified 2026-09-19): star-process-port
+% descendant-held-pipes tests fail on this host inside and outside the
+% nix sandbox with PROCESS-OUTPUT-ERROR while draining subprocess output,
+% identically at base commit c9d56a38 extracted to a throwaway tree, and
+% identically across retries (3/3). GitHub runners pass the same commit.
+% The local flake gate is therefore differential: run nix flake check -L
+% on the branch and on the extracted base tree and require the identical
+% failing-test-system set plus the branch-specific system green inside
+% the flake build. Exact-head GitHub nix CI remains the release arbiter.
+local_flake_environmental_failure(star_process_port_descendant_pipes).
+local_flake_gate(differential_vs_base_tree).
