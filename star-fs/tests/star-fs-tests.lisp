@@ -170,7 +170,8 @@
       (starlangruntime:shutdown-runtime runtime))))
 
 (defun run-tests ()
-  (let ((result (run! 'star-fs-suite)))
-    (unless (results-status result)
+  (let ((results (run 'star-fs-suite)))
+    (explain! results)
+    (unless (results-status results)
       (error "star-fs tests failed"))
     t))
