@@ -65,6 +65,17 @@ below is implemented, tested, and enforced by CI.
 - [ ] Make fixture drift, snake_case wire keys, unsupported float behavior, insecure imports, and relation `target` fail CI.
 - [ ] Remove transitional claims only after the conformance suite and full test matrix pass.
 
+## Domain schema slices
+
+- [x] Scraper schema contracts (`org.starscrape/scraper@1`,
+      `fixtures/star-scrape-core.star`): versioned website-scraper
+      vocabulary with explicit SSRF/redirect/size/depth/content-type
+      bounds, a closed effect-capability allowlist, deterministic
+      portable manifest emission, and canonical JSON round-trip;
+      owned by final `star-scrape` (see
+      `docs/scraper-schema-contract.md`). Uses the existing closed
+      parser/IR pipeline; adds no new grammar heads or runtime.
+
 ## Related implementation issues
 
 - `#4` — lower camelCase field identifiers

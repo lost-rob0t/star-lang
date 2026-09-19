@@ -21,6 +21,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added StarLang scraper schema contracts in `star-scrape`: the versioned
+  `org.starscrape/scraper@1` vocabulary (`fixtures/star-scrape-core.star`)
+  declares request policy, allowed origins, pagination, selectors and
+  extractors, transforms, document mapping, provenance, retry/backoff,
+  robots metadata, rate/concurrency bounds, and a closed effect-capability
+  allowlist with explicit SSRF/redirect/size/depth/content-type bounds.
+  `starscrape.schema` loads the vocabulary through the closed parser,
+  validates policies built as plain Lisp data (no eval) against the
+  compiled vocabulary plus a closed domain gate, and emits a deterministic
+  data-only scraper manifest that round-trips through canonical JSON. See
+  `docs/scraper-schema-contract.md`.
+
 - Added the final `starlang-cli` system: the installed `starlang` command now
   provides explicit `version`, `check`, `compile`, and `run` behavior with
   deterministic exit codes and typed compiler/runtime diagnostics while

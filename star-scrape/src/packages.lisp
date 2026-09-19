@@ -38,3 +38,15 @@
    #:execute-scrape
    #:make-scraper-actor-definition
    #:create-scraper-actor))
+
+(defpackage :starscrape.schema
+  (:use :cl)
+  (:nicknames #:star-scrape.schema)
+  (:export
+   #:+scraper-manifest-schema+
+   #:+scraper-manifest-wire-version+
+   #:scraper-schema-error
+   #:scraper-policy-error
+   #:load-scraper-vocabulary
+   #:compile-scraper-manifest
+   #:scraper-manifest-json))
