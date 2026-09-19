@@ -21,8 +21,10 @@
     #:compile-actor-file
     #:compile-spec-library
     #:compile-star-core
+    #:emit-lifecycle-manifest
     #:emit-portable-manifest
     #:expand-star-syntax
+    #:lifecycle-transition-table
     #:load-star-form
     #:portable-actor
     #:read-star-syntax
