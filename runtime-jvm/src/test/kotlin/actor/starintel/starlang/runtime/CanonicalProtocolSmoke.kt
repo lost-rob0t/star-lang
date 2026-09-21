@@ -115,6 +115,11 @@ fun main() {
                 minimum = BigInteger.ONE,
                 maximum = BigInteger.valueOf(5),
             ),
+            PortableScalarContract(
+                name = "money",
+                base = PortableTypeRef.Named("decimal"),
+                scale = 2,
+            ),
             PortableEnumContract(
                 "status",
                 listOf("new", "done"),
@@ -145,7 +150,7 @@ fun main() {
                     ),
                     PortableFieldContract(
                         "amount",
-                        PortableTypeRef.Named("decimal"),
+                        PortableTypeRef.Named("money"),
                         true,
                     ),
                 ),
@@ -276,8 +281,8 @@ fun main() {
         ),
     )
     canonicalCheck(
-        !rejected(badDecimal),
-        "plain decimal should not inherit scalar scale",
+        rejected(badDecimal),
+        "decimal scalar scale ignored",
     )
 
     val mapManifest = PortableManifest(
