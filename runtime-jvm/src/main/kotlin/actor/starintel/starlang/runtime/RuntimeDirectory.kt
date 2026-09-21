@@ -1,5 +1,7 @@
 package actor.starintel.starlang.runtime
 
+import java.util.Collections
+
 enum class RuntimeAlive {
     ALIVE,
     DEAD,
@@ -15,7 +17,7 @@ class RuntimeDirectoryEntry(
     val domain: String? = null,
     val address: String? = null,
 ) {
-    val capabilities: List<String> = capabilities.toList()
+    val capabilities: List<String> = Collections.unmodifiableList(capabilities.toList())
 
     val serviceUri: String? = serviceUri?.let { raw ->
         val uri = StarServiceUri.parse(raw)
