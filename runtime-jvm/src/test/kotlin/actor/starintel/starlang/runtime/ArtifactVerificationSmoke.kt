@@ -140,7 +140,7 @@ fun main() {
 
     val root = Files.createTempDirectory("starlang-artifact-smoke")
     try {
-        val writer = JsonFileWriter(root, CanonicalJsonEncoder(::testCanonicalJson))
+        val writer = JsonFileWriter(root)
         val document = PortableValue.ObjectValue.of(
             mapOf(
                 "source" to PortableValue.Text("github"),
