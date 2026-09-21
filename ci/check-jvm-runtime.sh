@@ -25,6 +25,7 @@ wire_smoke="$repo_root/runtime-jvm/src/test/kotlin/actor/starintel/starlang/runt
 supervisor_smoke="$repo_root/runtime-jvm/src/test/kotlin/actor/starintel/starlang/runtime/SupervisorSmoke.kt"
 journal_smoke="$repo_root/runtime-jvm/src/test/kotlin/actor/starintel/starlang/runtime/JournalSmoke.kt"
 lease_smoke="$repo_root/runtime-jvm/src/test/kotlin/actor/starintel/starlang/runtime/HeartbeatLeaseSmoke.kt"
+artifact_smoke="$repo_root/runtime-jvm/src/test/kotlin/actor/starintel/starlang/runtime/ArtifactVerificationSmoke.kt"
 java_smoke="$repo_root/runtime-jvm/src/test/java/actor/starintel/starlang/runtime/JavaAbiSmoke.java"
 
 "$kotlinc"   "${main_sources[@]}"   "$runtime_smoke"   -include-runtime   -d "$work/runtime-smoke.jar"
@@ -62,6 +63,14 @@ java_smoke="$repo_root/runtime-jvm/src/test/java/actor/starintel/starlang/runtim
   -d "$work/lease-smoke.jar"
 
 "$java" -jar "$work/lease-smoke.jar"
+
+"$kotlinc" \
+  "${main_sources[@]}" \
+  "$artifact_smoke" \
+  -include-runtime \
+  -d "$work/artifact-smoke.jar"
+
+"$java" -jar "$work/artifact-smoke.jar"
 
 mkdir -p "$work/classes"
 "$kotlinc" "${main_sources[@]}" -d "$work/classes"
