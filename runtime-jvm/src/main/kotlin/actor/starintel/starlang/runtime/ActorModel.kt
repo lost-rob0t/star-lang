@@ -1,5 +1,8 @@
 package actor.starintel.starlang.runtime
 
+import java.util.Collections
+import java.util.TreeMap
+
 enum class ActorKind {
     NATIVE,
     EXTERNAL,
@@ -76,7 +79,7 @@ fun interface InitialStateFactory {
     fun create(): PortableValue
 }
 
-data class ActorDefinition(
+data class ActorDefinition private constructor(
     val name: String,
     val serviceUri: String,
     val kind: ActorKind,
@@ -123,12 +126,12 @@ data class ActorDefinition(
             name = name,
             serviceUri = serviceUri,
             kind = ActorKind.NATIVE,
-            accepts = accepts.toList(),
-            produces = produces.toList(),
+            accepts = Collections.unmodifiableList(accepts.toList()),
+            produces = Collections.unmodifiableList(produces.toList()),
             restartPolicy = restartPolicy,
             mailboxCapacity = mailboxCapacity,
-            capabilities = capabilities.toList(),
-            metadata = metadata.toSortedMap(),
+            capabilities = Collections.unmodifiableList(capabilities.toList()),
+            metadata = Collections.unmodifiableMap(TreeMap(metadata)),
             handler = handler,
             inputValidator = inputValidator,
             outputValidator = outputValidator,
@@ -154,12 +157,12 @@ data class ActorDefinition(
             name = name,
             serviceUri = serviceUri,
             kind = ActorKind.EXTERNAL,
-            accepts = accepts.toList(),
-            produces = produces.toList(),
+            accepts = Collections.unmodifiableList(accepts.toList()),
+            produces = Collections.unmodifiableList(produces.toList()),
             restartPolicy = restartPolicy,
             mailboxCapacity = mailboxCapacity,
-            capabilities = capabilities.toList(),
-            metadata = metadata.toSortedMap(),
+            capabilities = Collections.unmodifiableList(capabilities.toList()),
+            metadata = Collections.unmodifiableMap(TreeMap(metadata)),
             protocol = protocol,
             endpoint = endpoint,
             inputValidator = inputValidator,
