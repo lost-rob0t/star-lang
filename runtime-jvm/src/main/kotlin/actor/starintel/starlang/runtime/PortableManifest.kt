@@ -1,10 +1,12 @@
 package actor.starintel.starlang.runtime
 
+import java.util.Collections
+
 data class PortableMessageContract(
     val name: String,
     requiredFields: List<String> = emptyList(),
 ) {
-    val requiredFields: List<String> = requiredFields.toList()
+    val requiredFields: List<String> = Collections.unmodifiableList(requiredFields.toList())
 
     init {
         require(name.isNotBlank()) { "Message contract name must not be blank." }
@@ -20,8 +22,8 @@ data class PortableActorContract(
     accepts: List<String> = emptyList(),
     produces: List<String> = emptyList(),
 ) {
-    val accepts: List<String> = accepts.toList()
-    val produces: List<String> = produces.toList()
+    val accepts: List<String> = Collections.unmodifiableList(accepts.toList())
+    val produces: List<String> = Collections.unmodifiableList(produces.toList())
 
     init {
         require(name.isNotBlank()) { "Actor contract name must not be blank." }
@@ -36,8 +38,8 @@ data class PortableManifest(
     actors: List<PortableActorContract>,
     messages: List<PortableMessageContract> = emptyList(),
 ) {
-    val actors: List<PortableActorContract> = actors.toList()
-    val messages: List<PortableMessageContract> = messages.toList()
+    val actors: List<PortableActorContract> = Collections.unmodifiableList(actors.toList())
+    val messages: List<PortableMessageContract> = Collections.unmodifiableList(messages.toList())
 
     init {
         require(wireVersion == 1) {
