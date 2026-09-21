@@ -21,11 +21,20 @@ main_sources=(
   "$repo_root"/runtime-jvm/src/main/kotlin/actor/starintel/starlang/runtime/*.kt
 )
 runtime_smoke="$repo_root/runtime-jvm/src/test/kotlin/actor/starintel/starlang/runtime/RuntimeSmoke.kt"
+wire_smoke="$repo_root/runtime-jvm/src/test/kotlin/actor/starintel/starlang/runtime/WireDispatcherSmoke.kt"
 java_smoke="$repo_root/runtime-jvm/src/test/java/actor/starintel/starlang/runtime/JavaAbiSmoke.java"
 
 "$kotlinc"   "${main_sources[@]}"   "$runtime_smoke"   -include-runtime   -d "$work/runtime-smoke.jar"
 
 "$java" -jar "$work/runtime-smoke.jar"
+
+"$kotlinc" \
+  "${main_sources[@]}" \
+  "$wire_smoke" \
+  -include-runtime \
+  -d "$work/wire-smoke.jar"
+
+"$java" -jar "$work/wire-smoke.jar"
 
 mkdir -p "$work/classes"
 "$kotlinc" "${main_sources[@]}" -d "$work/classes"
