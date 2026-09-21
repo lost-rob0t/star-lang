@@ -17,6 +17,7 @@ star-logic-ir
 star-logic-testing
 star-logic-adapter-swi
 star-xlsx
+star-kb
 starlang-compiler
 starlang-runtime
 starlang-cli
