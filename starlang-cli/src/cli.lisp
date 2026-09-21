@@ -33,7 +33,7 @@
 (defun usage (&optional (stream *standard-output*))
   (format stream "Usage: starlang version~%")
   (format stream "       starlang check FILE~%")
-  (format stream "       starlang compile FILE [--manifest FILE]~%")
+  (format stream "       starlang compile FILE [--target manifest|kotlin] [--output FILE] [--manifest FILE]~%")
   (format stream "       starlang run FILE [--eval FORM]... [--load FILE]... [--package PKG] [--manifest FILE]~%")
   (format stream "       starlang load FILE [--allow-network] [--cache DIR] [--manifest FILE] [--runtime-compiler eval]~%")
   (format stream "       starlang load-url URL --name NAME --version VERSION --digest SHA256 [options]~%")
@@ -168,15 +168,34 @@ from that package, and drain the dispatcher queue. Returns
   (and (plusp (length option))
        (char= (char option 0) #\-)))
 
+(defun parse-compile-target (value)
+  (cond
+    ((string= value "manifest") :manifest)
+    ((string= value "kotlin") :kotlin)
+    (t
+     (fail-cli-usage
+      "Unknown compile target ~A; expected manifest or kotlin."
+      value))))
+
 (defun parse-compile-arguments (arguments)
   (let ((file nil)
-        (manifest nil))
+        (manifest nil)
+        (output nil)
+        (target :manifest))
     (loop while arguments
           for option = (pop arguments)
           do (cond
                ((string= option "--manifest")
                 (multiple-value-setq (manifest arguments)
                   (require-option-value arguments option)))
+               ((string= option "--output")
+                (multiple-value-setq (output arguments)
+                  (require-option-value arguments option)))
+               ((string= option "--target")
+                (multiple-value-bind (value rest)
+                    (require-option-value arguments option)
+                  (setf target (parse-compile-target value)
+                        arguments rest)))
                ((plain-option-p option)
                 (fail-cli-usage "Unknown option ~A for compile." option))
                (file
@@ -185,7 +204,7 @@ from that package, and drain the dispatcher queue. Returns
                 (setf file option))))
     (unless file
       (fail-cli-usage "compile requires a FILE argument."))
-    (values file manifest)))
+    (values file manifest target output)))
 
 (defun parse-run-arguments (arguments)
   (let ((file nil)
@@ -233,12 +252,26 @@ from that package, and drain the dispatcher queue. Returns
     0))
 
 (defun run-compile-command (arguments)
-  (multiple-value-bind (file manifest-path)
+  (multiple-value-bind (file manifest-path target output-path)
       (parse-compile-arguments arguments)
-    (let ((manifest (compile-program-manifest file)))
-      (write-manifest-json
-       (starcanonicaljson:canonical-manifest-json manifest)
-       manifest-path)
+    (multiple-value-bind (actor-ir manifest)
+        (compile-program file)
+      (let ((manifest-json
+              (starcanonicaljson:canonical-manifest-json manifest)))
+        (ecase target
+          (:manifest
+           (write-manifest-json
+            manifest-json
+            (or output-path manifest-path))
+           (when (and output-path manifest-path
+                      (not (string= output-path manifest-path)))
+             (write-manifest-json manifest-json manifest-path)))
+          (:kotlin
+           (when manifest-path
+             (write-manifest-json manifest-json manifest-path))
+           (write-manifest-json
+            (starlangcompiler:generate-kotlin-actor-binding actor-ir)
+            output-path))))
       0)))
 
 (defun run-run-command (arguments)
