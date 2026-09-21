@@ -1,6 +1,6 @@
 # star-lang
 
-Common Lisp-only **StarLang** compiler and durable actor runtime.
+Polyglot **StarLang** compiler and durable actor runtimes, with Common Lisp permanent and Kotlin/JVM additive.
 
 `star-lang` hosts the reusable Common Lisp systems that power the StarIntel
 actor platform. The approved research and design evidence lives in
@@ -13,18 +13,22 @@ released runtime systems from this repository.
 
 BEGIN STARLANG AGENT INSTRUCTIONS
 - `main` is canonical; every change is reviewed through a pull request.
-- Common Lisp is the sole runtime and compiler implementation language.
-- The StarLang research/design repository is semantic design authority.
-- Executable ASDF, Nix, CI, and runtime state outranks stale status prose.
+- StarLang is intentionally polyglot. Common Lisp is a permanent first-class compiler and runtime backend; Kotlin/JVM is an additive peer runtime backend.
+- The language-neutral StarLang specification, normalized IR, wire contracts, canonical fixtures, and conformance tests own semantics across implementations.
+- The StarLang research/design repository is semantic design authority, subject to explicit operator reversals recorded in the active design/issue authority.
+- Executable ASDF, Gradle, Nix, CI, and runtime state outranks stale status prose.
 - Add no new authoritative behavior under `prototype/`.
-- Migration means move, delegate, or delete behavior; never duplicate it.
-- Use test-driven development and run focused, surrounding, and full gates.
+- Never delete, demote, or mark a supported language/runtime backend as temporary without a separate explicit operator-approved decision.
+- Runtime port work adds conforming implementations; parity never authorizes removal of the Common Lisp implementation.
+- Preserve portable generated/boundary support for Common Lisp, Python, TypeScript, Nim, Java, Kotlin, Go, Rust, Emacs Lisp, and Prolog.
+- Use test-driven development and run focused, surrounding, cross-runtime, and full gates.
 - Actor-semantic tests must execute the real runtime boundary they claim to verify.
 - Mocks may replace external-effect ports, never actor semantics evidence.
 - Keep the final-system dependency graph acyclic.
+- Java is a JVM consumer ABI, Nim may provide isolated native/edge adapters, and C is thin FFI unless separately approved.
 - Commit no secrets, credentials, private datasets, or private evidence.
-- Complete the applicable ASDF, CI, and `nix flake check -L` gates before declaring completion.
-- Update ownership and migration documentation whenever executable ownership moves.
+- Complete the applicable ASDF, Gradle, CI, cross-runtime conformance, and `nix flake check -L` gates before declaring completion.
+- Update ownership and language-matrix documentation whenever executable ownership changes.
 END STARLANG AGENT INSTRUCTIONS
 
 ## Research conformance
@@ -41,8 +45,8 @@ does not imply that the current implementation already satisfies every rule.
 
 The required boundary is:
 
-- Common Lisp is the sole parser, compiler, semantic-engine, dispatcher, and
-  runtime implementation language.
+- Common Lisp remains a permanent supported parser/compiler/runtime implementation.
+- Kotlin/JVM may implement the same runtime-neutral semantics as an additive peer backend; shared specification/IR/wire conformance prevents language drift.
 - `.star` source must be parsed by the closed Star-Lang parser and never by the
   Common Lisp reader.
 - specification imports must be exact-versioned, full SHA-256 locked, locally
@@ -114,11 +118,14 @@ behaviors remain with their existing or later dependency-correct authorities.
 
 ## Implementation language
 
-Common Lisp is the **sole** approved implementation language, per
-[STAR-LANG-INDEX-001][impl-index] in the research repository. Alternate parser,
-compiler, dispatcher, and runtime implementations are denied. Generated Python
-and TypeScript bindings may consume versioned JSON contracts at system
-boundaries but do not implement StarLang.
+StarLang is deliberately **multi-language** while keeping Common Lisp permanent.
+
+- Common Lisp is a first-class compiler and runtime implementation and is not migration debt.
+- Kotlin/JVM is an additive peer runtime backend generated from the same runtime-neutral IR.
+- The specification, normalized IR, wire contracts, canonical fixtures, and conformance suite are the cross-language semantic authority.
+- Portable generated/boundary targets remain Common Lisp, Python, TypeScript, Nim, Java, Kotlin, Go, Rust, Emacs Lisp, and Prolog.
+- Java is also the JVM consumer ABI; Nim may implement isolated native/edge adapters; C is thin FFI unless separately approved.
+- A supported backend may not be deleted or demoted without a separate explicit operator-approved decision.
 
 [impl-index]: https://github.com/lost-rob0t/starintel-auto-research/blob/main/roam/indexes/star-lang/STAR-LANG-INDEX-001-implementation.org
 
