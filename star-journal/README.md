@@ -59,10 +59,49 @@ limits for callers and focused tests. `star-journal` uses the defaults for both
 append and replay boundaries. A rejected append does not invoke the backend
 append callback and therefore cannot partially extend prior journal history.
 
-These limits bound ownership/snapshot traversal. They do **not** claim that the
-current file-backed Common Lisp reader is allocation-bounded before it creates a
-value; corrupt/truncated file-reader hardening remains separate work tracked by
-issue #82.
+## File replay bounds
+
+The file-backed port preserves the readable event representation produced by
+`make-file-runtime-journal-port`, but it no longer hands an unbounded file
+straight to the host Common Lisp reader. Replay first enforces finite source
+budgets and a data-only reader subset, then invokes `read` with `*read-eval*`
+bound to `nil`, then applies the normal owned-value and event validation.
+
+The pre-reader budgets are:
+
+| Budget | Limit |
+| --- | ---: |
+| Maximum file size | 67,108,864 bytes |
+| Maximum reader nesting depth | 64 |
+| Maximum reader tokens | 50,000 |
+| Maximum records | 50,000 |
+| Maximum source string length | 1,048,576 characters |
+| Maximum aggregate source string length | 8,388,608 characters |
+| Maximum `#*` bit-vector length | 65,536 bits |
+
+The admitted reader subset covers the forms emitted for supported journal
+values: ordinary atoms, strings, proper or dotted lists, vectors, bounded array
+syntax used by SBCL for readable specialized one-dimensional arrays, bit-vectors,
+keywords, package-qualified symbols, and uninterned symbols. The writer uses
+`*print-circle* nil`, so shared-but-acyclic values are serialized by value and do
+not require graph labels on disk.
+
+Reader evaluation (`#.`), graph labels (`#n=`/`#n#`), numeric dispatch prefixes
+such as compact oversized vectors, reader abbreviations, structure/pathname/
+character/radix dispatch extensions, and other non-writer syntax are rejected
+with `star-journal-error` before `read` can execute or expand them. Numeric array
+prefixes remain rejected; only the non-prefixed readable array form observed from
+the existing SBCL writer is admitted, with its following structure subject to
+the same depth/token limits.
+
+Malformed or truncated input is never silently dropped. Reader failures are
+collapsed to bounded `star-journal-error` reports rather than interpolating an
+attacker-controlled reader condition. A file that grows while a replay snapshot
+is being read is also rejected instead of returning a partial prefix.
+
+These file limits are intentionally in addition to the portable snapshot limits:
+the first layer bounds host-reader work and allocation, while the second layer
+continues to own and validate the resulting StarLang values.
 
 ## Verification
 
@@ -76,5 +115,8 @@ asdf:test-system :star-journal
 The journal tests cover caller mutation after append, replay-result mutation,
 nested mutable leaves, vectors, custom backend isolation, cycle/depth/size
 rejection, long shallow replay, aggregate alias-amplification bounds,
-failed-append history preservation, file round-trip behavior, and prototype
-independence.
+failed-append history preservation, file round-trip behavior, bounded corrupt
+file replay, disabled reader evaluation, malformed/truncated records, and
+prototype independence. The corrupt-file watchdog cases run replay in isolated
+SBCL children with a hard timeout and constrained heap so a regression cannot
+hang or exhaust the parent test process.
