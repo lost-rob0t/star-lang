@@ -1054,7 +1054,8 @@ the approved declarative hygienic macro language is implemented."
     syntax))
 
 (defparameter *specification-declaration-heads*
-  '("import" "scalar" "enum" "document" "predicate" "message" "lifecycle"))
+  '("import" "scalar" "enum" "document" "predicate" "message" "lifecycle"
+    "database" "database-operation"))
 
 (defparameter *program-declaration-heads*
   '("spec-graph" "document" "actor" "domain-server" "dataflow"))
@@ -1167,6 +1168,123 @@ the approved declarative hygienic macro language is implemented."
 (defun optional-option (options key)
   (when (plist-has-key-p options key)
     (required-option options key "options")))
+
+
+(defun declaration-option-key (value context)
+  "Return VALUE as a validated keyword used by a closed declaration plist."
+  (let ((datum (if (star-syntax-p value) (syntax-atom value) value)))
+    (unless (keywordp datum)
+      (with-star-source-position (value)
+        (fail 'invalid-declaration-error
+              "~A option keys must be keywords, received ~S."
+              context datum)))
+    datum))
+
+(defun validate-declaration-options (options allowed context)
+  "Require OPTIONS to be a duplicate-free plist containing only ALLOWED keys."
+  (ensure-plist options context)
+  (let ((seen '()))
+    (loop for tail on (plist-elements options) by #'cddr
+          for key-node = (first tail)
+          for key = (declaration-option-key key-node context)
+          do (unless (member key allowed :test #'eq)
+               (with-star-source-position (key-node)
+                 (fail 'invalid-declaration-error
+                       "Unsupported ~A option ~S." context key)))
+             (when (member key seen :test #'eq)
+               (with-star-source-position (key-node)
+                 (fail 'invalid-declaration-error
+                       "Duplicate ~A option ~S." context key)))
+             (push key seen)))
+  options)
+
+(defun normalize-closed-identifier (value allowed context)
+  (let ((name (identifier-key value)))
+    (or (cdr (assoc name allowed :test #'string=))
+        (with-star-source-position (value)
+          (fail 'invalid-declaration-error
+                "Unsupported ~A value ~S." context name)))))
+
+(defun normalize-database-access (value)
+  (normalize-closed-identifier
+   value
+   '(("read" . :read)
+     ("write" . :write)
+     ("read-write" . :read-write))
+   "database access"))
+
+(defun normalize-database-operation-access (value)
+  (normalize-closed-identifier
+   value
+   '(("read" . :read)
+     ("write" . :write)
+     ("transaction" . :transaction)
+     ("subscribe" . :subscribe)
+     ("logic" . :logic)
+     ("admin" . :admin))
+   "database operation access"))
+
+(defun normalize-database-operation-kind (value)
+  (normalize-closed-identifier
+   value
+   '(("lookup" . :lookup)
+     ("query" . :query)
+     ("search" . :search)
+     ("aggregate" . :aggregate)
+     ("traverse" . :traverse)
+     ("view" . :view)
+     ("logic" . :logic)
+     ("head" . :head)
+     ("changes" . :changes)
+     ("insert" . :insert)
+     ("update" . :update)
+     ("upsert" . :upsert)
+     ("delete" . :delete)
+     ("bulk-write" . :bulk-write)
+     ("transaction" . :transaction))
+   "database operation kind"))
+
+(defun normalize-database-cardinality (value)
+  (normalize-closed-identifier
+   value
+   '(("none" . :none)
+     ("one" . :one)
+     ("optional-one" . :optional-one)
+     ("many" . :many)
+     ("stream" . :stream))
+   "database operation cardinality"))
+
+(defun normalize-database-idempotency (value)
+  (normalize-closed-identifier
+   value
+   '(("readonly" . :readonly)
+     ("keyed" . :keyed)
+     ("preconditioned" . :preconditioned)
+     ("non-replayable" . :non-replayable))
+   "database operation idempotency"))
+
+(defun normalize-declaration-identifier-list (value context)
+  (unless (syntax-list-p value)
+    (with-star-source-position (value)
+      (fail 'invalid-declaration-error "~A must be a list." context)))
+  (let ((items (mapcar #'identifier-string (star-syntax-children value))))
+    (unless (= (length items)
+               (length (remove-duplicates items :test #'string=)))
+      (with-star-source-position (value)
+        (fail 'invalid-declaration-error
+              "~A must not contain duplicate identifiers." context)))
+    items))
+
+(defun optional-positive-integer-option (options key context)
+  (when (plist-has-key-p options key)
+    (let* ((node (required-option options key context))
+           (value (star-syntax-to-datum node)))
+      (unless (and (integerp value) (plusp value))
+        (with-star-source-position (node)
+          (fail 'invalid-declaration-error
+                "~A option ~S must be a positive integer."
+                context key)))
+      value)))
 
 (defun digest-p (value)
   (setf value (if (star-syntax-p value) (syntax-atom value) value))
@@ -1502,6 +1620,112 @@ the approved declarative hygienic macro language is implemented."
                         (required-option options :destination "predicate")
                         library-name local-types))))
 
+(defun compile-database (declaration library-name)
+  (destructuring-bind (operator name options) (syntax-elements declaration)
+    (declare (ignore operator))
+    (validate-declaration-options
+     options
+     '(:access :consistency :transactions :subscriptions)
+     "database")
+    (let ((access
+            (normalize-database-access
+             (required-option options :access "database"))))
+      (list :kind :database
+            :name (identifier-string name)
+            :qualified-name (qualify-name library-name name)
+            :access access
+            :consistency
+            (and (plist-has-key-p options :consistency)
+                 (identifier-string
+                  (required-option options :consistency "database")))
+            :transactions
+            (and (plist-has-key-p options :transactions)
+                 (identifier-string
+                  (required-option options :transactions "database")))
+            :subscriptions
+            (and (plist-has-key-p options :subscriptions)
+                 (identifier-string
+                  (required-option options :subscriptions "database")))
+            :source-map (star-syntax-source-map declaration)))))
+
+(defun compile-database-operation
+    (declaration library-name local-types)
+  (destructuring-bind (operator name options) (syntax-elements declaration)
+    (declare (ignore operator))
+    (validate-declaration-options
+     options
+     '(:database :access :kind :parameters :result :cardinality
+       :idempotency :capabilities :isolation :timeout-ms :result-limit)
+     "database-operation")
+    (let ((parameters
+            (required-option options :parameters "database-operation")))
+      (unless (syntax-list-p parameters)
+        (with-star-source-position (parameters)
+          (fail 'invalid-declaration-error
+                "database-operation parameters must be a list.")))
+      (let ((compiled-parameters
+              (mapcar
+               (lambda (parameter)
+                 (compile-field parameter library-name local-types))
+               (star-syntax-children parameters))))
+        (ensure-unique-fields
+         compiled-parameters
+         (format nil "Database operation ~A" name))
+        (list
+         :kind :database-operation
+         :name (identifier-string name)
+         :qualified-name (qualify-name library-name name)
+         :database
+         (identifier-string
+          (required-option options :database "database-operation"))
+         :access
+         (normalize-database-operation-access
+          (required-option options :access "database-operation"))
+         :operation-kind
+         (normalize-database-operation-kind
+          (required-option options :kind "database-operation"))
+         :parameters compiled-parameters
+         :result
+         (normalize-type-expression
+          (required-option options :result "database-operation")
+          library-name local-types)
+         :cardinality
+         (normalize-database-cardinality
+          (required-option options :cardinality "database-operation"))
+         :idempotency
+         (normalize-database-idempotency
+          (required-option options :idempotency "database-operation"))
+         :capabilities
+         (normalize-declaration-identifier-list
+          (required-option options :capabilities "database-operation")
+          "database-operation capabilities")
+         :isolation
+         (and (plist-has-key-p options :isolation)
+              (identifier-string
+               (required-option options :isolation "database-operation")))
+         :timeout-ms
+         (optional-positive-integer-option
+          options :timeout-ms "database-operation")
+         :result-limit
+         (optional-positive-integer-option
+          options :result-limit "database-operation")
+         :source-map (star-syntax-source-map declaration))))))
+
+(defun validate-database-operation-references (compiled)
+  (let ((databases
+          (loop for declaration in compiled
+                when (eq (getf declaration :kind) :database)
+                  collect (getf declaration :name))))
+    (dolist (declaration compiled)
+      (when (eq (getf declaration :kind) :database-operation)
+        (unless (member (getf declaration :database)
+                        databases :test #'string=)
+          (fail 'invalid-declaration-error
+                "Database operation ~A references unknown database ~A."
+                (getf declaration :name)
+                (getf declaration :database))))))
+  compiled)
+
 (defun compile-message (declaration library-name local-types)
   (destructuring-bind (operator name options) (syntax-elements declaration)
     (declare (ignore operator))
@@ -1533,6 +1757,10 @@ the approved declarative hygienic macro language is implemented."
          (compile-predicate declaration library-name local-types))
         ((string= kind "message")
          (compile-message declaration library-name local-types))
+        ((string= kind "database")
+         (compile-database declaration library-name))
+        ((string= kind "database-operation")
+         (compile-database-operation declaration library-name local-types))
         ((string= kind "lifecycle")
          (compile-lifecycle declaration library-name local-types))
         (t
@@ -1564,10 +1792,11 @@ the approved declarative hygienic macro language is implemented."
              (library-name (syntax-atom name))
              (local-types (declared-local-types declarations))
              (compiled
-               (mapcar (lambda (declaration)
-                         (compile-library-declaration
-                          declaration library-name local-types))
-                       declarations)))
+               (validate-database-operation-references
+                (mapcar (lambda (declaration)
+                          (compile-library-declaration
+                           declaration library-name local-types))
+                        declarations))))
         (unless (eq (star-syntax-kind version) :string)
           (fail 'invalid-library-error
                 "Specification library version must be a string."))
