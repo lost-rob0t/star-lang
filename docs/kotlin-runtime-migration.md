@@ -1,37 +1,46 @@
-# Kotlin/JVM runtime migration
+# Kotlin/JVM runtime expansion
 
-Authority: STAR-LANG-014 in `lost-rob0t/starintel-auto-research`.
+Authority: #162 plus the operator reversal of STAR-LANG-014.
+
+Kotlin/JVM is an additive peer runtime. This work does **not** migrate StarLang away from Common Lisp.
 
 ## Language ownership
 
-| Layer | Current owner | Target |
+| Layer | Common Lisp | Kotlin/JVM |
 | --- | --- | --- |
-| closed .star parser, spans, macro expansion | Common Lisp | unchanged in this migration |
-| normalized IR + canonical manifest | Common Lisp | unchanged in this migration |
-| IR -> executable runtime binding | Common Lisp compiler | deterministic Kotlin source |
-| mailbox + local actor lifecycle | Common Lisp oracle + Kotlin candidate | Kotlin/JVM |
-| wire lifecycle dispatcher | Common Lisp | Kotlin/JVM |
-| supervisor | Common Lisp | Kotlin/JVM |
-| journal/replay | Common Lisp | Kotlin/JVM |
-| leases/capabilities/artifacts | Common Lisp | Kotlin/JVM |
-| JVM consumer API | none | Kotlin public API with Java ABI |
-| native/edge adapters | effect-specific | Nim where justified |
-| native ABI glue | effect-specific | C only when unavoidable |
+| closed .star parser, spans, macro expansion | first-class, retained | consumes normalized IR |
+| normalized IR + canonical manifest | first-class compiler authority | consumes shared contracts |
+| executable runtime binding | first-class CL runtime | peer Kotlin runtime |
+| mailbox + local actor lifecycle | retained + conformance target | peer implementation |
+| wire lifecycle dispatcher | retained + conformance target | peer implementation |
+| supervisor | retained + conformance target | peer implementation |
+| journal/replay | retained + conformance target | peer implementation |
+| leases/capabilities/artifacts | retained + conformance target | peer implementation |
+| JVM consumer API | n/a | Kotlin public API + Java ABI |
 
-## Cutover rule
+Portable generated/boundary support remains available for Common Lisp, Python,
+TypeScript, Nim, Java, Kotlin, Go, Rust, Emacs Lisp, and Prolog.
 
-A subsystem moves only after the same fixture executes against both the current
-Common Lisp owner and the real Kotlin boundary and produces equivalent normalized
-behavior. After cutover, the superseded Common Lisp semantic implementation is
-removed or reduced to a forwarding compatibility boundary.
+## Parity rule
 
-No new runtime semantic feature should be implemented only in the Common Lisp
-runtime while its Kotlin port is active.
+A JVM subsystem is accepted only after shared fixtures execute against both the
+real Common Lisp and real Kotlin/JVM boundaries and produce equivalent normalized
+observable behavior.
+
+Parity is **not a cutover trigger**. The Common Lisp implementation remains
+supported after the Kotlin implementation reaches parity.
+
+No agent may:
+
+- describe Common Lisp as temporary, legacy, fallback-only, or scheduled for retirement;
+- delete or demote Common Lisp runtime/compiler capability as part of JVM work;
+- silently change a default runtime merely because a peer backend reaches parity;
+- remove an existing generated/boundary language target without explicit operator approval.
 
 ## Initial parity surface
 
-The first JVM slice mirrors the final local runtime semantics that are already
-owned by `star-mailbox` and `starlang-runtime`:
+The first JVM slice mirrors local runtime semantics already owned by
+`star-mailbox` and `starlang-runtime`:
 
 - bounded offer/poll FIFO behavior;
 - full/closed delivery results;
@@ -40,20 +49,16 @@ owned by `star-mailbox` and `starlang-runtime`:
 - state-preserving restart with new generation and fresh mailbox;
 - stale actor-reference rejection;
 - asynchronous tell plus deterministic single-step dispatch;
-- ask measured in deterministic dispatch steps, not wall clock;
+- deterministic ask semantics;
 - input/output validation hooks;
 - explicit state replacement rather than mutation-based implicit commit;
 - stale completion fencing when lifecycle changes during a handler.
 
-The Kotlin state model uses immutable portable values so retained aliases cannot
-mutate committed actor state after the transition.
-
 ## Native-language rule
 
-Nim can be used for standalone adapters when a JVM is unavailable or
-materially wrong for the deployment. Those adapters speak frozen StarLang
-message/effect contracts and never implement actor state machines.
+Nim may be used for standalone native/edge adapters when a JVM is unavailable or
+materially wrong for a deployment. Those adapters speak frozen StarLang
+message/effect contracts.
 
-C is limited to thin FFI for existing native libraries. It must not own parser,
-compiler, mailbox, dispatcher, supervision, lifecycle, journal, replay, or
-capability semantics.
+C is limited to thin FFI for native libraries unless a separate operator-approved
+runtime decision expands its role.
