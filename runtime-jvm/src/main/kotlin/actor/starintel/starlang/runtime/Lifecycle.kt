@@ -93,9 +93,35 @@ data class LifecycleEnvelope(
                 }
                 manifest?.validateDataPayload(messageType, payload.value)
             }
-            EnvelopeKind.ACK -> validateAckPayload(payload)
-            EnvelopeKind.ERROR -> validateErrorPayload(payload)
-            EnvelopeKind.CANCEL -> validateCancelPayload(payload)
+            EnvelopeKind.ACK -> {
+                val ack = validateAckPayload(payload)
+                if (ack.forMessageId != causationId) {
+                    throw InvalidWireEnvelopeException(
+                        "ack payload for-message-id must match envelope causationId.",
+                    )
+                }
+            }
+            EnvelopeKind.ERROR -> {
+                val error = validateErrorPayload(payload)
+                if (error.forMessageId != causationId) {
+                    throw InvalidWireEnvelopeException(
+                        "error payload for-message-id must match envelope causationId.",
+                    )
+                }
+            }
+            EnvelopeKind.CANCEL -> {
+                val cancel = validateCancelPayload(payload)
+                if (cancel.targetMessageId != causationId) {
+                    throw InvalidWireEnvelopeException(
+                        "cancel target-message-id must match envelope causationId.",
+                    )
+                }
+                if (cancel.targetCorrelationId != correlationId) {
+                    throw InvalidWireEnvelopeException(
+                        "cancel target-correlation-id must match envelope correlationId.",
+                    )
+                }
+            }
         }
         return this
     }
@@ -303,7 +329,7 @@ data class LifecycleEnvelope(
             ).validate()
         }
 
-        private fun validateAckPayload(payload: LifecyclePayload) {
+        private fun validateAckPayload(payload: LifecyclePayload): LifecyclePayload.Ack {
             val ack = payload as? LifecyclePayload.Ack
                 ?: throw InvalidWireEnvelopeException("ACK requires an acknowledgement payload.")
             requireNonEmpty(ack.forMessageId, "ack for-message-id")
@@ -317,21 +343,24 @@ data class LifecycleEnvelope(
                     "Only retry acknowledgements may carry retry-after-ms.",
                 )
             }
+            return ack
         }
 
-        private fun validateErrorPayload(payload: LifecyclePayload) {
+        private fun validateErrorPayload(payload: LifecyclePayload): LifecyclePayload.Error {
             val error = payload as? LifecyclePayload.Error
                 ?: throw InvalidWireEnvelopeException("ERROR requires an error payload.")
             requireNonEmpty(error.forMessageId, "error for-message-id")
             requireNonEmpty(error.code, "error code")
             requireNonEmpty(error.message, "error message")
+            return error
         }
 
-        private fun validateCancelPayload(payload: LifecyclePayload) {
+        private fun validateCancelPayload(payload: LifecyclePayload): LifecyclePayload.Cancel {
             val cancel = payload as? LifecyclePayload.Cancel
                 ?: throw InvalidWireEnvelopeException("CANCEL requires a cancellation payload.")
             requireNonEmpty(cancel.targetMessageId, "cancel target-message-id")
             requireNonEmpty(cancel.targetCorrelationId, "cancel target-correlation-id")
+            return cancel
         }
 
         internal fun requireNonEmpty(value: String?, context: String): String {
