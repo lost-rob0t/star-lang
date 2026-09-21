@@ -11,6 +11,7 @@ private fun testCanonicalJson(value: PortableValue): String = when (value) {
     PortableValue.Null -> "null"
     is PortableValue.Bool -> if (value.value) "true" else "false"
     is PortableValue.Int64 -> value.value.toString()
+    is PortableValue.BigIntegerValue -> value.value.toString()
     is PortableValue.Float64 -> value.value.toString()
     is PortableValue.Decimal -> value.canonical
     is PortableValue.Text -> buildString {
