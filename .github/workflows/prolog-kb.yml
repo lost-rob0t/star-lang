@@ -1,0 +1,135 @@
+name: star-lang Prolog KB
+
+on:
+  pull_request:
+    paths:
+      - "star-prolog-kb/**"
+      - "starlang-compiler/**"
+      - "star-canonical-json/**"
+      - "fixtures/starintel-prolog-kb.star"
+      - "ci/target-systems.txt"
+      - ".github/workflows/prolog-kb.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "star-prolog-kb/**"
+      - "starlang-compiler/**"
+      - "star-canonical-json/**"
+      - "fixtures/starintel-prolog-kb.star"
+      - "ci/target-systems.txt"
+      - ".github/workflows/prolog-kb.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  grammar:
+    name: Real StarLang grammar and index contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CL_SOURCE_REGISTRY: "${{ github.workspace }}//:"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install SBCL
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes sbcl
+
+      - name: Test Prolog KB final system without storage dependency
+        shell: bash
+        run: |
+          set -euo pipefail
+          sbcl --non-interactive \
+            --eval '(require :asdf)' \
+            --eval '(asdf:test-system :star-prolog-kb)' \
+            --eval '(assert (null (find-package "STAR-LANG.PROTOTYPE")))' \
+            --eval '(assert (null (find-package "STAR-LANG.CORE-SURFACE.PROTOTYPE")))' \
+            --eval '(sb-ext:quit)' \
+            2>&1 | tee prolog-kb-test.log
+
+      - name: Parse canonical fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          sbcl --non-interactive \
+            --eval '(require :asdf)' \
+            --eval '(asdf:load-system :star-prolog-kb)' \
+            --eval '(starprologkb:load-prolog-kb-file #P"fixtures/starintel-prolog-kb.star")' \
+            --eval '(sb-ext:quit)' \
+            2>&1 | tee prolog-kb-fixture.log
+
+      - name: Upload grammar verification logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prolog-kb-grammar-verification-logs
+          path: |
+            prolog-kb-test.log
+            prolog-kb-fixture.log
+          if-no-files-found: warn
+
+  tek9:
+    name: Tek9 LMDB integration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      CL_SOURCE_REGISTRY: "${{ github.workspace }}//:"
+    steps:
+      - name: Checkout StarLang
+        uses: actions/checkout@v4
+
+      - name: Checkout Tek9
+        uses: actions/checkout@v4
+        with:
+          repository: lost-rob0t/tek9
+          ref: master
+          path: vendor/tek9
+
+      - name: Install native dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            sbcl liblmdb-dev libffi-dev curl
+
+      - name: Install Quicklisp
+        run: |
+          curl --retry 5 --retry-all-errors -fsSLo "$RUNNER_TEMP/quicklisp.lisp" \
+            https://beta.quicklisp.org/quicklisp.lisp
+          sbcl --non-interactive \
+            --load "$RUNNER_TEMP/quicklisp.lisp" \
+            --eval '(quicklisp-quickstart:install :path (merge-pathnames "quicklisp/" (user-homedir-pathname)))'
+
+      - name: Register and load Tek9
+        run: |
+          mkdir -p "$HOME/quicklisp/local-projects"
+          ln -s "$GITHUB_WORKSPACE/vendor/tek9" "$HOME/quicklisp/local-projects/tek9"
+          sbcl --non-interactive \
+            --load "$HOME/quicklisp/setup.lisp" \
+            --eval '(ql:register-local-projects)' \
+            --eval '(ql:quickload :tek9)' \
+            --eval '(sb-ext:quit)'
+
+      - name: Test real Tek9-backed KB
+        shell: bash
+        run: |
+          set -euo pipefail
+          sbcl --non-interactive \
+            --load "$HOME/quicklisp/setup.lisp" \
+            --eval '(require :asdf)' \
+            --eval '(ql:register-local-projects)' \
+            --eval '(ql:quickload :tek9)' \
+            --eval '(asdf:test-system :star-prolog-kb)' \
+            --eval '(sb-ext:quit)' \
+            2>&1 | tee prolog-kb-tek9.log
+
+      - name: Upload Tek9 integration log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prolog-kb-tek9-integration-log
+          path: prolog-kb-tek9.log
+          if-no-files-found: warn
