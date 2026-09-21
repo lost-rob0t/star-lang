@@ -11,6 +11,7 @@ private fun testCanonicalJson(value: PortableValue): String = when (value) {
     PortableValue.Null -> "null"
     is PortableValue.Bool -> if (value.value) "true" else "false"
     is PortableValue.Int64 -> value.value.toString()
+    is PortableValue.BigIntegerValue -> value.value.toString()
     is PortableValue.Float64 -> value.value.toString()
     is PortableValue.Decimal -> value.canonical
     is PortableValue.Text -> buildString {
@@ -139,7 +140,7 @@ fun main() {
 
     val root = Files.createTempDirectory("starlang-artifact-smoke")
     try {
-        val writer = JsonFileWriter(root, CanonicalJsonEncoder(::testCanonicalJson))
+        val writer = JsonFileWriter(root)
         val document = PortableValue.ObjectValue.of(
             mapOf(
                 "source" to PortableValue.Text("github"),

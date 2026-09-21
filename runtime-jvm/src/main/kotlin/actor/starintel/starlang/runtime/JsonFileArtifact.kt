@@ -84,9 +84,10 @@ data class JsonFileResult(
         )
 }
 
-class JsonFileWriter(
+class JsonFileWriter @JvmOverloads constructor(
     root: Path,
-    private val canonicalJson: CanonicalJsonEncoder,
+    private val canonicalJson: CanonicalJsonEncoder =
+        CanonicalJsonEncoder(CanonicalJson::encodePortable),
 ) {
     val root: Path = root.toAbsolutePath().normalize()
 
