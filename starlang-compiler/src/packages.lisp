@@ -23,4 +23,5 @@
    #:compile-logic-call
    #:materialize-compiled-logic-call
    #:generate-python-lifecycle-bindings
-   #:generate-typescript-lifecycle-bindings\n   #:generate-kotlin-actor-binding))
+   #:generate-typescript-lifecycle-bindings
+   #:generate-kotlin-actor-binding))
