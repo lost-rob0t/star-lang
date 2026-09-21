@@ -16,6 +16,7 @@
      (:file "actor-source")
      (:file "resolver-effects")
      (:file "lifecycle-bindings")
+     (:file "kotlin-backend")
      (:file "logic-policy")
      (:file "lifecycle")
      (:file "public-surface"))))
