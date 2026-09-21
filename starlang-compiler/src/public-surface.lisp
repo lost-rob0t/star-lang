@@ -23,6 +23,11 @@
     #:compile-star-core
     #:emit-lifecycle-manifest
     #:emit-portable-manifest
+    #:emit-a2a-agent-card
+    #:a2a-actor-p
+    #:valid-a2a-interface-url-p
+    #:+a2a-actor-protocol+
+    #:+a2a-wire-version+
     #:expand-star-syntax
     #:lifecycle-transition-table
     #:load-star-form
