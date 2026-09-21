@@ -56,6 +56,12 @@ tasks.register<JavaExec>("journalSmoke") {
     mainClass.set("actor.starintel.starlang.runtime.JournalSmokeKt")
 }
 
+tasks.register<JavaExec>("heartbeatLeaseSmoke") {
+    dependsOn(tasks.named("testClasses"))
+    classpath = testSourceSet.get().runtimeClasspath
+    mainClass.set("actor.starintel.starlang.runtime.HeartbeatLeaseSmokeKt")
+}
+
 tasks.named("check") {
     dependsOn(
         "runtimeSmoke",
@@ -63,5 +69,6 @@ tasks.named("check") {
         "wireDispatcherSmoke",
         "supervisorSmoke",
         "journalSmoke",
+        "heartbeatLeaseSmoke",
     )
 }
