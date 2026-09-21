@@ -1,6 +1,6 @@
 # StarLang runtime-jvm
 
-This module is the Kotlin/JVM migration target defined by STAR-LANG-014.
+This module is the Kotlin/JVM peer runtime backend. It is additive to, not a replacement for, the permanent Common Lisp runtime.
 
 The semantic core is deliberately synchronous and deterministic. Concurrency,
 coroutines, transports, Android services, and native helpers belong outside the
@@ -24,8 +24,7 @@ Current first-slice coverage:
 Not ported yet: runtime directory/star URI authority, lifecycle wire dispatcher,
 supervision, journal/replay, leases, capabilities, artifacts/verification,
 adapter SDK, HTTP/process ports, remoting, distributed scheduling, or the CLI
-execution cutover. The Common Lisp implementations remain the differential
-oracle for those slices until they are ported and cut over.
+execution cutover. The Common Lisp implementations remain permanent peer conformance targets. JVM parity adds another supported runtime; it does not authorize a Common Lisp cutover or retirement.
 
 Toolchain pin:
 
