@@ -1,6 +1,6 @@
 # star-lang
 
-Common Lisp-only **StarLang** compiler and durable actor runtime.
+Closed **StarLang** compiler front end with a Kotlin/JVM durable actor runtime migration.
 
 `star-lang` hosts the reusable Common Lisp systems that power the StarIntel
 actor platform. The approved research and design evidence lives in
@@ -13,17 +13,19 @@ released runtime systems from this repository.
 
 BEGIN STARLANG AGENT INSTRUCTIONS
 - `main` is canonical; every change is reviewed through a pull request.
-- Common Lisp is the sole runtime and compiler implementation language.
+- Common Lisp owns the closed StarLang parser/compiler front end during the current migration; Kotlin/JVM is the approved canonical runtime target.
 - The StarLang research/design repository is semantic design authority.
-- Executable ASDF, Nix, CI, and runtime state outranks stale status prose.
+- Executable ASDF, Gradle, Nix, CI, and runtime state outranks stale status prose.
 - Add no new authoritative behavior under `prototype/`.
-- Migration means move, delegate, or delete behavior; never duplicate it.
+- Migration means move, delegate, or delete behavior; never leave permanent duplicate semantic ownership.
+- During a runtime port slice, the current Common Lisp owner is the differential oracle only until Kotlin parity and cutover are proven.
 - Use test-driven development and run focused, surrounding, and full gates.
 - Actor-semantic tests must execute the real runtime boundary they claim to verify.
 - Mocks may replace external-effect ports, never actor semantics evidence.
 - Keep the final-system dependency graph acyclic.
+- Java is a consumer ABI, Nim is for isolated native/edge adapters when justified, and C is thin FFI only; none may become a second StarLang semantic runtime.
 - Commit no secrets, credentials, private datasets, or private evidence.
-- Complete the applicable ASDF, CI, and `nix flake check -L` gates before declaring completion.
+- Complete the applicable ASDF, Gradle, CI, and `nix flake check -L` gates before declaring completion.
 - Update ownership and migration documentation whenever executable ownership moves.
 END STARLANG AGENT INSTRUCTIONS
 
@@ -82,7 +84,7 @@ changed to claim full compliance.
 
 ## Scope
 
-This repository is the **runtime home** for the following Common Lisp systems.
+This repository is the **runtime home** for the Kotlin/JVM migration target and\nthe following Common Lisp compiler/protocol systems that remain authoritative\nuntil their bounded runtime slices cut over.
 It is not the design source and contains no live Franklin County data
 acquisition implementation.
 
@@ -114,11 +116,13 @@ behaviors remain with their existing or later dependency-correct authorities.
 
 ## Implementation language
 
-Common Lisp is the **sole** approved implementation language, per
-[STAR-LANG-INDEX-001][impl-index] in the research repository. Alternate parser,
-compiler, dispatcher, and runtime implementations are denied. Generated Python
-and TypeScript bindings may consume versioned JSON contracts at system
-boundaries but do not implement StarLang.
+STAR-LANG-014 supersedes the old Common-Lisp-only runtime-host restriction.
+Common Lisp remains the closed parser/compiler front end for this migration.
+Kotlin/JVM is the canonical runtime target, with deterministic Kotlin generated
+from normalized runtime-neutral IR. Java is the supported JVM consumer ABI, Nim
+may implement isolated native/edge adapters behind frozen effect/wire contracts,
+and C is restricted to thin native-library FFI. No language may create a second
+competing actor-semantic runtime.
 
 [impl-index]: https://github.com/lost-rob0t/starintel-auto-research/blob/main/roam/indexes/star-lang/STAR-LANG-INDEX-001-implementation.org
 
