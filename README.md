@@ -96,6 +96,7 @@ acquisition implementation.
 | `star-lease` | Time-bound leases for actors and resources. |
 | `star-capability` | Capability tokens and authorization surface. |
 | `star-artifact` | Artifact storage and provenance attachment. |
+| `star-fs` | Provider-neutral unified filesystem and deterministic map/reduce plans. |
 | `star-verification` | Immutable verification certificate, claim vocabulary, and evidence-scope contract. |
 | `star-adapter-sdk` | SDK for building inbound and outbound adapter ports. |
 | `star-http-port` | HTTP adapter port built on the adapter SDK. |

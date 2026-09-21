@@ -94,6 +94,7 @@
               --eval '(asdf:test-system :star-canonical-json)' \
               --eval '(asdf:test-system :star-journal)' \
               --eval '(asdf:test-system :star-lease)' \
+              --eval '(asdf:test-system :star-fs)' \
               --eval '(asdf:test-system :starlang-runtime)' \
               --eval '(asdf:test-system :star-sento-compat)' \
               --eval '(asdf:test-system :star-http-port)' \
@@ -190,6 +191,7 @@
               --eval '(asdf:test-system :star-canonical-json)' \
               --eval '(asdf:test-system :star-journal)' \
               --eval '(asdf:test-system :star-lease)' \
+              --eval '(asdf:test-system :star-fs)' \
               --eval '(asdf:test-system :starlang-runtime)' \
               --eval '(asdf:test-system :star-sento-compat)' \
               --eval '(asdf:test-system :star-http-port)' \
