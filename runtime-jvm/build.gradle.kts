@@ -74,6 +74,12 @@ tasks.register<JavaExec>("effectPortsSmoke") {
     mainClass.set("actor.starintel.starlang.runtime.EffectPortsSmokeKt")
 }
 
+tasks.register<JavaExec>("canonicalProtocolSmoke") {
+    dependsOn(tasks.named("testClasses"))
+    classpath = testSourceSet.get().runtimeClasspath
+    mainClass.set("actor.starintel.starlang.runtime.CanonicalProtocolSmokeKt")
+}
+
 tasks.named("check") {
     dependsOn(
         "runtimeSmoke",
@@ -84,5 +90,6 @@ tasks.named("check") {
         "heartbeatLeaseSmoke",
         "artifactVerificationSmoke",
         "effectPortsSmoke",
+        "canonicalProtocolSmoke",
     )
 }
