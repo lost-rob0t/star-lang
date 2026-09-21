@@ -12,6 +12,7 @@
      (:file "service-uri")
      (:file "actor-reference")
      (:file "message-lifecycle")
+     (:file "actor2actor")
      (:file "portable-wire")
      (:file "portable-snapshot")
      (:file "portable-payload"))))
