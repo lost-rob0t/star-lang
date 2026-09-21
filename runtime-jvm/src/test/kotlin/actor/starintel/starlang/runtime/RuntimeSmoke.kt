@@ -70,5 +70,67 @@ fun main() {
     } catch (_: ActorStaleCompletionException) {
     }
 
+
+    val parsed = StarServiceUri.parse("star://quasar:localhost:user-hunt")
+    checkThat(parsed.domain == "quasar", "service URI domain")
+    checkThat(parsed.address == "localhost", "service URI address")
+    checkThat(parsed.actorName == "user-hunt", "service URI actor")
+    checkThat(
+        parsed.toString() == "star://quasar:localhost:user-hunt",
+        "service URI round trip",
+    )
+    try {
+        StarServiceUri.parse("star://Quasar:localhost:user-hunt")
+        error("uppercase service token accepted")
+    } catch (_: InvalidStarServiceUriException) {
+    }
+
+    val directory = RuntimeDirectoryPort(
+        RuntimeDirectorySnapshot {
+            listOf(
+                RuntimeDirectoryEntry(
+                    name = "user-hunt",
+                    runtime = "native",
+                    alive = RuntimeAlive.ALIVE,
+                    capabilities = listOf("lookup"),
+                    serviceUri = "star://quasar:localhost:user-hunt",
+                    domain = "quasar",
+                    address = "localhost",
+                ),
+                RuntimeDirectoryEntry(
+                    name = "unknown-worker",
+                    runtime = "external",
+                    alive = RuntimeAlive.UNKNOWN,
+                    serviceUri = "star://quasar:remote:unknown-worker",
+                ),
+                RuntimeDirectoryEntry(
+                    name = "dead-worker",
+                    runtime = "external",
+                    alive = RuntimeAlive.DEAD,
+                    serviceUri = "star://quasar:remote:dead-worker",
+                ),
+            )
+        },
+    )
+    checkThat(
+        directory.resolve("star://quasar:localhost:user-hunt").name == "user-hunt",
+        "runtime directory live resolution",
+    )
+    checkThat(
+        directory.resolve("star://quasar:remote:unknown-worker").alive ==
+            RuntimeAlive.UNKNOWN,
+        "runtime directory unknown remains routable",
+    )
+    try {
+        directory.resolve("star://quasar:remote:dead-worker")
+        error("dead directory service resolved")
+    } catch (_: RuntimeDirectoryServiceUnavailableException) {
+    }
+    try {
+        directory.resolve("star://quasar:remote:missing-worker")
+        error("missing directory service resolved")
+    } catch (_: RuntimeDirectoryServiceNotFoundException) {
+    }
+
     println("runtime-jvm smoke: PASS")
 }
