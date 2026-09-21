@@ -226,7 +226,6 @@ class DeterministicDispatcher(
                     return WireProcessStatus.DUPLICATE
                 }
                 CommandRecordStatus.IN_PROGRESS -> {
-                    ensureActiveAttempt(existing, command)
                     emit(
                         makeAck(
                             command,
