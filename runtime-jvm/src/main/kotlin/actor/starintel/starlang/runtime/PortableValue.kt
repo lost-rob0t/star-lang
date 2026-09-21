@@ -1,5 +1,7 @@
 package actor.starintel.starlang.runtime
 
+import java.math.BigInteger
+
 import java.util.Collections
 import java.util.TreeMap
 
@@ -7,6 +9,9 @@ sealed interface PortableValue {
     data object Null : PortableValue
     data class Bool(val value: Boolean) : PortableValue
     data class Int64(val value: Long) : PortableValue
+    data class BigIntegerValue(val value: BigInteger) : PortableValue {
+        constructor(value: Long) : this(BigInteger.valueOf(value))
+    }
     data class Float64(val value: Double) : PortableValue {
         init {
             require(value.isFinite()) { "Portable Float64 values must be finite." }
