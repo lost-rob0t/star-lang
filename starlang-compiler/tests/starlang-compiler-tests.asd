@@ -10,6 +10,7 @@
    (:file "actor-option-key-tests")
    (:file "actor-capabilities-tests")
    (:file "field-marker-tests")
+   (:file "database-grammar-tests")
    (:file "macro-expander-tests")
    (:file "lifecycle-tests"))
   :perform
@@ -20,5 +21,6 @@
     (uiop:symbol-call :starlang-actor-option-key-tests :run-tests)
     (uiop:symbol-call :starlang-actor-capabilities-tests :run-tests)
     (uiop:symbol-call :starlang-field-marker-tests :run-tests)
+    (uiop:symbol-call :starlang-database-grammar-tests :run-tests)
     (uiop:symbol-call :starlang-macro-expander-tests :run-tests)
     (uiop:symbol-call :starlang-lifecycle-tests :run-tests)))
