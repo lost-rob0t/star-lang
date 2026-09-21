@@ -379,6 +379,7 @@ private fun snapshotPortableValue(value: PortableValue): PortableValue = when (v
     PortableValue.Null -> PortableValue.Null
     is PortableValue.Bool -> value.copy()
     is PortableValue.Int64 -> value.copy()
+    is PortableValue.BigIntegerValue -> value.copy()
     is PortableValue.Float64 -> value.copy()
     is PortableValue.Decimal -> value.copy()
     is PortableValue.Text -> value.copy()
