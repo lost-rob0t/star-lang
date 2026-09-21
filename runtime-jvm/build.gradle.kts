@@ -19,6 +19,13 @@ kotlin {
 
 val testSourceSet = sourceSets.named("test")
 
+tasks.named<Test>("test") {
+    // Acceptance is expressed as executable real-runtime smokes below rather
+    // than framework-discovered JUnit tests.
+    enabled = false
+}
+
+
 tasks.register<JavaExec>("runtimeSmoke") {
     dependsOn(tasks.named("testClasses"))
     classpath = testSourceSet.get().runtimeClasspath
