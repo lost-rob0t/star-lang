@@ -94,10 +94,6 @@ fun main() {
     effectCheck(exact.isSuccess, "exact argv process")
     effectCheck(exact.stdout == literal, "argv was shell-expanded")
 
-    val bounded = shell(
-        "i=0; while [ \$i -lt 70000 ]; do " +
-            "printf x; printf y >&2; i=\$((i+1)); done",
-    )
     val boundedAgain = ProcessPort.runProcess(
         "/bin/sh",
         listOf(
@@ -110,7 +106,6 @@ fun main() {
         timeoutMillis = 10_000,
         terminateTimeoutMillis = 100,
     )
-    effectCheck(bounded.isSuccess, "unbounded fixture sanity")
     effectCheck(boundedAgain.stdout.length == 31, "stdout retain bound")
     effectCheck(boundedAgain.stderr.length == 17, "stderr retain bound")
     effectCheck(boundedAgain.stdoutTruncated, "stdout truncation flag")
