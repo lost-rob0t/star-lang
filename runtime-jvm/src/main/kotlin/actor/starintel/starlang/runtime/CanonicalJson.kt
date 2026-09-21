@@ -37,7 +37,7 @@ object CanonicalJson {
 
     @JvmStatic
     fun encodePortable(value: PortableValue): String =
-        encode(portableJsonValue(value))
+        encode(jsonValue(value))
 
     @JvmStatic
     fun encodeLifecycle(
@@ -171,7 +171,7 @@ object CanonicalJson {
         out.append('"')
     }
 
-    private fun portableJsonValue(value: PortableValue): CanonicalJsonValue =
+    internal fun jsonValue(value: PortableValue): CanonicalJsonValue =
         when (value) {
             PortableValue.Null -> CanonicalJsonValue.Null
             is PortableValue.Bool -> CanonicalJsonValue.Bool(value.value)
@@ -187,12 +187,12 @@ object CanonicalJson {
                 CanonicalJsonValue.Text(value.value)
             is PortableValue.ListValue ->
                 CanonicalJsonValue.ArrayValue(
-                    value.values.map(::portableJsonValue),
+                    value.values.map(::jsonValue),
                 )
             is PortableValue.ObjectValue ->
                 CanonicalJsonValue.ObjectValue(
                     value.fields.mapValues { (_, item) ->
-                        portableJsonValue(item)
+                        jsonValue(item)
                     },
                 )
         }
@@ -232,7 +232,7 @@ object CanonicalJson {
                 "retryable" to CanonicalJsonValue.Bool(payload.retryable),
             )
             payload.details?.let {
-                entries["details"] = portableJsonValue(it)
+                entries["details"] = jsonValue(it)
             }
             CanonicalJsonValue.ObjectValue(entries)
         }
