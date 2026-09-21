@@ -1,5 +1,5 @@
 {
-  description = "star-lang: Common Lisp-only StarLang compiler and durable actor runtime";
+  description = "star-lang: closed StarLang compiler front end and Kotlin/JVM durable actor runtime";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -22,6 +22,7 @@
         # The nixpkgs Common Lisp snapshot predates Sento's current remoting
         # stack. Keep the pinned backend closure in one focused module.
         sentoRemoting = import ./nix/sento-remoting.nix { inherit pkgs; };
+        kotlinCompiler = import ./nix/kotlin-compiler.nix { inherit pkgs; };
         sbcl = pkgs.sbcl.withPackages (ps: [
           ps.babel
           ps.dexador
@@ -42,6 +43,8 @@
             sbcl
             swipl
             pkgs.python3
+            pkgs.jdk17
+            kotlinCompiler
           ];
 
           dontConfigure = true;
@@ -115,6 +118,14 @@
               --eval '(sb-ext:quit)'
 
             bash "$source_root/ci/check-swi-adapter-contracts.sh"
+
+            export KOTLINC="${kotlinCompiler}/bin/kotlinc"
+            export KOTLIN_STDLIB="${kotlinCompiler}/lib/kotlin-stdlib.jar"
+            export JAVA="${pkgs.jdk17}/bin/java"
+            export JAVAC="${pkgs.jdk17}/bin/javac"
+            bash "$source_root/ci/check-jvm-runtime.sh"
+            export SBCL="${sbcl}/bin/sbcl"
+            bash "$source_root/ci/check-generated-kotlin.sh"
 
             sbcl --script "$source_root/prototype/run-star.lisp" \
               load "$source_root/fixtures/star-cl-constructors.star" \
@@ -211,6 +222,14 @@
               --eval '(sb-ext:quit)'
 
             ${pkgs.bash}/bin/bash "\$source_root/ci/check-swi-adapter-contracts.sh"
+
+            export KOTLINC="${kotlinCompiler}/bin/kotlinc"
+            export KOTLIN_STDLIB="${kotlinCompiler}/lib/kotlin-stdlib.jar"
+            export JAVA="${pkgs.jdk17}/bin/java"
+            export JAVAC="${pkgs.jdk17}/bin/javac"
+            ${pkgs.bash}/bin/bash "\$source_root/ci/check-jvm-runtime.sh"
+            export SBCL="${sbcl}/bin/sbcl"
+            ${pkgs.bash}/bin/bash "\$source_root/ci/check-generated-kotlin.sh"
             EOF_SCRIPT
 
             chmod +x "$out/bin/starlang" "$out/bin/starlang-test"
@@ -219,7 +238,7 @@
           '';
 
           meta = {
-            description = "Common Lisp StarLang compiler and durable actor runtime";
+            description = "Closed StarLang compiler front end and Kotlin/JVM durable actor runtime";
             homepage = "https://github.com/lost-rob0t/star-lang";
             license = lib.licenses.agpl3Only;
             mainProgram = "starlang";
@@ -257,6 +276,9 @@
             swipl
             pkgs.git
             pkgs.python3
+            pkgs.jdk17
+            pkgs.gradle
+            kotlinCompiler
           ] ++ lib.optional (pkgs ? roswell) pkgs.roswell;
 
           shellHook = ''
@@ -264,6 +286,8 @@
             export STARLANG_SWI_EXECUTABLE="${swipl}/bin/swipl"
             echo "star-lang dev shell: $(sbcl --version)"
             echo "SWI: $($STARLANG_SWI_EXECUTABLE --version)"
+            echo "Kotlin: $(${kotlinCompiler}/bin/kotlinc -version 2>&1 | head -1)"
+            echo "Gradle: $(gradle --version | sed -n '3p')"
             echo "Build: nix build"
             echo "Run: nix run"
             echo "Test: nix run .#tests"

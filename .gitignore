@@ -51,3 +51,10 @@ star_protocol.ts
 
 # OS
 .DS_Store
+
+# JVM / Gradle
+.gradle/
+**/.gradle/
+**/build/
+*.class
+*.jar

@@ -128,6 +128,41 @@
         (is (search "enrichment-worker" text))
         (is (char= #\newline (char text (1- (length text)))))))))
 
+(test compile-kotlin-target-is-deterministic
+  "compile --target kotlin emits deterministic Kotlin actor materialization."
+  (let ((argv
+          (list "compile" (namestring (actor-fixture))
+                "--target" "kotlin")))
+    (multiple-value-bind (code1 out1 err1) (run-capturing argv)
+      (declare (ignore err1))
+      (multiple-value-bind (code2 out2 err2) (run-capturing argv)
+        (declare (ignore err2))
+        (is (= 0 code1))
+        (is (= 0 code2))
+        (is (string= out1 out2))
+        (is (search "object EnrichmentWorkerStarActor" out1))
+        (is (search "ActorDefinition.nativeActor(" out1))
+        (is (search "enrichment-worker-handler" out1))
+        (is (char= #\newline (char out1 (1- (length out1)))))))))
+
+(test compile-kotlin-can-write-output-and-manifest-sidecar
+  "Kotlin source and portable manifest can be emitted in one compilation."
+  (uiop:with-temporary-file (:pathname kotlin-file :suffix ".kt" :keep t)
+    (uiop:with-temporary-file (:pathname manifest :suffix ".json" :keep t)
+      (multiple-value-bind (code stdout stderr)
+          (run-capturing
+           (list "compile" (namestring (actor-fixture))
+                 "--target" "kotlin"
+                 "--output" (namestring kotlin-file)
+                 "--manifest" (namestring manifest)))
+        (declare (ignore stderr))
+        (is (= 0 code))
+        (is (string= "" stdout))
+        (is (search "ActorDefinition.nativeActor("
+                    (uiop:read-file-string kotlin-file)))
+        (is (search "\"wireVersion\":1"
+                    (uiop:read-file-string manifest)))))))
+
 (test run-reports-materialization-summary
   "run compiles, materializes through the real dispatcher, and exits 0."
   (multiple-value-bind (code stdout stderr)
