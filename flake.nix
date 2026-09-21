@@ -124,6 +124,8 @@
             export JAVA="${pkgs.jdk17}/bin/java"
             export JAVAC="${pkgs.jdk17}/bin/javac"
             bash "$source_root/ci/check-jvm-runtime.sh"
+            export SBCL="${sbcl}/bin/sbcl"
+            bash "$source_root/ci/check-generated-kotlin.sh"
 
             sbcl --script "$source_root/prototype/run-star.lisp" \
               load "$source_root/fixtures/star-cl-constructors.star" \
@@ -226,6 +228,8 @@
             export JAVA="${pkgs.jdk17}/bin/java"
             export JAVAC="${pkgs.jdk17}/bin/javac"
             ${pkgs.bash}/bin/bash "\$source_root/ci/check-jvm-runtime.sh"
+            export SBCL="${sbcl}/bin/sbcl"
+            ${pkgs.bash}/bin/bash "\$source_root/ci/check-generated-kotlin.sh"
             EOF_SCRIPT
 
             chmod +x "$out/bin/starlang" "$out/bin/starlang-test"
