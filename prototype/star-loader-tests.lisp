@@ -125,7 +125,7 @@
 (defun test-starintel-0101-schema ()
   (let* ((fixture
            (merge-pathnames
-            "../fixtures/starintel-core-v0.10.1.star"
+            "../specs/starintel/0.10.1/core.star"
             *load-truename*))
          (cache (temporary-test-directory)))
     (unwind-protect
