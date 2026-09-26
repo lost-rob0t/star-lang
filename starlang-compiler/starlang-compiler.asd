@@ -3,7 +3,7 @@
   :author "lost-rob0t"
   :license "AGPL-3.0-only"
   :version "0.1.0"
-  :depends-on ("star-actor-protocol" "star-logic-ir" "star-logic-protocol")
+  :depends-on ("star-actor-protocol" "star-canonical-json" "star-logic-ir" "star-logic-protocol")
   :serial t
   :components
   ((:module "src"
@@ -13,6 +13,10 @@
      (:file "macro-expander")
      (:file "actor-ir")
      (:file "actor-manifest")
+     (:file "bindings-common")
+     (:file "bindings-python-typescript")
+     (:file "bindings-jvm-native")
+     (:file "bindings-lisp-prolog")
      (:file "actor-source")
      (:file "resolver-effects")
      (:file "lifecycle-bindings")
