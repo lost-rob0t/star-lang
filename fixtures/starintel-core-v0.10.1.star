@@ -654,9 +654,7 @@
     (magicType string :optional)
     (extension string :optional)
     (storageId string :optional)
-    (sizeBytes integer :optional)
-    (contentHash string :required)
-    (hashAlgorithm hash-algorithm :optional)
+    (bytesHash string :required)
     (hashes map :optional)
     (quarantined boolean :optional)
     (executable boolean :optional)
@@ -677,7 +675,6 @@
     (durationSeconds decimal :optional)
     (width integer :optional)
     (height integer :optional)
-    (language string :optional)
     (title string :optional)
     (creatorRefs (list reference) :optional)
     (publisher reference :optional)
@@ -764,8 +761,6 @@
     (:extends audio-segment
      :persistence persistent)
     (text string :optional)
-    (language string :optional)
-    (confidence confidence-score :optional)
     (speaker reference :optional)
     (transcription reference :optional))
 
@@ -788,7 +783,6 @@
     (segment reference :optional)
     (startMs integer :required)
     (endMs integer :required)
-    (confidence confidence-score :optional)
     (embeddingModel string :optional)
     (embeddingRef reference :optional))
 
@@ -801,8 +795,7 @@
     (turnIndex integer :required)
     (startMs integer :required)
     (endMs integer :required)
-    (text string :optional)
-    (confidence confidence-score :optional))
+    (text string :optional))
 
   (document transcription
     (:extends document
@@ -810,13 +803,11 @@
     (recording reference :required)
     (transcriptFile reference :optional)
     (text string :optional)
-    (language string :optional)
     (model string :optional)
     (modelVersion string :optional)
     (actor string :optional)
     (startedAt unix-time :optional)
     (completedAt unix-time :optional)
-    (confidence confidence-score :optional)
     (segments (list reference) :optional)
     (speakerTurns (list reference) :optional)
     (wordTimings (list map) :optional))
