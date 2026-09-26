@@ -152,8 +152,9 @@
               (find-document library name)
               (format nil "StarIntel 0.10.1 document ~A" name)))
            (dolist (field
-                    '("bytesHash" "declaredMediaType" "sniffedMediaType"
-                      "magicType" "detectedFormat" "quarantined" "executable"
+                    '("bytesHash" "bytesHashAlgorithm" "declaredMediaType" "sniffedMediaType"
+                      "magicType" "detectedFormat" "trustFilenameExtension"
+                      "quarantined" "executable"
                       "archive" "parser" "parseStatus" "derivedFiles"))
              (assert-true
               (find-field (find-document library "file") field)
