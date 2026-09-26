@@ -151,6 +151,13 @@
              (assert-true
               (find-document library name)
               (format nil "StarIntel 0.10.1 document ~A" name)))
+           (dolist (field
+                    '("bytesHash" "declaredMediaType" "sniffedMediaType"
+                      "magicType" "detectedFormat" "quarantined" "executable"
+                      "archive" "parser" "parseStatus" "derivedFiles"))
+             (assert-true
+              (find-field (find-document library "file") field)
+              (format nil "generic file field ~A" field)))
            (dolist (field '("video" "frameIndex" "timestampMs"))
              (assert-true
               (find-field (find-document library "video-frame") field)
