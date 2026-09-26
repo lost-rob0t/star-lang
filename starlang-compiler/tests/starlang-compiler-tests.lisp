@@ -202,6 +202,61 @@
          "{\"default\":false,\"name\":\"enabled\",\"required\":false,\"type\":\"boolean\"}"
          json))))
 
+(defun starintel-0101-manifest ()
+  (let* ((pathname
+           (merge-pathnames
+            "../../specs/starintel/0.10.1/core.star"
+            *load-truename*))
+         (source (uiop:read-file-string pathname))
+         (library
+           (starlangcompiler:compile-spec-library
+            (starlangcompiler:read-star-syntax
+             source
+             :source-id (namestring pathname)))))
+    (starlangcompiler:emit-portable-manifest library nil)))
+
+(test portable-schema-bindings-cover-language-matrix
+  "The final compiler owns every declared portable language boundary."
+  (is (equal
+       '(:common-lisp :kotlin :java :python :typescript :nim :go :rust
+         :emacs-lisp :prolog)
+       (starlangcompiler:supported-binding-languages))))
+
+(test starintel-0101-is-canonical-starlang-and-generates-every-binding
+  "StarIntel 0.10.1 media/network/file vocabulary compiles once and feeds every language binding."
+  (let* ((manifest (starintel-0101-manifest))
+         (names
+           (mapcar (lambda (contract) (getf contract :name))
+                   (getf manifest :types)))
+         (outputs (starlangcompiler:generate-all-bindings manifest)))
+    (dolist (required
+             '("org.starintel/core@1/file"
+               "org.starintel/core@1/image"
+               "org.starintel/core@1/picture"
+               "org.starintel/core@1/video"
+               "org.starintel/core@1/video-frame"
+               "org.starintel/core@1/audio-recording"
+               "org.starintel/core@1/transcription"
+               "org.starintel/core@1/pcap-capture"
+               "org.starintel/core@1/network-device"
+               "org.starintel/core@1/wireless-network"
+               "org.starintel/core@1/wireless-station"))
+      (is (member required names :test #'string=)))
+    (is (= 10 (length outputs)))
+    (dolist (entry outputs)
+      (is (> (length (cdr entry)) 100)))
+    (is (search "File = TypedDict" (cdr (assoc :python outputs))))
+    (is (search "VideoFrame = TypedDict" (cdr (assoc :python outputs))))
+    (is (search "export interface VideoFrame" (cdr (assoc :typescript outputs))))
+    (is (search "data class VideoFrame" (cdr (assoc :kotlin outputs))))
+    (is (search "record VideoFrame" (cdr (assoc :java outputs))))
+    (is (search "VideoFrame* = object" (cdr (assoc :nim outputs))))
+    (is (search "type VideoFrame struct" (cdr (assoc :go outputs))))
+    (is (search "pub struct VideoFrame" (cdr (assoc :rust outputs))))
+    (is (search "(defstruct video-frame" (cdr (assoc :common-lisp outputs))))
+    (is (search "starintel-video-frame" (cdr (assoc :emacs-lisp outputs))))
+    (is (search "org.starintel/core@1/video-frame" (cdr (assoc :prolog outputs))))))
+
 (test final-compiler-logic-path-does-not-load-prototype
   "The final compiler logic compatibility path stays prototype-independent."
   (is (null (find-package "STAR-LANG.PROTOTYPE")))
