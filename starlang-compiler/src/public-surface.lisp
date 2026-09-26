@@ -23,6 +23,19 @@
     #:compile-star-core
     #:emit-lifecycle-manifest
     #:emit-portable-manifest
+    #:supported-binding-languages
+    #:generate-bindings
+    #:generate-all-bindings
+    #:generate-common-lisp-bindings
+    #:generate-kotlin-bindings
+    #:generate-java-bindings
+    #:generate-python-bindings
+    #:generate-typescript-bindings
+    #:generate-nim-bindings
+    #:generate-go-bindings
+    #:generate-rust-bindings
+    #:generate-emacs-lisp-bindings
+    #:generate-prolog-bindings
     #:expand-star-syntax
     #:lifecycle-transition-table
     #:load-star-form
