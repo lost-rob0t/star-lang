@@ -641,6 +641,9 @@
      pda storage storage-misc power-device remote-management security-misc
      specialized telecom-misc iot))
 
+  (enum content-hash-algorithm
+    (sha256 sha512 blake2b blake3))
+
   (document file
     (:extends document
      :persistence persistent)
@@ -662,14 +665,16 @@
     (extension string :optional)
     (storageId string :optional)
     (bytesHash string :required)
+    (bytesHashAlgorithm content-hash-algorithm :required)
     (hashes map :optional)
+    (trustFilenameExtension boolean :optional :default nil)
     (compression string :optional)
     (encrypted boolean :optional)
     (passwordProtected boolean :optional)
     (archive boolean :optional)
     (archiveEntries (list reference) :optional)
-    (quarantined boolean :optional)
-    (executable boolean :optional)
+    (quarantined boolean :optional :default t)
+    (executable boolean :optional :default nil)
     (parseStatus string :optional)
     (parser string :optional)
     (parserVersion string :optional)
