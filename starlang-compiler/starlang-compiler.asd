@@ -14,6 +14,7 @@
      (:file "actor-ir")
      (:file "actor-manifest")
      (:file "bindings-common")
+     (:file "json-schema")
      (:file "bindings-python-typescript")
      (:file "bindings-jvm-native")
      (:file "bindings-lisp-prolog")

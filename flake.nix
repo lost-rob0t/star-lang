@@ -1,5 +1,5 @@
 {
-  description = "star-lang: Common Lisp-only StarLang compiler and durable actor runtime";
+  description = "star-lang: polyglot contracts with a Common Lisp compiler and durable actor runtime";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -116,6 +116,10 @@
 
             bash "$source_root/ci/check-swi-adapter-contracts.sh"
 
+            sbcl --disable-debugger \
+              --script "$source_root/tools/generate-starintel-release.lisp" --check
+            python3 "$source_root/tools/finalize-starintel-release.py" --check
+
             sbcl --script "$source_root/prototype/run-star.lisp" \
               load "$source_root/fixtures/star-cl-constructors.star" \
               --runtime-compiler eval \
@@ -211,6 +215,11 @@
               --eval '(sb-ext:quit)'
 
             ${pkgs.bash}/bin/bash "\$source_root/ci/check-swi-adapter-contracts.sh"
+
+            ${sbcl}/bin/sbcl --disable-debugger \
+              --script "\$source_root/tools/generate-starintel-release.lisp" --check
+            ${pkgs.python3}/bin/python3 \
+              "\$source_root/tools/finalize-starintel-release.py" --check
             EOF_SCRIPT
 
             chmod +x "$out/bin/starlang" "$out/bin/starlang-test"
@@ -219,7 +228,7 @@
           '';
 
           meta = {
-            description = "Common Lisp StarLang compiler and durable actor runtime";
+            description = "Polyglot StarLang contracts with a Common Lisp compiler and durable actor runtime";
             homepage = "https://github.com/lost-rob0t/star-lang";
             license = lib.licenses.agpl3Only;
             mainProgram = "starlang";

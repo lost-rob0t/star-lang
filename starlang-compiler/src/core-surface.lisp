@@ -16,6 +16,7 @@
    #:supported-binding-languages
    #:generate-bindings
    #:generate-all-bindings
+   #:generate-json-schema
    #:generate-common-lisp-bindings
    #:generate-kotlin-bindings
    #:generate-java-bindings

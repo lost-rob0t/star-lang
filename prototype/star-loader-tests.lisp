@@ -137,9 +137,13 @@
                 (library (library-node-compiled root))
                 (required-documents
                   '("file" "media" "image" "picture" "video" "video-frame"
-                    "audio-recording" "audio-segment" "speech-segment"
+                    "audio" "audio-segment" "speech-segment"
                     "speaker" "speaker-observation" "speaker-turn"
-                    "transcription" "pcap-capture" "network-conversation"
+                    "transcript" "person-identifier"
+                    "geo" "geo-point" "geo-line-string" "geo-polygon"
+                    "geo-multi-point" "geo-multi-line-string"
+                    "geo-multi-polygon" "geo-geometry-collection" "location"
+                    "pcap-capture" "network-conversation"
                     "network-device" "wireless-network" "wireless-station")))
            (assert-equal "org.starintel/core@1"
                          (library-node-name root)
@@ -167,6 +171,33 @@
              (assert-true
               (find-field (find-document library "speaker-turn") field)
               (format nil "speaker-turn field ~A" field)))
+           (dolist (field '("person" "scheme" "value" "normalizedValue"
+                            "issuer" "primary" "sensitive" "sourceDocument"))
+             (assert-true
+              (find-field (find-document library "person-identifier") field)
+              (format nil "person-identifier field ~A" field)))
+           (assert-true
+            (find-field (find-document library "person") "identifiers")
+            "person carries typed identifier references")
+           (dolist (field '("geometryType" "coordinateReferenceSystem"
+                            "boundingBox" "accuracyMeters"))
+             (assert-true
+              (find-field (find-document library "geo") field)
+              (format nil "geo field ~A" field)))
+           (dolist (field '("longitude" "latitude" "altitudeMeters"))
+             (assert-true
+              (find-field (find-document library "geo-point") field)
+              (format nil "geo-point field ~A" field)))
+           (dolist (field '("sourceMedia" "transcriptFile" "text" "segments"
+                            "speakerTurns" "wordTimings"))
+             (assert-true
+              (find-field (find-document library "transcript") field)
+              (format nil "transcript field ~A" field)))
+           (dolist (field '("codec" "sampleRateHz" "channels" "durationSeconds"
+                            "transcripts"))
+             (assert-true
+              (find-field (find-document library "audio") field)
+              (format nil "audio field ~A" field)))
            (dolist (field '("captureId" "fileUri" "fileSha256" "format"))
              (assert-true
               (find-field (find-document library "pcap-capture") field)

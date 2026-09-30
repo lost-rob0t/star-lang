@@ -70,6 +70,10 @@
   (enum target-state
     (pending scheduled running completed failed cancelled paused unknown))
 
+  (enum geo-geometry-type
+    (point line-string polygon multi-point multi-line-string multi-polygon
+     geometry-collection))
+
   (document document
     (:persistence persistent)
     (id document-id :required)
@@ -170,9 +174,22 @@
     (phones (list reference) :optional)
     (accounts (list reference) :optional)
     (images (list reference) :optional)
+    (identifiers (list reference) :optional)
     (misc (list map) :optional)
     (etype string :optional)
     (eid string :optional))
+
+  (document person-identifier
+    (:extends document
+     :persistence persistent)
+    (person reference :required)
+    (scheme string :required)
+    (value string :required)
+    (normalizedValue string :optional)
+    (issuer string :optional)
+    (primary boolean :optional :default nil)
+    (sensitive boolean :optional :default t)
+    (sourceDocument reference :optional))
 
   (document org
     (:extends document
@@ -456,17 +473,61 @@
   (document geo
     (:extends document
      :persistence persistent)
-    (lat latitude :required)
-    (long longitude :required)
-    (alt decimal :optional)
+    (geometryType geo-geometry-type :required)
+    (coordinateReferenceSystem string :optional :default "EPSG:4326")
+    (boundingBox (list decimal) :optional)
     (accuracyMeters decimal :optional)
     (geohash string :optional)
-    (coordinateSystem string :optional)
     (placeName string :optional)
     (placeKind string :optional))
 
-  (document address
+  (document geo-point
     (:extends geo
+     :persistence persistent)
+    (longitude longitude :required)
+    (latitude latitude :required)
+    (altitudeMeters decimal :optional))
+
+  (document geo-line-string
+    (:extends geo
+     :persistence persistent)
+    (points (list reference) :required))
+
+  (document geo-polygon
+    (:extends geo
+     :persistence persistent)
+    (rings (list reference) :required))
+
+  (document geo-multi-point
+    (:extends geo
+     :persistence persistent)
+    (points (list reference) :required))
+
+  (document geo-multi-line-string
+    (:extends geo
+     :persistence persistent)
+    (lines (list reference) :required))
+
+  (document geo-multi-polygon
+    (:extends geo
+     :persistence persistent)
+    (polygons (list reference) :required))
+
+  (document geo-geometry-collection
+    (:extends geo
+     :persistence persistent)
+    (geometries (list reference) :required))
+
+  (document location
+    (:extends document
+     :persistence persistent)
+    (name string :optional)
+    (geometry reference :required)
+    (address reference :optional)
+    (locationType string :optional))
+
+  (document address
+    (:extends document
      :persistence persistent)
     (formatted string :optional)
     (street string :optional)
@@ -482,6 +543,7 @@
     (building string :optional)
     (floor string :optional)
     (deliveryPoint string :optional)
+    (geometry reference :optional)
     (validated boolean :optional)
     (validationProvider string :optional))
 
@@ -739,7 +801,7 @@
     (location reference :optional)
     (audioTracks (list reference) :optional)
     (frames (list reference) :optional)
-    (transcription reference :optional)
+    (transcript reference :optional)
     (ocrObservations (list reference) :optional))
 
   (document video-frame
@@ -753,7 +815,7 @@
     (entityObservations (list reference) :optional)
     (faceObservations (list reference) :optional))
 
-  (document audio-recording
+  (document audio
     (:extends file
      :persistence persistent)
     (codec string :optional)
@@ -765,7 +827,7 @@
     (capturedAt unix-time :optional)
     (captureDevice reference :optional)
     (location reference :optional)
-    (transcriptions (list reference) :optional)
+    (transcripts (list reference) :optional)
     (speakerObservations (list reference) :optional))
 
   (document audio-segment
@@ -782,7 +844,7 @@
      :persistence persistent)
     (text string :optional)
     (speaker reference :optional)
-    (transcription reference :optional))
+    (transcript reference :optional))
 
   (document speaker
     (:extends document
@@ -817,10 +879,10 @@
     (endMs integer :required)
     (text string :optional))
 
-  (document transcription
+  (document transcript
     (:extends document
      :persistence persistent)
-    (recording reference :required)
+    (sourceMedia reference :required)
     (transcriptFile reference :optional)
     (text string :optional)
     (model string :optional)

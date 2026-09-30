@@ -204,9 +204,9 @@
 
 (defun starintel-0101-manifest ()
   (let* ((pathname
-           (merge-pathnames
-            "../../specs/starintel/0.10.1/core.star"
-            *load-truename*))
+           (asdf:system-relative-pathname
+            :starlang-compiler
+            "../specs/starintel/0.10.1/core.star"))
          (source (uiop:read-file-string pathname))
          (library
            (starlangcompiler:compile-spec-library
@@ -235,8 +235,18 @@
                "org.starintel/core@1/picture"
                "org.starintel/core@1/video"
                "org.starintel/core@1/video-frame"
-               "org.starintel/core@1/audio-recording"
-               "org.starintel/core@1/transcription"
+               "org.starintel/core@1/audio"
+               "org.starintel/core@1/transcript"
+               "org.starintel/core@1/person-identifier"
+               "org.starintel/core@1/geo"
+               "org.starintel/core@1/geo-point"
+               "org.starintel/core@1/geo-line-string"
+               "org.starintel/core@1/geo-polygon"
+               "org.starintel/core@1/geo-multi-point"
+               "org.starintel/core@1/geo-multi-line-string"
+               "org.starintel/core@1/geo-multi-polygon"
+               "org.starintel/core@1/geo-geometry-collection"
+               "org.starintel/core@1/location"
                "org.starintel/core@1/pcap-capture"
                "org.starintel/core@1/network-device"
                "org.starintel/core@1/wireless-network"
@@ -246,7 +256,11 @@
     (dolist (entry outputs)
       (is (> (length (cdr entry)) 100)))
     (is (search "File = TypedDict" (cdr (assoc :python outputs))))
+    (is (search "PersonIdentifier = TypedDict" (cdr (assoc :python outputs))))
+    (is (search "GeoPoint = TypedDict" (cdr (assoc :python outputs))))
+    (is (search "Transcript = TypedDict" (cdr (assoc :python outputs))))
     (is (search "VideoFrame = TypedDict" (cdr (assoc :python outputs))))
+    (is (null (search "schema_version" (cdr (assoc :python outputs)))))
     (is (search "export interface VideoFrame" (cdr (assoc :typescript outputs))))
     (is (search "data class VideoFrame" (cdr (assoc :kotlin outputs))))
     (is (search "record VideoFrame" (cdr (assoc :java outputs))))
@@ -256,6 +270,54 @@
     (is (search "(defstruct video-frame" (cdr (assoc :common-lisp outputs))))
     (is (search "starintel-video-frame" (cdr (assoc :emacs-lisp outputs))))
     (is (search "org.starintel/core@1/video-frame" (cdr (assoc :prolog outputs))))))
+
+(test starintel-0101-common-lisp-binding-is-loadable
+  "The generated Common Lisp artifact is executable source, not merely recognizable text."
+  (let* ((manifest (starintel-0101-manifest))
+         (source (starlangcompiler:generate-common-lisp-bindings manifest))
+         (package-name "ORG.STARINTEL.CORE.V1"))
+    (when (find-package package-name)
+      (delete-package package-name))
+    (unwind-protect
+         (let ((*package* (find-package :cl-user)))
+           (with-input-from-string (stream source)
+             (loop for form = (read stream nil stream)
+                   until (eq form stream)
+                   do (eval form)))
+           (let ((package (find-package package-name)))
+             (is (not (null package)))
+             (is (eq :external (nth-value 1 (find-symbol "PERSON-IDENTIFIER" package))))
+             (is (eq :external (nth-value 1 (find-symbol "+GEO-POINT-WIRE-FIELDS+" package))))
+             (is (eq :external (nth-value 1 (find-symbol "TRANSCRIPT" package))))))
+      (when (find-package package-name)
+        (delete-package package-name)))))
+
+(test starintel-0101-geo-scalars-enforce-coordinate-ranges
+  "First-class geo coordinates reject values outside WGS84 longitude/latitude bounds."
+  (let ((manifest (starintel-0101-manifest)))
+    (is (staractorprotocol:validate-portable-wire-value
+         manifest "org.starintel/core@1/longitude" "-180.00000000"))
+    (is (staractorprotocol:validate-portable-wire-value
+         manifest "org.starintel/core@1/latitude" "90.00000000"))
+    (signals staractorprotocol:invalid-wire-envelope-error
+      (staractorprotocol:validate-portable-wire-value
+       manifest "org.starintel/core@1/longitude" "180.00000001"))
+    (signals staractorprotocol:invalid-wire-envelope-error
+      (staractorprotocol:validate-portable-wire-value
+       manifest "org.starintel/core@1/latitude" "-90.00000001"))))
+
+(test starintel-0101-generates-deterministic-json-schema
+  "The portable StarLang manifest is the source for JSON Schema, with lowerCamelCase wire keys."
+  (let* ((manifest (starintel-0101-manifest))
+         (first (starlangcompiler:generate-json-schema manifest))
+         (second (starlangcompiler:generate-json-schema manifest)))
+    (is (string= first second))
+    (is (search "\"$schema\":\"https://json-schema.org/draft/2020-12/schema\"" first))
+    (is (search "\"PersonIdentifier\"" first))
+    (is (search "\"GeoPoint\"" first))
+    (is (search "\"Transcript\"" first))
+    (is (search "\"schemaVersion\"" first))
+    (is (null (search "schema_version" first)))))
 
 (test final-compiler-logic-path-does-not-load-prototype
   "The final compiler logic compatibility path stays prototype-independent."

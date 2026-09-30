@@ -23,7 +23,7 @@
   (let ((lisp-name (binding-kebab-name name)))
     (format stream "(defstruct ~A~%" lisp-name)
     (dolist (field fields)
-      (format stream "  (~A nil))~%"
+      (format stream "  (~A nil)~%"
               (binding-kebab-name (getf field :name))))
     (format stream ")~%")
     (format stream "(defparameter +~A-wire-fields+~%  '(~%"
@@ -34,10 +34,46 @@
               (binding-kebab-name (getf field :name))))
     (format stream "  ))~%~%")))
 
+(defun common-lisp-binding-exports (manifest)
+  (let ((exports '()))
+    (labels ((add (name)
+               (pushnew name exports :test #'string=))
+             (add-struct (name fields)
+               (let ((lisp-name (binding-kebab-name name)))
+                 (add lisp-name)
+                 (add (format nil "MAKE-~A" lisp-name))
+                 (add (format nil "COPY-~A" lisp-name))
+                 (add (format nil "~A-P" lisp-name))
+                 (add (format nil "+~A-WIRE-FIELDS+" lisp-name))
+                 (dolist (field fields)
+                   (add (format nil "~A-~A"
+                                lisp-name
+                                (binding-kebab-name (getf field :name))))))))
+      (add-struct "star-reference"
+                  '((:name "schema") (:name "id")))
+      (dolist (contract (getf manifest :types))
+        (case (getf contract :kind)
+          ((:scalar :enum)
+           (add (binding-kebab-name (getf contract :name))))
+          (:document
+           (add-struct (getf contract :name)
+                       (binding-document-fields manifest contract)))))
+      (dolist (message (binding-message-contracts manifest))
+        (add-struct (getf message :name) (getf message :fields))))
+    (nreverse exports)))
+
+(defun write-common-lisp-package (stream manifest)
+  (format stream "(defpackage #:org.starintel.core.v1~%  (:use #:cl)~%  (:export~%")
+  (dolist (symbol (common-lisp-binding-exports manifest))
+    (format stream "    #:~A~%" symbol))
+  (format stream "  ))~%~%(in-package #:org.starintel.core.v1)~%~%"))
+
 (defun generate-common-lisp-bindings (manifest)
   (with-output-to-string (stream)
     (binding-write-lisp-header stream :common-lisp)
-    (format stream "(defstruct star-reference schema id)~%~%")
+    (write-common-lisp-package stream manifest)
+    (write-common-lisp-struct
+     stream "star-reference" '((:name "schema") (:name "id")))
     (dolist (contract (getf manifest :types))
       (case (getf contract :kind)
         (:scalar
