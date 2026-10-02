@@ -99,6 +99,7 @@ data class ActorDefinition private constructor(
     init {
         require(name.isNotBlank()) { "Actor name must not be blank." }
         require(serviceUri.isNotBlank()) { "Actor service URI must not be blank." }
+        StarServiceUri.canonicalForActor(name, serviceUri)
         require(mailboxCapacity > 0) { "Actor mailbox capacity must be a positive integer." }
         require(kind != ActorKind.NATIVE || handler != null) { "Native actor $name requires a handler." }
         require(kind != ActorKind.EXTERNAL || handler == null) { "External actor $name must not define a local handler." }
