@@ -6,6 +6,7 @@
   :serial t
   :components
   ((:file "star-actor-protocol-tests")
+   (:file "actor2actor-tests")
    (:file "portable-wire-tests")
    (:file "portable-payload-tests")
    (:file "portable-snapshot-tests"))
@@ -13,6 +14,7 @@
   (test-op (operation component)
     (declare (ignore operation component))
     (uiop:symbol-call :staractorprotocol-tests :run-tests)
+    (uiop:symbol-call :staractorprotocol-actor2actor-tests :run-tests)
     (uiop:symbol-call :staractorprotocol-wire-tests :run-tests)
     (uiop:symbol-call :staractorprotocol-payload-tests :run-tests)
     (uiop:symbol-call :staractorprotocol-snapshot-tests :run-tests)))
