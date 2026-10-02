@@ -13,6 +13,7 @@
      (:file "macro-expander")
      (:file "actor-ir")
      (:file "actor-manifest")
+     (:file "a2a-manifest")
      (:file "actor-source")
      (:file "resolver-effects")
      (:file "lifecycle-bindings")
