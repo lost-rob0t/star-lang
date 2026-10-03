@@ -10,10 +10,11 @@ Canonical source:
 
 - `specs/starintel/0.10.1/core.star`
 - `specs/starintel/0.10.1/GEO-MISSION-MIGRATION.md` — geo/mission consumer boundary
+- `specs/starintel/0.10.1/NETWORK-CAPTURE-MIGRATION.md` — HTTP/browser capture compatibility boundary
 
 The 0.10.1 core includes the generic `file` contract and first-class media,
-audio, transcript, typed person-identifier, first-class geometry, packet-capture,
-network-device, and wireless documents. Generic files do
+audio, transcript, typed person-identifier, first-class geometry, HTTP/browser
+capture, packet-capture, network-device, and wireless documents. Generic files do
 not use an extension or MIME allowlist. A filename extension is descriptive
 metadata only; consumers make security decisions from content identity,
 content sniffing/magic, quarantine state, parser policy, and capabilities.
