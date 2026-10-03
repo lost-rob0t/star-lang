@@ -253,6 +253,8 @@
                "org.starintel/core@1/geofence"
                "org.starintel/core@1/encounter"
                "org.starintel/core@1/map-layer"
+               "org.starintel/core@1/http-transaction"
+               "org.starintel/core@1/web-capture"
                "org.starintel/core@1/pcap-capture"
                "org.starintel/core@1/network-device"
                "org.starintel/core@1/wireless-network"
@@ -353,6 +355,40 @@
       (is (search "export interface Route" (cdr (assoc :typescript outputs))))
       (is (search "data class MissionTarget" (cdr (assoc :kotlin outputs))))
       (is (search "pub struct MapLayer" (cdr (assoc :rust outputs)))))))
+
+(test starintel-0101-network-capture-profile-is-canonical
+  "The retired 0.9.2 HTTP/browser profile is represented by canonical 0.10.1 StarLang contracts."
+  (let* ((manifest (starintel-0101-manifest))
+         (types (getf manifest :types))
+         (find-type
+           (lambda (name)
+             (find name types :key (lambda (contract) (getf contract :name))
+                   :test #'string=)))
+         (field-names
+           (lambda (contract)
+             (mapcar (lambda (field) (getf field :name))
+                     (getf contract :fields)))))
+    (let ((http (funcall find-type "org.starintel/core@1/http-transaction"))
+          (web (funcall find-type "org.starintel/core@1/web-capture")))
+      (is http)
+      (is web)
+      (dolist (field '("transactionId" "method" "url" "responseStatus"
+                       "requestHeaders" "responseHeaders" "captureActorUri"
+                       "redactedHeaders" "bodyCapturePolicy"))
+        (is (member field (funcall field-names http) :test #'string=)))
+      (dolist (field '("captureId" "url" "screenshotUri" "screenshotHash"
+                       "capturedAt" "httpTransactionIds" "captureActorUri"))
+        (is (member field (funcall field-names web) :test #'string=))))
+    (let ((outputs (starlangcompiler:generate-all-bindings manifest)))
+      (is (search "HttpTransaction = TypedDict" (cdr (assoc :python outputs))))
+      (is (search "WebCapture = TypedDict" (cdr (assoc :python outputs))))
+      (is (search "transactionId" (cdr (assoc :python outputs))))
+      (is (search "screenshotUri" (cdr (assoc :python outputs))))
+      (is (null (search "transaction_id" (cdr (assoc :python outputs)))))
+      (is (null (search "screenshot_uri" (cdr (assoc :python outputs)))))
+      (is (search "export interface HttpTransaction"
+                  (cdr (assoc :typescript outputs))))
+      (is (search "data class WebCapture" (cdr (assoc :kotlin outputs)))))))
 
 (test starintel-0101-generates-deterministic-json-schema
   "The portable StarLang manifest is the source for JSON Schema, with lowerCamelCase wire keys."
