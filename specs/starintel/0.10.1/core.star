@@ -43,7 +43,7 @@
 
   (scalar email-address
     (:base string
-     :pattern "^[^[:space:]@]+@[^[:space:]@]+$"))
+     :pattern "^[^\\s@]+@[^\\s@]+$"))
 
   (scalar phone-number
     (:base string
