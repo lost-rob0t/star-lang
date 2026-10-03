@@ -680,8 +680,6 @@
     (visible boolean :optional :default t)
     (minimumZoom integer :optional)
     (maximumZoom integer :optional)
-    (validFrom unix-time :optional)
-    (validUntil unix-time :optional)
     (readOnly boolean :optional :default t))
 
   (document message
