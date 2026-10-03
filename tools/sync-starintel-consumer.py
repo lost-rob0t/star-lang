@@ -44,10 +44,12 @@ def read_source(commit: str, path: str, source: Path | None) -> bytes:
         return response.read()
 
 
-def verify_release(commit: str, source: Path | None) -> tuple[dict, dict[str, bytes]]:
+def verify_release(commit: str, source: Path | None, read=None) -> tuple[dict, dict[str, bytes]]:
     require(re.fullmatch(r"[0-9a-f]{40}", commit) is not None, "pin a full immutable commit SHA")
+    if read is None:
+        read = lambda path: read_source(commit, path, source)
     lock_path = f"{RELEASE}/release-lock.json"
-    files = {lock_path: read_source(commit, lock_path, source)}
+    files = {lock_path: read(lock_path)}
     release = json.loads(files[lock_path])
     require(release["authorityLibrary"] == "org.starintel/core@1", "unexpected authority")
     require(release["releaseVersion"] == release["schemaVersion"] == "0.10.1", "release mismatch")
@@ -56,7 +58,7 @@ def verify_release(commit: str, source: Path | None) -> tuple[dict, dict[str, by
     for category, prefix in (("sources", RELEASE), ("artifacts", f"{RELEASE}/generated")):
         for name, expected in release[category].items():
             path = f"{prefix}/{safe_path(name)}"
-            data = read_source(commit, path, source)
+            data = read(path)
             require(digest(data) == expected, f"upstream release hash mismatch: {path}")
             files[path] = data
     manifest = json.loads(files[f"{RELEASE}/generated/portable-manifest.json"])
@@ -95,10 +97,24 @@ def sync(lock_path: Path, commit: str, source: Path | None, destination: str) ->
     return lock
 
 
-def check(lock_path: Path, source: Path | None) -> dict:
+def check(lock_path: Path, source: Path | None, *, offline: bool = False) -> dict:
     lock = json.loads(lock_path.read_text(encoding="utf-8"))
     require(lock["canonical_repository"] == REPOSITORY, "StarLang must own the canonical spec")
-    release, files = verify_release(lock["canonical_commit"], source)
+    root = lock_path.resolve().parent.parent
+    read = None
+    if offline:
+        # Package builds verify their complete local release closure. CI must
+        # still run the online/exact-commit check to establish upstream identity.
+        local_sources = {}
+        for local, entry in lock["vendored_files"].items():
+            require(entry["source"] not in local_sources, "duplicate canonical source")
+            data = (root / safe_path(local)).read_bytes()
+            require(digest(data) == entry["sha256"], f"consumer hash mismatch: {local}")
+            local_sources[entry["source"]] = data
+        def read(path):
+            require(path in local_sources, f"consumer must vendor the complete locked release: {path}")
+            return local_sources[path]
+    release, files = verify_release(lock["canonical_commit"], source, read)
     for local, canonical in (("release_version", "releaseVersion"), ("schema_version", "schemaVersion"),
                              ("authority_library", "authorityLibrary"), ("canonical_key_style", "canonicalKeyStyle")):
         require(lock[local] == release[canonical], f"consumer {local} mismatch")
@@ -124,10 +140,13 @@ def main() -> None:
     parser.add_argument("--source", type=Path, help="local StarLang git checkout (otherwise fetch immutable URLs)")
     parser.add_argument("--commit", help="sync to this full SHA; omit to check without writes")
     parser.add_argument("--destination", default="schemas/starintel-0.10.1")
+    parser.add_argument("--offline", action="store_true", help="verify local package closure; CI must also check exact upstream bytes")
     args = parser.parse_args()
+    if args.offline and (args.commit or args.source):
+        parser.error("--offline is a local check only; cannot combine with --commit or --source")
     try:
         lock = (sync(args.lock, args.commit, args.source, args.destination) if args.commit
-                else check(args.lock, args.source))
+                else check(args.lock, args.source, offline=args.offline))
     except (ValueError, KeyError, OSError, subprocess.CalledProcessError) as error:
         parser.exit(1, f"StarIntel consumer verification failed: {error}\n")
     print(f"verified StarLang StarIntel {lock['release_version']} at {lock['canonical_commit']}")

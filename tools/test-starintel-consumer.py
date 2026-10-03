@@ -5,6 +5,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("consumer", ROOT / "tools/sync-starintel-consumer.py")
@@ -52,6 +53,15 @@ class ConsumerTests(unittest.TestCase):
             consumer.verify_release("main", self.source)
         with self.assertRaisesRegex(ValueError, "unsafe"):
             consumer.safe_path("../outside")
+
+    def test_offline_complete_release_and_tampering_without_network(self):
+        self.sync()
+        with patch.object(consumer, "read_source", side_effect=AssertionError("offline check used network")):
+            lock = consumer.check(self.lock, None, offline=True)
+            schema = self.lock.parent.parent / next(p for p in lock["vendored_files"] if p.endswith("generated/schema.json"))
+            schema.write_text("{}")
+            with self.assertRaisesRegex(ValueError, "hash mismatch"):
+                consumer.check(self.lock, None, offline=True)
 
     def test_stale_upstream_lock_rejected_before_writes(self):
         core = self.source / consumer.RELEASE / "core.star"
