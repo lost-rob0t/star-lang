@@ -1,0 +1,55 @@
+name: StarIntel release preview
+
+on:
+  pull_request:
+    paths:
+      - "specs/starintel/**"
+      - "tools/generate-starintel-release.lisp"
+      - "tools/finalize-starintel-release.py"
+      - ".github/workflows/starintel-release-preview.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    name: Generate StarIntel release artifacts
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CL_SOURCE_REGISTRY: "${{ github.workspace }}//:"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install generator dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes \
+            sbcl \
+            cl-babel \
+            cl-fiveam \
+            cl-ironclad \
+            cl-usocket \
+            cl-yason
+
+      - name: Generate and finalize StarIntel 0.10.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          sbcl --disable-debugger \
+            --script tools/generate-starintel-release.lisp
+          python3 tools/finalize-starintel-release.py
+          sbcl --disable-debugger \
+            --script tools/generate-starintel-release.lisp --check
+          python3 tools/finalize-starintel-release.py --check
+
+      - name: Upload generated release
+        uses: actions/upload-artifact@v4
+        with:
+          name: starintel-0.10.1-generated
+          if-no-files-found: error
+          path: |
+            specs/starintel/0.10.1/generated/
+            specs/starintel/0.10.1/release-lock.json
+            specs/starintel/0.10.1/schema-lock-manifest.json
