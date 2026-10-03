@@ -1,5 +1,5 @@
 (spec-library "org.starintel/database@1"
-  (:version "1.0.0")
+  (:version "1.1.0")
 
   (scalar logical-database-id
     (:base string
@@ -63,6 +63,19 @@
       (kind database-result-kind :required)
       (items (list map) :required)
       (checkpoint string :optional)
+      (terminal boolean :required))))
+
+  ;; First-class subscription page. Checkpoints are opaque adapter tokens.
+  ;; Consumers compare them only for exact equality and never parse/order them.
+  ;; Every item map carries a stable non-empty lowerCamelCase changeId.
+  (message db-stream-page
+    (:fields
+     ((requestId string :required)
+      (database logical-database-id :required)
+      (operation database-operation-id :required)
+      (inputCheckpoint string :optional)
+      (outputCheckpoint string :required)
+      (items (list map) :required)
       (terminal boolean :required))))
 
   (message db-write-result

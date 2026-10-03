@@ -12,6 +12,7 @@
    #:+database-transaction-request-type+
    #:+database-subscribe-request-type+
    #:+database-result-type+
+   #:+database-stream-page-type+
    #:+database-write-result-type+
    #:+database-error-type+
    #:database-contract-error
@@ -20,4 +21,12 @@
    #:database-message-access
    #:database-actor-capability-p
    #:validate-database-actor-access
-   #:database-read-only-actor-p))
+   #:database-read-only-actor-p
+   #:database-stream-state
+   #:make-database-stream-state
+   #:database-stream-state-checkpoint
+   #:database-stream-state-committed-items
+   #:database-stream-checkpoint=
+   #:database-stream-item-change-id
+   #:validate-database-stream-page
+   #:reduce-database-stream-page))
