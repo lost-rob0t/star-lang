@@ -70,6 +70,34 @@
   (enum target-state
     (pending scheduled running completed failed cancelled paused unknown))
 
+  ;; Mission and spatial-operation vocabulary is canonical StarIntel data.
+  ;; UI state, transport state, and inferred identity remain downstream concerns.
+  (enum mission-state
+    (draft ready running paused completed failed cancelled archived unknown))
+
+  (enum mission-target-state
+    (pending active completed failed skipped cancelled unknown))
+
+  (enum route-mode
+    (walk bicycle vehicle transit air marine mixed unknown))
+
+  (enum geofence-transition
+    (enter exit dwell intersect unknown))
+
+  (enum encounter-kind
+    (co-observed proximity radio visual manual derived unknown))
+
+  (enum spatial-query-mode
+    (bounding-box intersects within contains nearest))
+
+  (enum map-layer-kind
+    (documents heatmap route geofence encounters custom unknown))
+
+  (scalar distance-meters
+    (:base decimal
+     :minimum 0
+     :scale 3))
+
   (enum geo-geometry-type
     (point line-string polygon multi-point multi-line-string multi-polygon
      geometry-collection))
@@ -547,6 +575,115 @@
     (validated boolean :optional)
     (validationProvider string :optional))
 
+  ;; A mission is an operator-authored plan. It references canonical evidence
+  ;; and spatial records; it does not turn proximity or co-observation into
+  ;; identity, ownership, residence, or affiliation.
+  (document mission
+    (:extends document
+     :persistence persistent)
+    (name string :required)
+    (objective string :required)
+    (state mission-state :required)
+    (scope reference :optional)
+    (area reference :optional)
+    (route reference :optional)
+    (targets (list reference) :optional)
+    (geofences (list reference) :optional)
+    (assignedActors (list reference) :optional)
+    (parentMission reference :optional)
+    (startsAt unix-time :optional)
+    (endsAt unix-time :optional)
+    (outputDataset string :optional)
+    (constraints map :optional)
+    (budget map :optional)
+    (statusReason string :optional))
+
+  (document mission-target
+    (:extends document
+     :persistence persistent)
+    (mission reference :required)
+    (subject reference :required)
+    (state mission-target-state :required)
+    (objective string :optional)
+    (location reference :optional)
+    (geofence reference :optional)
+    (routeStop integer :optional)
+    (priority integer :optional)
+    (assignedActor reference :optional)
+    (requiredCapabilities (list string) :optional)
+    (notBefore unix-time :optional)
+    (deadline unix-time :optional)
+    (options map :optional)
+    (resultRefs (list reference) :optional))
+
+  ;; Routes point at canonical line geometry. Waypoints are canonical spatial
+  ;; records, not an alternate private coordinate model.
+  (document route
+    (:extends document
+     :persistence persistent)
+    (name string :optional)
+    (geometry reference :required)
+    (origin reference :optional)
+    (destination reference :optional)
+    (waypoints (list reference) :optional)
+    (mode route-mode :optional)
+    (distanceMeters distance-meters :optional)
+    (estimatedDurationSeconds integer :optional)
+    (actualDurationSeconds integer :optional)
+    (plannedAt unix-time :optional)
+    (startedAt unix-time :optional)
+    (endedAt unix-time :optional)
+    (routingProvider string :optional)
+    (constraints map :optional))
+
+  (document geofence
+    (:extends document
+     :persistence persistent)
+    (name string :optional)
+    (geometry reference :required)
+    (transitions (list geofence-transition) :required)
+    (mission reference :optional)
+    (subjects (list reference) :optional)
+    (activeFrom unix-time :optional)
+    (activeUntil unix-time :optional)
+    (dwellSeconds integer :optional)
+    (enabled boolean :optional :default t)
+    (policy map :optional))
+
+  ;; Encounter means bounded co-observation/proximity evidence only.
+  ;; Identity and relationship claims require separate evidence-backed records.
+  (document encounter
+    (:extends document
+     :persistence persistent)
+    (participants (list reference) :required)
+    (kind encounter-kind :required)
+    (location reference :optional)
+    (geometry reference :optional)
+    (startedAt unix-time :required)
+    (endedAt unix-time :optional)
+    (minimumDistanceMeters distance-meters :optional)
+    (observations (list reference) :optional)
+    (evidence (list reference) :optional)
+    (sourceRunIds (list string) :optional))
+
+  ;; Map layers are durable operator/query projections. Canonical feature
+  ;; documents remain authoritative and can rebuild a layer at any time.
+  (document map-layer
+    (:extends document
+     :persistence persistent)
+    (name string :required)
+    (kind map-layer-kind :required)
+    (sourceDataset string :optional)
+    (query map :optional)
+    (features (list reference) :optional)
+    (style map :optional)
+    (visible boolean :optional :default t)
+    (minimumZoom integer :optional)
+    (maximumZoom integer :optional)
+    (validFrom unix-time :optional)
+    (validUntil unix-time :optional)
+    (readOnly boolean :optional :default t))
+
   (document message
     (:extends document
      :persistence persistent)
@@ -1013,6 +1150,26 @@
     (:source document
      :destination geo))
 
+  (predicate part-of-mission
+    (:source document
+     :destination mission))
+
+  (predicate mission-has-target
+    (:source mission
+     :destination mission-target))
+
+  (predicate mission-uses-route
+    (:source mission
+     :destination route))
+
+  (predicate mission-has-geofence
+    (:source mission
+     :destination geofence))
+
+  (predicate observed-in-encounter
+    (:source document
+     :destination encounter))
+
   (predicate links-to
     (:source url
      :destination url))
@@ -1071,6 +1228,25 @@
     (:fields
      ((target reference :required)
       (requestedBy string :optional))))
+
+  (message schedule-mission
+    (:fields
+     ((mission reference :required)
+      (requestedBy string :optional))))
+
+  (message query-spatial
+    (:fields
+     ((dataset string :required)
+      (mode spatial-query-mode :required)
+      (geometry reference :optional)
+      (boundingBox (list decimal) :optional)
+      (referencePoint reference :optional)
+      (maximumDistanceMeters distance-meters :optional)
+      (dtype string :optional)
+      (filters map :optional)
+      (atTime unix-time :optional)
+      (limit integer :optional)
+      (cursor string :optional))))
 
   (message actor-manifest-announcement
     (:fields
