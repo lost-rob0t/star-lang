@@ -9,6 +9,7 @@ consumers; they must not maintain an independent copy of the object model.
 Canonical source:
 
 - `specs/starintel/0.10.1/core.star`
+- `specs/starintel/0.10.1/GEO-MISSION-MIGRATION.md` — geo/mission consumer boundary
 
 The 0.10.1 core includes the generic `file` contract and first-class media,
 audio, transcript, typed person-identifier, first-class geometry, packet-capture,

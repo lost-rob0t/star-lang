@@ -16,6 +16,7 @@ type
   Uri* = distinct string
   EmailAddress* = distinct string
   PhoneNumber* = distinct string
+  DistanceMeters* = distinct string
   Sensitivity* = distinct string
   Visibility* = distinct string
   CollectionStatus* = distinct string
@@ -23,6 +24,13 @@ type
   HashAlgorithm* = distinct string
   RelationDirection* = distinct string
   TargetState* = distinct string
+  MissionState* = distinct string
+  MissionTargetState* = distinct string
+  RouteMode* = distinct string
+  GeofenceTransition* = distinct string
+  EncounterKind* = distinct string
+  SpatialQueryMode* = distinct string
+  MapLayerKind* = distinct string
   GeoGeometryType* = distinct string
   PcapFormat* = distinct string
   NetworkLayer* = distinct string
@@ -2266,6 +2274,500 @@ type
     `geometry`*: Option[StarReference]
     `validated`*: Option[bool]
     `validationProvider`*: Option[string]
+
+  Mission* = object
+    `id`*: DocumentId
+    `rev`*: Option[string]
+    `dataset`*: string
+    `dtype`*: string
+    `schemaVersion`*: string
+    `externalIds`*: Option[JsonNode]
+    `aliases`*: Option[seq[string]]
+    `sources`*: Option[seq[StarReference]]
+    `sourceUrls`*: Option[seq[Uri]]
+    `sourceRecordIds`*: Option[seq[string]]
+    `sourceKinds`*: Option[seq[SourceKind]]
+    `sourceLicense`*: Option[string]
+    `sourceTerms`*: Option[Uri]
+    `sourceRetrievedAt`*: Option[UnixTime]
+    `collectedAt`*: Option[UnixTime]
+    `observedAt`*: Option[UnixTime]
+    `firstSeenAt`*: Option[UnixTime]
+    `lastSeenAt`*: Option[UnixTime]
+    `createdAt`*: Option[UnixTime]
+    `updatedAt`*: Option[UnixTime]
+    `validFrom`*: Option[UnixTime]
+    `validUntil`*: Option[UnixTime]
+    `expiresAt`*: Option[UnixTime]
+    `collector`*: Option[string]
+    `collectorVersion`*: Option[string]
+    `collectionMethod`*: Option[string]
+    `collectionStatus`*: Option[CollectionStatus]
+    `runId`*: Option[string]
+    `correlationId`*: Option[string]
+    `causationId`*: Option[string]
+    `parentId`*: Option[DocumentId]
+    `rootId`*: Option[DocumentId]
+    `confidence`*: Option[ConfidenceScore]
+    `confidenceBasis`*: Option[string]
+    `qualityScore`*: Option[ConfidenceScore]
+    `completenessScore`*: Option[ConfidenceScore]
+    `verificationStatus`*: Option[string]
+    `verifiedAt`*: Option[UnixTime]
+    `verifiedBy`*: Option[string]
+    `provenance`*: Option[JsonNode]
+    `chainOfCustody`*: Option[seq[JsonNode]]
+    `transformHistory`*: Option[seq[JsonNode]]
+    `labels`*: Option[seq[string]]
+    `tags`*: Option[seq[string]]
+    `topics`*: Option[seq[string]]
+    `language`*: Option[string]
+    `jurisdiction`*: Option[string]
+    `countryCode`*: Option[string]
+    `regionCode`*: Option[string]
+    `timezone`*: Option[string]
+    `sensitivity`*: Option[Sensitivity]
+    `visibility`*: Option[Visibility]
+    `owner`*: Option[string]
+    `accessControl`*: Option[JsonNode]
+    `legalBasis`*: Option[string]
+    `retentionPolicy`*: Option[string]
+    `contentType`*: Option[string]
+    `encoding`*: Option[string]
+    `sizeBytes`*: Option[int64]
+    `contentHash`*: Option[string]
+    `hashAlgorithm`*: Option[HashAlgorithm]
+    `normalizedHash`*: Option[string]
+    `raw`*: Option[JsonNode]
+    `rawContent`*: Option[string]
+    `notes`*: Option[string]
+    `deleted`*: Option[bool]
+    `tombstoneReason`*: Option[string]
+    `extensions`*: Option[JsonNode]
+    `name`*: string
+    `objective`*: string
+    `state`*: MissionState
+    `scope`*: Option[StarReference]
+    `area`*: Option[StarReference]
+    `route`*: Option[StarReference]
+    `targets`*: Option[seq[StarReference]]
+    `geofences`*: Option[seq[StarReference]]
+    `assignedActors`*: Option[seq[StarReference]]
+    `parentMission`*: Option[StarReference]
+    `startsAt`*: Option[UnixTime]
+    `endsAt`*: Option[UnixTime]
+    `outputDataset`*: Option[string]
+    `constraints`*: Option[JsonNode]
+    `budget`*: Option[JsonNode]
+    `statusReason`*: Option[string]
+
+  MissionTarget* = object
+    `id`*: DocumentId
+    `rev`*: Option[string]
+    `dataset`*: string
+    `dtype`*: string
+    `schemaVersion`*: string
+    `externalIds`*: Option[JsonNode]
+    `aliases`*: Option[seq[string]]
+    `sources`*: Option[seq[StarReference]]
+    `sourceUrls`*: Option[seq[Uri]]
+    `sourceRecordIds`*: Option[seq[string]]
+    `sourceKinds`*: Option[seq[SourceKind]]
+    `sourceLicense`*: Option[string]
+    `sourceTerms`*: Option[Uri]
+    `sourceRetrievedAt`*: Option[UnixTime]
+    `collectedAt`*: Option[UnixTime]
+    `observedAt`*: Option[UnixTime]
+    `firstSeenAt`*: Option[UnixTime]
+    `lastSeenAt`*: Option[UnixTime]
+    `createdAt`*: Option[UnixTime]
+    `updatedAt`*: Option[UnixTime]
+    `validFrom`*: Option[UnixTime]
+    `validUntil`*: Option[UnixTime]
+    `expiresAt`*: Option[UnixTime]
+    `collector`*: Option[string]
+    `collectorVersion`*: Option[string]
+    `collectionMethod`*: Option[string]
+    `collectionStatus`*: Option[CollectionStatus]
+    `runId`*: Option[string]
+    `correlationId`*: Option[string]
+    `causationId`*: Option[string]
+    `parentId`*: Option[DocumentId]
+    `rootId`*: Option[DocumentId]
+    `confidence`*: Option[ConfidenceScore]
+    `confidenceBasis`*: Option[string]
+    `qualityScore`*: Option[ConfidenceScore]
+    `completenessScore`*: Option[ConfidenceScore]
+    `verificationStatus`*: Option[string]
+    `verifiedAt`*: Option[UnixTime]
+    `verifiedBy`*: Option[string]
+    `provenance`*: Option[JsonNode]
+    `chainOfCustody`*: Option[seq[JsonNode]]
+    `transformHistory`*: Option[seq[JsonNode]]
+    `labels`*: Option[seq[string]]
+    `tags`*: Option[seq[string]]
+    `topics`*: Option[seq[string]]
+    `language`*: Option[string]
+    `jurisdiction`*: Option[string]
+    `countryCode`*: Option[string]
+    `regionCode`*: Option[string]
+    `timezone`*: Option[string]
+    `sensitivity`*: Option[Sensitivity]
+    `visibility`*: Option[Visibility]
+    `owner`*: Option[string]
+    `accessControl`*: Option[JsonNode]
+    `legalBasis`*: Option[string]
+    `retentionPolicy`*: Option[string]
+    `contentType`*: Option[string]
+    `encoding`*: Option[string]
+    `sizeBytes`*: Option[int64]
+    `contentHash`*: Option[string]
+    `hashAlgorithm`*: Option[HashAlgorithm]
+    `normalizedHash`*: Option[string]
+    `raw`*: Option[JsonNode]
+    `rawContent`*: Option[string]
+    `notes`*: Option[string]
+    `deleted`*: Option[bool]
+    `tombstoneReason`*: Option[string]
+    `extensions`*: Option[JsonNode]
+    `mission`*: StarReference
+    `subject`*: StarReference
+    `state`*: MissionTargetState
+    `objective`*: Option[string]
+    `location`*: Option[StarReference]
+    `geofence`*: Option[StarReference]
+    `routeStop`*: Option[int64]
+    `priority`*: Option[int64]
+    `assignedActor`*: Option[StarReference]
+    `requiredCapabilities`*: Option[seq[string]]
+    `notBefore`*: Option[UnixTime]
+    `deadline`*: Option[UnixTime]
+    `options`*: Option[JsonNode]
+    `resultRefs`*: Option[seq[StarReference]]
+
+  Route* = object
+    `id`*: DocumentId
+    `rev`*: Option[string]
+    `dataset`*: string
+    `dtype`*: string
+    `schemaVersion`*: string
+    `externalIds`*: Option[JsonNode]
+    `aliases`*: Option[seq[string]]
+    `sources`*: Option[seq[StarReference]]
+    `sourceUrls`*: Option[seq[Uri]]
+    `sourceRecordIds`*: Option[seq[string]]
+    `sourceKinds`*: Option[seq[SourceKind]]
+    `sourceLicense`*: Option[string]
+    `sourceTerms`*: Option[Uri]
+    `sourceRetrievedAt`*: Option[UnixTime]
+    `collectedAt`*: Option[UnixTime]
+    `observedAt`*: Option[UnixTime]
+    `firstSeenAt`*: Option[UnixTime]
+    `lastSeenAt`*: Option[UnixTime]
+    `createdAt`*: Option[UnixTime]
+    `updatedAt`*: Option[UnixTime]
+    `validFrom`*: Option[UnixTime]
+    `validUntil`*: Option[UnixTime]
+    `expiresAt`*: Option[UnixTime]
+    `collector`*: Option[string]
+    `collectorVersion`*: Option[string]
+    `collectionMethod`*: Option[string]
+    `collectionStatus`*: Option[CollectionStatus]
+    `runId`*: Option[string]
+    `correlationId`*: Option[string]
+    `causationId`*: Option[string]
+    `parentId`*: Option[DocumentId]
+    `rootId`*: Option[DocumentId]
+    `confidence`*: Option[ConfidenceScore]
+    `confidenceBasis`*: Option[string]
+    `qualityScore`*: Option[ConfidenceScore]
+    `completenessScore`*: Option[ConfidenceScore]
+    `verificationStatus`*: Option[string]
+    `verifiedAt`*: Option[UnixTime]
+    `verifiedBy`*: Option[string]
+    `provenance`*: Option[JsonNode]
+    `chainOfCustody`*: Option[seq[JsonNode]]
+    `transformHistory`*: Option[seq[JsonNode]]
+    `labels`*: Option[seq[string]]
+    `tags`*: Option[seq[string]]
+    `topics`*: Option[seq[string]]
+    `language`*: Option[string]
+    `jurisdiction`*: Option[string]
+    `countryCode`*: Option[string]
+    `regionCode`*: Option[string]
+    `timezone`*: Option[string]
+    `sensitivity`*: Option[Sensitivity]
+    `visibility`*: Option[Visibility]
+    `owner`*: Option[string]
+    `accessControl`*: Option[JsonNode]
+    `legalBasis`*: Option[string]
+    `retentionPolicy`*: Option[string]
+    `contentType`*: Option[string]
+    `encoding`*: Option[string]
+    `sizeBytes`*: Option[int64]
+    `contentHash`*: Option[string]
+    `hashAlgorithm`*: Option[HashAlgorithm]
+    `normalizedHash`*: Option[string]
+    `raw`*: Option[JsonNode]
+    `rawContent`*: Option[string]
+    `notes`*: Option[string]
+    `deleted`*: Option[bool]
+    `tombstoneReason`*: Option[string]
+    `extensions`*: Option[JsonNode]
+    `name`*: Option[string]
+    `geometry`*: StarReference
+    `origin`*: Option[StarReference]
+    `destination`*: Option[StarReference]
+    `waypoints`*: Option[seq[StarReference]]
+    `mode`*: Option[RouteMode]
+    `distanceMeters`*: Option[DistanceMeters]
+    `estimatedDurationSeconds`*: Option[int64]
+    `actualDurationSeconds`*: Option[int64]
+    `plannedAt`*: Option[UnixTime]
+    `startedAt`*: Option[UnixTime]
+    `endedAt`*: Option[UnixTime]
+    `routingProvider`*: Option[string]
+    `constraints`*: Option[JsonNode]
+
+  Geofence* = object
+    `id`*: DocumentId
+    `rev`*: Option[string]
+    `dataset`*: string
+    `dtype`*: string
+    `schemaVersion`*: string
+    `externalIds`*: Option[JsonNode]
+    `aliases`*: Option[seq[string]]
+    `sources`*: Option[seq[StarReference]]
+    `sourceUrls`*: Option[seq[Uri]]
+    `sourceRecordIds`*: Option[seq[string]]
+    `sourceKinds`*: Option[seq[SourceKind]]
+    `sourceLicense`*: Option[string]
+    `sourceTerms`*: Option[Uri]
+    `sourceRetrievedAt`*: Option[UnixTime]
+    `collectedAt`*: Option[UnixTime]
+    `observedAt`*: Option[UnixTime]
+    `firstSeenAt`*: Option[UnixTime]
+    `lastSeenAt`*: Option[UnixTime]
+    `createdAt`*: Option[UnixTime]
+    `updatedAt`*: Option[UnixTime]
+    `validFrom`*: Option[UnixTime]
+    `validUntil`*: Option[UnixTime]
+    `expiresAt`*: Option[UnixTime]
+    `collector`*: Option[string]
+    `collectorVersion`*: Option[string]
+    `collectionMethod`*: Option[string]
+    `collectionStatus`*: Option[CollectionStatus]
+    `runId`*: Option[string]
+    `correlationId`*: Option[string]
+    `causationId`*: Option[string]
+    `parentId`*: Option[DocumentId]
+    `rootId`*: Option[DocumentId]
+    `confidence`*: Option[ConfidenceScore]
+    `confidenceBasis`*: Option[string]
+    `qualityScore`*: Option[ConfidenceScore]
+    `completenessScore`*: Option[ConfidenceScore]
+    `verificationStatus`*: Option[string]
+    `verifiedAt`*: Option[UnixTime]
+    `verifiedBy`*: Option[string]
+    `provenance`*: Option[JsonNode]
+    `chainOfCustody`*: Option[seq[JsonNode]]
+    `transformHistory`*: Option[seq[JsonNode]]
+    `labels`*: Option[seq[string]]
+    `tags`*: Option[seq[string]]
+    `topics`*: Option[seq[string]]
+    `language`*: Option[string]
+    `jurisdiction`*: Option[string]
+    `countryCode`*: Option[string]
+    `regionCode`*: Option[string]
+    `timezone`*: Option[string]
+    `sensitivity`*: Option[Sensitivity]
+    `visibility`*: Option[Visibility]
+    `owner`*: Option[string]
+    `accessControl`*: Option[JsonNode]
+    `legalBasis`*: Option[string]
+    `retentionPolicy`*: Option[string]
+    `contentType`*: Option[string]
+    `encoding`*: Option[string]
+    `sizeBytes`*: Option[int64]
+    `contentHash`*: Option[string]
+    `hashAlgorithm`*: Option[HashAlgorithm]
+    `normalizedHash`*: Option[string]
+    `raw`*: Option[JsonNode]
+    `rawContent`*: Option[string]
+    `notes`*: Option[string]
+    `deleted`*: Option[bool]
+    `tombstoneReason`*: Option[string]
+    `extensions`*: Option[JsonNode]
+    `name`*: Option[string]
+    `geometry`*: StarReference
+    `transitions`*: seq[GeofenceTransition]
+    `mission`*: Option[StarReference]
+    `subjects`*: Option[seq[StarReference]]
+    `activeFrom`*: Option[UnixTime]
+    `activeUntil`*: Option[UnixTime]
+    `dwellSeconds`*: Option[int64]
+    `enabled`*: Option[bool]
+    `policy`*: Option[JsonNode]
+
+  Encounter* = object
+    `id`*: DocumentId
+    `rev`*: Option[string]
+    `dataset`*: string
+    `dtype`*: string
+    `schemaVersion`*: string
+    `externalIds`*: Option[JsonNode]
+    `aliases`*: Option[seq[string]]
+    `sources`*: Option[seq[StarReference]]
+    `sourceUrls`*: Option[seq[Uri]]
+    `sourceRecordIds`*: Option[seq[string]]
+    `sourceKinds`*: Option[seq[SourceKind]]
+    `sourceLicense`*: Option[string]
+    `sourceTerms`*: Option[Uri]
+    `sourceRetrievedAt`*: Option[UnixTime]
+    `collectedAt`*: Option[UnixTime]
+    `observedAt`*: Option[UnixTime]
+    `firstSeenAt`*: Option[UnixTime]
+    `lastSeenAt`*: Option[UnixTime]
+    `createdAt`*: Option[UnixTime]
+    `updatedAt`*: Option[UnixTime]
+    `validFrom`*: Option[UnixTime]
+    `validUntil`*: Option[UnixTime]
+    `expiresAt`*: Option[UnixTime]
+    `collector`*: Option[string]
+    `collectorVersion`*: Option[string]
+    `collectionMethod`*: Option[string]
+    `collectionStatus`*: Option[CollectionStatus]
+    `runId`*: Option[string]
+    `correlationId`*: Option[string]
+    `causationId`*: Option[string]
+    `parentId`*: Option[DocumentId]
+    `rootId`*: Option[DocumentId]
+    `confidence`*: Option[ConfidenceScore]
+    `confidenceBasis`*: Option[string]
+    `qualityScore`*: Option[ConfidenceScore]
+    `completenessScore`*: Option[ConfidenceScore]
+    `verificationStatus`*: Option[string]
+    `verifiedAt`*: Option[UnixTime]
+    `verifiedBy`*: Option[string]
+    `provenance`*: Option[JsonNode]
+    `chainOfCustody`*: Option[seq[JsonNode]]
+    `transformHistory`*: Option[seq[JsonNode]]
+    `labels`*: Option[seq[string]]
+    `tags`*: Option[seq[string]]
+    `topics`*: Option[seq[string]]
+    `language`*: Option[string]
+    `jurisdiction`*: Option[string]
+    `countryCode`*: Option[string]
+    `regionCode`*: Option[string]
+    `timezone`*: Option[string]
+    `sensitivity`*: Option[Sensitivity]
+    `visibility`*: Option[Visibility]
+    `owner`*: Option[string]
+    `accessControl`*: Option[JsonNode]
+    `legalBasis`*: Option[string]
+    `retentionPolicy`*: Option[string]
+    `contentType`*: Option[string]
+    `encoding`*: Option[string]
+    `sizeBytes`*: Option[int64]
+    `contentHash`*: Option[string]
+    `hashAlgorithm`*: Option[HashAlgorithm]
+    `normalizedHash`*: Option[string]
+    `raw`*: Option[JsonNode]
+    `rawContent`*: Option[string]
+    `notes`*: Option[string]
+    `deleted`*: Option[bool]
+    `tombstoneReason`*: Option[string]
+    `extensions`*: Option[JsonNode]
+    `participants`*: seq[StarReference]
+    `kind`*: EncounterKind
+    `location`*: Option[StarReference]
+    `geometry`*: Option[StarReference]
+    `startedAt`*: UnixTime
+    `endedAt`*: Option[UnixTime]
+    `minimumDistanceMeters`*: Option[DistanceMeters]
+    `observations`*: Option[seq[StarReference]]
+    `evidence`*: Option[seq[StarReference]]
+    `sourceRunIds`*: Option[seq[string]]
+
+  MapLayer* = object
+    `id`*: DocumentId
+    `rev`*: Option[string]
+    `dataset`*: string
+    `dtype`*: string
+    `schemaVersion`*: string
+    `externalIds`*: Option[JsonNode]
+    `aliases`*: Option[seq[string]]
+    `sources`*: Option[seq[StarReference]]
+    `sourceUrls`*: Option[seq[Uri]]
+    `sourceRecordIds`*: Option[seq[string]]
+    `sourceKinds`*: Option[seq[SourceKind]]
+    `sourceLicense`*: Option[string]
+    `sourceTerms`*: Option[Uri]
+    `sourceRetrievedAt`*: Option[UnixTime]
+    `collectedAt`*: Option[UnixTime]
+    `observedAt`*: Option[UnixTime]
+    `firstSeenAt`*: Option[UnixTime]
+    `lastSeenAt`*: Option[UnixTime]
+    `createdAt`*: Option[UnixTime]
+    `updatedAt`*: Option[UnixTime]
+    `validFrom`*: Option[UnixTime]
+    `validUntil`*: Option[UnixTime]
+    `expiresAt`*: Option[UnixTime]
+    `collector`*: Option[string]
+    `collectorVersion`*: Option[string]
+    `collectionMethod`*: Option[string]
+    `collectionStatus`*: Option[CollectionStatus]
+    `runId`*: Option[string]
+    `correlationId`*: Option[string]
+    `causationId`*: Option[string]
+    `parentId`*: Option[DocumentId]
+    `rootId`*: Option[DocumentId]
+    `confidence`*: Option[ConfidenceScore]
+    `confidenceBasis`*: Option[string]
+    `qualityScore`*: Option[ConfidenceScore]
+    `completenessScore`*: Option[ConfidenceScore]
+    `verificationStatus`*: Option[string]
+    `verifiedAt`*: Option[UnixTime]
+    `verifiedBy`*: Option[string]
+    `provenance`*: Option[JsonNode]
+    `chainOfCustody`*: Option[seq[JsonNode]]
+    `transformHistory`*: Option[seq[JsonNode]]
+    `labels`*: Option[seq[string]]
+    `tags`*: Option[seq[string]]
+    `topics`*: Option[seq[string]]
+    `language`*: Option[string]
+    `jurisdiction`*: Option[string]
+    `countryCode`*: Option[string]
+    `regionCode`*: Option[string]
+    `timezone`*: Option[string]
+    `sensitivity`*: Option[Sensitivity]
+    `visibility`*: Option[Visibility]
+    `owner`*: Option[string]
+    `accessControl`*: Option[JsonNode]
+    `legalBasis`*: Option[string]
+    `retentionPolicy`*: Option[string]
+    `contentType`*: Option[string]
+    `encoding`*: Option[string]
+    `sizeBytes`*: Option[int64]
+    `contentHash`*: Option[string]
+    `hashAlgorithm`*: Option[HashAlgorithm]
+    `normalizedHash`*: Option[string]
+    `raw`*: Option[JsonNode]
+    `rawContent`*: Option[string]
+    `notes`*: Option[string]
+    `deleted`*: Option[bool]
+    `tombstoneReason`*: Option[string]
+    `extensions`*: Option[JsonNode]
+    `name`*: string
+    `kind`*: MapLayerKind
+    `sourceDataset`*: Option[string]
+    `query`*: Option[JsonNode]
+    `features`*: Option[seq[StarReference]]
+    `style`*: Option[JsonNode]
+    `visible`*: Option[bool]
+    `minimumZoom`*: Option[int64]
+    `maximumZoom`*: Option[int64]
+    `readOnly`*: Option[bool]
 
   Message* = object
     `id`*: DocumentId
@@ -4573,6 +5075,54 @@ const TargetStateFailed* = TargetState("failed")
 const TargetStateCancelled* = TargetState("cancelled")
 const TargetStatePaused* = TargetState("paused")
 const TargetStateUnknown* = TargetState("unknown")
+const MissionStateDraft* = MissionState("draft")
+const MissionStateReady* = MissionState("ready")
+const MissionStateRunning* = MissionState("running")
+const MissionStatePaused* = MissionState("paused")
+const MissionStateCompleted* = MissionState("completed")
+const MissionStateFailed* = MissionState("failed")
+const MissionStateCancelled* = MissionState("cancelled")
+const MissionStateArchived* = MissionState("archived")
+const MissionStateUnknown* = MissionState("unknown")
+const MissionTargetStatePending* = MissionTargetState("pending")
+const MissionTargetStateActive* = MissionTargetState("active")
+const MissionTargetStateCompleted* = MissionTargetState("completed")
+const MissionTargetStateFailed* = MissionTargetState("failed")
+const MissionTargetStateSkipped* = MissionTargetState("skipped")
+const MissionTargetStateCancelled* = MissionTargetState("cancelled")
+const MissionTargetStateUnknown* = MissionTargetState("unknown")
+const RouteModeWalk* = RouteMode("walk")
+const RouteModeBicycle* = RouteMode("bicycle")
+const RouteModeVehicle* = RouteMode("vehicle")
+const RouteModeTransit* = RouteMode("transit")
+const RouteModeAir* = RouteMode("air")
+const RouteModeMarine* = RouteMode("marine")
+const RouteModeMixed* = RouteMode("mixed")
+const RouteModeUnknown* = RouteMode("unknown")
+const GeofenceTransitionEnter* = GeofenceTransition("enter")
+const GeofenceTransitionExit* = GeofenceTransition("exit")
+const GeofenceTransitionDwell* = GeofenceTransition("dwell")
+const GeofenceTransitionIntersect* = GeofenceTransition("intersect")
+const GeofenceTransitionUnknown* = GeofenceTransition("unknown")
+const EncounterKindCoObserved* = EncounterKind("co-observed")
+const EncounterKindProximity* = EncounterKind("proximity")
+const EncounterKindRadio* = EncounterKind("radio")
+const EncounterKindVisual* = EncounterKind("visual")
+const EncounterKindManual* = EncounterKind("manual")
+const EncounterKindDerived* = EncounterKind("derived")
+const EncounterKindUnknown* = EncounterKind("unknown")
+const SpatialQueryModeBoundingBox* = SpatialQueryMode("bounding-box")
+const SpatialQueryModeIntersects* = SpatialQueryMode("intersects")
+const SpatialQueryModeWithin* = SpatialQueryMode("within")
+const SpatialQueryModeContains* = SpatialQueryMode("contains")
+const SpatialQueryModeNearest* = SpatialQueryMode("nearest")
+const MapLayerKindDocuments* = MapLayerKind("documents")
+const MapLayerKindHeatmap* = MapLayerKind("heatmap")
+const MapLayerKindRoute* = MapLayerKind("route")
+const MapLayerKindGeofence* = MapLayerKind("geofence")
+const MapLayerKindEncounters* = MapLayerKind("encounters")
+const MapLayerKindCustom* = MapLayerKind("custom")
+const MapLayerKindUnknown* = MapLayerKind("unknown")
 const GeoGeometryTypePoint* = GeoGeometryType("point")
 const GeoGeometryTypeLineString* = GeoGeometryType("line-string")
 const GeoGeometryTypePolygon* = GeoGeometryType("polygon")
@@ -4656,6 +5206,25 @@ type
   ScheduleTarget* = object
     `target`*: StarReference
     `requestedBy`*: Option[string]
+
+type
+  ScheduleMission* = object
+    `mission`*: StarReference
+    `requestedBy`*: Option[string]
+
+type
+  QuerySpatial* = object
+    `dataset`*: string
+    `mode`*: SpatialQueryMode
+    `geometry`*: Option[StarReference]
+    `boundingBox`*: Option[seq[string]]
+    `referencePoint`*: Option[StarReference]
+    `maximumDistanceMeters`*: Option[DistanceMeters]
+    `dtype`*: Option[string]
+    `filters`*: Option[JsonNode]
+    `atTime`*: Option[UnixTime]
+    `limit`*: Option[int64]
+    `cursor`*: Option[string]
 
 type
   ActorManifestAnnouncement* = object

@@ -20,6 +20,7 @@
     #:uri
     #:email-address
     #:phone-number
+    #:distance-meters
     #:sensitivity
     #:visibility
     #:collection-status
@@ -27,6 +28,13 @@
     #:hash-algorithm
     #:relation-direction
     #:target-state
+    #:mission-state
+    #:mission-target-state
+    #:route-mode
+    #:geofence-transition
+    #:encounter-kind
+    #:spatial-query-mode
+    #:map-layer-kind
     #:geo-geometry-type
     #:pcap-format
     #:network-layer
@@ -2346,6 +2354,513 @@
     #:address-geometry
     #:address-validated
     #:address-validationprovider
+    #:mission
+    #:MAKE-mission
+    #:COPY-mission
+    #:mission-P
+    #:+mission-WIRE-FIELDS+
+    #:mission-id
+    #:mission-rev
+    #:mission-dataset
+    #:mission-dtype
+    #:mission-schemaversion
+    #:mission-externalids
+    #:mission-aliases
+    #:mission-sources
+    #:mission-sourceurls
+    #:mission-sourcerecordids
+    #:mission-sourcekinds
+    #:mission-sourcelicense
+    #:mission-sourceterms
+    #:mission-sourceretrievedat
+    #:mission-collectedat
+    #:mission-observedat
+    #:mission-firstseenat
+    #:mission-lastseenat
+    #:mission-createdat
+    #:mission-updatedat
+    #:mission-validfrom
+    #:mission-validuntil
+    #:mission-expiresat
+    #:mission-collector
+    #:mission-collectorversion
+    #:mission-collectionmethod
+    #:mission-collectionstatus
+    #:mission-runid
+    #:mission-correlationid
+    #:mission-causationid
+    #:mission-parentid
+    #:mission-rootid
+    #:mission-confidence
+    #:mission-confidencebasis
+    #:mission-qualityscore
+    #:mission-completenessscore
+    #:mission-verificationstatus
+    #:mission-verifiedat
+    #:mission-verifiedby
+    #:mission-provenance
+    #:mission-chainofcustody
+    #:mission-transformhistory
+    #:mission-labels
+    #:mission-tags
+    #:mission-topics
+    #:mission-language
+    #:mission-jurisdiction
+    #:mission-countrycode
+    #:mission-regioncode
+    #:mission-timezone
+    #:mission-sensitivity
+    #:mission-visibility
+    #:mission-owner
+    #:mission-accesscontrol
+    #:mission-legalbasis
+    #:mission-retentionpolicy
+    #:mission-contenttype
+    #:mission-encoding
+    #:mission-sizebytes
+    #:mission-contenthash
+    #:mission-hashalgorithm
+    #:mission-normalizedhash
+    #:mission-raw
+    #:mission-rawcontent
+    #:mission-notes
+    #:mission-deleted
+    #:mission-tombstonereason
+    #:mission-extensions
+    #:mission-name
+    #:mission-objective
+    #:mission-scope
+    #:mission-area
+    #:mission-route
+    #:mission-targets
+    #:mission-geofences
+    #:mission-assignedactors
+    #:mission-parentmission
+    #:mission-startsat
+    #:mission-endsat
+    #:mission-outputdataset
+    #:mission-constraints
+    #:mission-budget
+    #:mission-statusreason
+    #:mission-target
+    #:MAKE-mission-target
+    #:COPY-mission-target
+    #:mission-target-P
+    #:+mission-target-WIRE-FIELDS+
+    #:mission-target-id
+    #:mission-target-rev
+    #:mission-target-dataset
+    #:mission-target-dtype
+    #:mission-target-schemaversion
+    #:mission-target-externalids
+    #:mission-target-aliases
+    #:mission-target-sources
+    #:mission-target-sourceurls
+    #:mission-target-sourcerecordids
+    #:mission-target-sourcekinds
+    #:mission-target-sourcelicense
+    #:mission-target-sourceterms
+    #:mission-target-sourceretrievedat
+    #:mission-target-collectedat
+    #:mission-target-observedat
+    #:mission-target-firstseenat
+    #:mission-target-lastseenat
+    #:mission-target-createdat
+    #:mission-target-updatedat
+    #:mission-target-validfrom
+    #:mission-target-validuntil
+    #:mission-target-expiresat
+    #:mission-target-collector
+    #:mission-target-collectorversion
+    #:mission-target-collectionmethod
+    #:mission-target-collectionstatus
+    #:mission-target-runid
+    #:mission-target-correlationid
+    #:mission-target-causationid
+    #:mission-target-parentid
+    #:mission-target-rootid
+    #:mission-target-confidence
+    #:mission-target-confidencebasis
+    #:mission-target-qualityscore
+    #:mission-target-completenessscore
+    #:mission-target-verificationstatus
+    #:mission-target-verifiedat
+    #:mission-target-verifiedby
+    #:mission-target-provenance
+    #:mission-target-chainofcustody
+    #:mission-target-transformhistory
+    #:mission-target-labels
+    #:mission-target-tags
+    #:mission-target-topics
+    #:mission-target-language
+    #:mission-target-jurisdiction
+    #:mission-target-countrycode
+    #:mission-target-regioncode
+    #:mission-target-timezone
+    #:mission-target-sensitivity
+    #:mission-target-visibility
+    #:mission-target-owner
+    #:mission-target-accesscontrol
+    #:mission-target-legalbasis
+    #:mission-target-retentionpolicy
+    #:mission-target-contenttype
+    #:mission-target-encoding
+    #:mission-target-sizebytes
+    #:mission-target-contenthash
+    #:mission-target-hashalgorithm
+    #:mission-target-normalizedhash
+    #:mission-target-raw
+    #:mission-target-rawcontent
+    #:mission-target-notes
+    #:mission-target-deleted
+    #:mission-target-tombstonereason
+    #:mission-target-extensions
+    #:mission-target-mission
+    #:mission-target-subject
+    #:mission-target-objective
+    #:mission-target-location
+    #:mission-target-geofence
+    #:mission-target-routestop
+    #:mission-target-priority
+    #:mission-target-assignedactor
+    #:mission-target-requiredcapabilities
+    #:mission-target-notbefore
+    #:mission-target-deadline
+    #:mission-target-options
+    #:mission-target-resultrefs
+    #:route
+    #:MAKE-route
+    #:COPY-route
+    #:route-P
+    #:+route-WIRE-FIELDS+
+    #:route-id
+    #:route-rev
+    #:route-dataset
+    #:route-dtype
+    #:route-schemaversion
+    #:route-externalids
+    #:route-aliases
+    #:route-sources
+    #:route-sourceurls
+    #:route-sourcerecordids
+    #:route-sourcekinds
+    #:route-sourcelicense
+    #:route-sourceterms
+    #:route-sourceretrievedat
+    #:route-collectedat
+    #:route-observedat
+    #:route-firstseenat
+    #:route-lastseenat
+    #:route-createdat
+    #:route-updatedat
+    #:route-validfrom
+    #:route-validuntil
+    #:route-expiresat
+    #:route-collector
+    #:route-collectorversion
+    #:route-collectionmethod
+    #:route-collectionstatus
+    #:route-runid
+    #:route-correlationid
+    #:route-causationid
+    #:route-parentid
+    #:route-rootid
+    #:route-confidence
+    #:route-confidencebasis
+    #:route-qualityscore
+    #:route-completenessscore
+    #:route-verificationstatus
+    #:route-verifiedat
+    #:route-verifiedby
+    #:route-provenance
+    #:route-chainofcustody
+    #:route-transformhistory
+    #:route-labels
+    #:route-tags
+    #:route-topics
+    #:route-language
+    #:route-jurisdiction
+    #:route-countrycode
+    #:route-regioncode
+    #:route-timezone
+    #:route-sensitivity
+    #:route-visibility
+    #:route-owner
+    #:route-accesscontrol
+    #:route-legalbasis
+    #:route-retentionpolicy
+    #:route-contenttype
+    #:route-encoding
+    #:route-sizebytes
+    #:route-contenthash
+    #:route-hashalgorithm
+    #:route-normalizedhash
+    #:route-raw
+    #:route-rawcontent
+    #:route-notes
+    #:route-deleted
+    #:route-tombstonereason
+    #:route-extensions
+    #:route-name
+    #:route-geometry
+    #:route-origin
+    #:route-destination
+    #:route-waypoints
+    #:route-distancemeters
+    #:route-estimateddurationseconds
+    #:route-actualdurationseconds
+    #:route-plannedat
+    #:route-startedat
+    #:route-endedat
+    #:route-routingprovider
+    #:route-constraints
+    #:geofence
+    #:MAKE-geofence
+    #:COPY-geofence
+    #:geofence-P
+    #:+geofence-WIRE-FIELDS+
+    #:geofence-id
+    #:geofence-rev
+    #:geofence-dataset
+    #:geofence-dtype
+    #:geofence-schemaversion
+    #:geofence-externalids
+    #:geofence-aliases
+    #:geofence-sources
+    #:geofence-sourceurls
+    #:geofence-sourcerecordids
+    #:geofence-sourcekinds
+    #:geofence-sourcelicense
+    #:geofence-sourceterms
+    #:geofence-sourceretrievedat
+    #:geofence-collectedat
+    #:geofence-observedat
+    #:geofence-firstseenat
+    #:geofence-lastseenat
+    #:geofence-createdat
+    #:geofence-updatedat
+    #:geofence-validfrom
+    #:geofence-validuntil
+    #:geofence-expiresat
+    #:geofence-collector
+    #:geofence-collectorversion
+    #:geofence-collectionmethod
+    #:geofence-collectionstatus
+    #:geofence-runid
+    #:geofence-correlationid
+    #:geofence-causationid
+    #:geofence-parentid
+    #:geofence-rootid
+    #:geofence-confidence
+    #:geofence-confidencebasis
+    #:geofence-qualityscore
+    #:geofence-completenessscore
+    #:geofence-verificationstatus
+    #:geofence-verifiedat
+    #:geofence-verifiedby
+    #:geofence-provenance
+    #:geofence-chainofcustody
+    #:geofence-transformhistory
+    #:geofence-labels
+    #:geofence-tags
+    #:geofence-topics
+    #:geofence-language
+    #:geofence-jurisdiction
+    #:geofence-countrycode
+    #:geofence-regioncode
+    #:geofence-timezone
+    #:geofence-sensitivity
+    #:geofence-visibility
+    #:geofence-owner
+    #:geofence-accesscontrol
+    #:geofence-legalbasis
+    #:geofence-retentionpolicy
+    #:geofence-contenttype
+    #:geofence-encoding
+    #:geofence-sizebytes
+    #:geofence-contenthash
+    #:geofence-hashalgorithm
+    #:geofence-normalizedhash
+    #:geofence-raw
+    #:geofence-rawcontent
+    #:geofence-notes
+    #:geofence-deleted
+    #:geofence-tombstonereason
+    #:geofence-extensions
+    #:geofence-name
+    #:geofence-geometry
+    #:geofence-transitions
+    #:geofence-mission
+    #:geofence-subjects
+    #:geofence-activefrom
+    #:geofence-activeuntil
+    #:geofence-dwellseconds
+    #:geofence-enabled
+    #:geofence-policy
+    #:encounter
+    #:MAKE-encounter
+    #:COPY-encounter
+    #:encounter-P
+    #:+encounter-WIRE-FIELDS+
+    #:encounter-id
+    #:encounter-rev
+    #:encounter-dataset
+    #:encounter-dtype
+    #:encounter-schemaversion
+    #:encounter-externalids
+    #:encounter-aliases
+    #:encounter-sources
+    #:encounter-sourceurls
+    #:encounter-sourcerecordids
+    #:encounter-sourcekinds
+    #:encounter-sourcelicense
+    #:encounter-sourceterms
+    #:encounter-sourceretrievedat
+    #:encounter-collectedat
+    #:encounter-observedat
+    #:encounter-firstseenat
+    #:encounter-lastseenat
+    #:encounter-createdat
+    #:encounter-updatedat
+    #:encounter-validfrom
+    #:encounter-validuntil
+    #:encounter-expiresat
+    #:encounter-collector
+    #:encounter-collectorversion
+    #:encounter-collectionmethod
+    #:encounter-collectionstatus
+    #:encounter-runid
+    #:encounter-correlationid
+    #:encounter-causationid
+    #:encounter-parentid
+    #:encounter-rootid
+    #:encounter-confidence
+    #:encounter-confidencebasis
+    #:encounter-qualityscore
+    #:encounter-completenessscore
+    #:encounter-verificationstatus
+    #:encounter-verifiedat
+    #:encounter-verifiedby
+    #:encounter-provenance
+    #:encounter-chainofcustody
+    #:encounter-transformhistory
+    #:encounter-labels
+    #:encounter-tags
+    #:encounter-topics
+    #:encounter-language
+    #:encounter-jurisdiction
+    #:encounter-countrycode
+    #:encounter-regioncode
+    #:encounter-timezone
+    #:encounter-sensitivity
+    #:encounter-visibility
+    #:encounter-owner
+    #:encounter-accesscontrol
+    #:encounter-legalbasis
+    #:encounter-retentionpolicy
+    #:encounter-contenttype
+    #:encounter-encoding
+    #:encounter-sizebytes
+    #:encounter-contenthash
+    #:encounter-hashalgorithm
+    #:encounter-normalizedhash
+    #:encounter-raw
+    #:encounter-rawcontent
+    #:encounter-notes
+    #:encounter-deleted
+    #:encounter-tombstonereason
+    #:encounter-extensions
+    #:encounter-participants
+    #:encounter-location
+    #:encounter-geometry
+    #:encounter-startedat
+    #:encounter-endedat
+    #:encounter-minimumdistancemeters
+    #:encounter-observations
+    #:encounter-evidence
+    #:encounter-sourcerunids
+    #:map-layer
+    #:MAKE-map-layer
+    #:COPY-map-layer
+    #:map-layer-P
+    #:+map-layer-WIRE-FIELDS+
+    #:map-layer-id
+    #:map-layer-rev
+    #:map-layer-dataset
+    #:map-layer-dtype
+    #:map-layer-schemaversion
+    #:map-layer-externalids
+    #:map-layer-aliases
+    #:map-layer-sources
+    #:map-layer-sourceurls
+    #:map-layer-sourcerecordids
+    #:map-layer-sourcekinds
+    #:map-layer-sourcelicense
+    #:map-layer-sourceterms
+    #:map-layer-sourceretrievedat
+    #:map-layer-collectedat
+    #:map-layer-observedat
+    #:map-layer-firstseenat
+    #:map-layer-lastseenat
+    #:map-layer-createdat
+    #:map-layer-updatedat
+    #:map-layer-validfrom
+    #:map-layer-validuntil
+    #:map-layer-expiresat
+    #:map-layer-collector
+    #:map-layer-collectorversion
+    #:map-layer-collectionmethod
+    #:map-layer-collectionstatus
+    #:map-layer-runid
+    #:map-layer-correlationid
+    #:map-layer-causationid
+    #:map-layer-parentid
+    #:map-layer-rootid
+    #:map-layer-confidence
+    #:map-layer-confidencebasis
+    #:map-layer-qualityscore
+    #:map-layer-completenessscore
+    #:map-layer-verificationstatus
+    #:map-layer-verifiedat
+    #:map-layer-verifiedby
+    #:map-layer-provenance
+    #:map-layer-chainofcustody
+    #:map-layer-transformhistory
+    #:map-layer-labels
+    #:map-layer-tags
+    #:map-layer-topics
+    #:map-layer-language
+    #:map-layer-jurisdiction
+    #:map-layer-countrycode
+    #:map-layer-regioncode
+    #:map-layer-timezone
+    #:map-layer-sensitivity
+    #:map-layer-visibility
+    #:map-layer-owner
+    #:map-layer-accesscontrol
+    #:map-layer-legalbasis
+    #:map-layer-retentionpolicy
+    #:map-layer-contenttype
+    #:map-layer-encoding
+    #:map-layer-sizebytes
+    #:map-layer-contenthash
+    #:map-layer-hashalgorithm
+    #:map-layer-normalizedhash
+    #:map-layer-raw
+    #:map-layer-rawcontent
+    #:map-layer-notes
+    #:map-layer-deleted
+    #:map-layer-tombstonereason
+    #:map-layer-extensions
+    #:map-layer-name
+    #:map-layer-sourcedataset
+    #:map-layer-query
+    #:map-layer-features
+    #:map-layer-style
+    #:map-layer-visible
+    #:map-layer-minimumzoom
+    #:map-layer-maximumzoom
+    #:map-layer-readonly
     #:message
     #:MAKE-message
     #:COPY-message
@@ -4702,6 +5217,29 @@
     #:+schedule-target-WIRE-FIELDS+
     #:schedule-target-target
     #:schedule-target-requestedby
+    #:schedule-mission
+    #:MAKE-schedule-mission
+    #:COPY-schedule-mission
+    #:schedule-mission-P
+    #:+schedule-mission-WIRE-FIELDS+
+    #:schedule-mission-mission
+    #:schedule-mission-requestedby
+    #:query-spatial
+    #:MAKE-query-spatial
+    #:COPY-query-spatial
+    #:query-spatial-P
+    #:+query-spatial-WIRE-FIELDS+
+    #:query-spatial-dataset
+    #:query-spatial-mode
+    #:query-spatial-geometry
+    #:query-spatial-boundingbox
+    #:query-spatial-referencepoint
+    #:query-spatial-maximumdistancemeters
+    #:query-spatial-dtype
+    #:query-spatial-filters
+    #:query-spatial-attime
+    #:query-spatial-limit
+    #:query-spatial-cursor
     #:actor-manifest-announcement
     #:MAKE-actor-manifest-announcement
     #:COPY-actor-manifest-announcement
@@ -4743,6 +5281,8 @@
 
 (deftype phone-number () 'string)
 
+(deftype distance-meters () 'string)
+
 (deftype sensitivity () '(member "public" "internal" "confidential" "restricted" "secret" "unknown"))
 
 (deftype visibility () '(member "public" "private" "shared" "inherited" "unknown"))
@@ -4756,6 +5296,20 @@
 (deftype relation-direction () '(member "directed" "symmetric" "inverse" "unknown"))
 
 (deftype target-state () '(member "pending" "scheduled" "running" "completed" "failed" "cancelled" "paused" "unknown"))
+
+(deftype mission-state () '(member "draft" "ready" "running" "paused" "completed" "failed" "cancelled" "archived" "unknown"))
+
+(deftype mission-target-state () '(member "pending" "active" "completed" "failed" "skipped" "cancelled" "unknown"))
+
+(deftype route-mode () '(member "walk" "bicycle" "vehicle" "transit" "air" "marine" "mixed" "unknown"))
+
+(deftype geofence-transition () '(member "enter" "exit" "dwell" "intersect" "unknown"))
+
+(deftype encounter-kind () '(member "co-observed" "proximity" "radio" "visual" "manual" "derived" "unknown"))
+
+(deftype spatial-query-mode () '(member "bounding-box" "intersects" "within" "contains" "nearest"))
+
+(deftype map-layer-kind () '(member "documents" "heatmap" "route" "geofence" "encounters" "custom" "unknown"))
 
 (deftype geo-geometry-type () '(member "point" "line-string" "polygon" "multi-point" "multi-line-string" "multi-polygon" "geometry-collection"))
 
@@ -9297,6 +9851,1006 @@
     ("geometry" . geometry)
     ("validated" . validated)
     ("validationProvider" . validationprovider)
+  ))
+
+(defstruct mission
+  (id nil)
+  (rev nil)
+  (dataset nil)
+  (dtype nil)
+  (schemaversion nil)
+  (externalids nil)
+  (aliases nil)
+  (sources nil)
+  (sourceurls nil)
+  (sourcerecordids nil)
+  (sourcekinds nil)
+  (sourcelicense nil)
+  (sourceterms nil)
+  (sourceretrievedat nil)
+  (collectedat nil)
+  (observedat nil)
+  (firstseenat nil)
+  (lastseenat nil)
+  (createdat nil)
+  (updatedat nil)
+  (validfrom nil)
+  (validuntil nil)
+  (expiresat nil)
+  (collector nil)
+  (collectorversion nil)
+  (collectionmethod nil)
+  (collectionstatus nil)
+  (runid nil)
+  (correlationid nil)
+  (causationid nil)
+  (parentid nil)
+  (rootid nil)
+  (confidence nil)
+  (confidencebasis nil)
+  (qualityscore nil)
+  (completenessscore nil)
+  (verificationstatus nil)
+  (verifiedat nil)
+  (verifiedby nil)
+  (provenance nil)
+  (chainofcustody nil)
+  (transformhistory nil)
+  (labels nil)
+  (tags nil)
+  (topics nil)
+  (language nil)
+  (jurisdiction nil)
+  (countrycode nil)
+  (regioncode nil)
+  (timezone nil)
+  (sensitivity nil)
+  (visibility nil)
+  (owner nil)
+  (accesscontrol nil)
+  (legalbasis nil)
+  (retentionpolicy nil)
+  (contenttype nil)
+  (encoding nil)
+  (sizebytes nil)
+  (contenthash nil)
+  (hashalgorithm nil)
+  (normalizedhash nil)
+  (raw nil)
+  (rawcontent nil)
+  (notes nil)
+  (deleted nil)
+  (tombstonereason nil)
+  (extensions nil)
+  (name nil)
+  (objective nil)
+  (state nil)
+  (scope nil)
+  (area nil)
+  (route nil)
+  (targets nil)
+  (geofences nil)
+  (assignedactors nil)
+  (parentmission nil)
+  (startsat nil)
+  (endsat nil)
+  (outputdataset nil)
+  (constraints nil)
+  (budget nil)
+  (statusreason nil)
+)
+(defparameter +mission-wire-fields+
+  '(
+    ("id" . id)
+    ("rev" . rev)
+    ("dataset" . dataset)
+    ("dtype" . dtype)
+    ("schemaVersion" . schemaversion)
+    ("externalIds" . externalids)
+    ("aliases" . aliases)
+    ("sources" . sources)
+    ("sourceUrls" . sourceurls)
+    ("sourceRecordIds" . sourcerecordids)
+    ("sourceKinds" . sourcekinds)
+    ("sourceLicense" . sourcelicense)
+    ("sourceTerms" . sourceterms)
+    ("sourceRetrievedAt" . sourceretrievedat)
+    ("collectedAt" . collectedat)
+    ("observedAt" . observedat)
+    ("firstSeenAt" . firstseenat)
+    ("lastSeenAt" . lastseenat)
+    ("createdAt" . createdat)
+    ("updatedAt" . updatedat)
+    ("validFrom" . validfrom)
+    ("validUntil" . validuntil)
+    ("expiresAt" . expiresat)
+    ("collector" . collector)
+    ("collectorVersion" . collectorversion)
+    ("collectionMethod" . collectionmethod)
+    ("collectionStatus" . collectionstatus)
+    ("runId" . runid)
+    ("correlationId" . correlationid)
+    ("causationId" . causationid)
+    ("parentId" . parentid)
+    ("rootId" . rootid)
+    ("confidence" . confidence)
+    ("confidenceBasis" . confidencebasis)
+    ("qualityScore" . qualityscore)
+    ("completenessScore" . completenessscore)
+    ("verificationStatus" . verificationstatus)
+    ("verifiedAt" . verifiedat)
+    ("verifiedBy" . verifiedby)
+    ("provenance" . provenance)
+    ("chainOfCustody" . chainofcustody)
+    ("transformHistory" . transformhistory)
+    ("labels" . labels)
+    ("tags" . tags)
+    ("topics" . topics)
+    ("language" . language)
+    ("jurisdiction" . jurisdiction)
+    ("countryCode" . countrycode)
+    ("regionCode" . regioncode)
+    ("timezone" . timezone)
+    ("sensitivity" . sensitivity)
+    ("visibility" . visibility)
+    ("owner" . owner)
+    ("accessControl" . accesscontrol)
+    ("legalBasis" . legalbasis)
+    ("retentionPolicy" . retentionpolicy)
+    ("contentType" . contenttype)
+    ("encoding" . encoding)
+    ("sizeBytes" . sizebytes)
+    ("contentHash" . contenthash)
+    ("hashAlgorithm" . hashalgorithm)
+    ("normalizedHash" . normalizedhash)
+    ("raw" . raw)
+    ("rawContent" . rawcontent)
+    ("notes" . notes)
+    ("deleted" . deleted)
+    ("tombstoneReason" . tombstonereason)
+    ("extensions" . extensions)
+    ("name" . name)
+    ("objective" . objective)
+    ("state" . state)
+    ("scope" . scope)
+    ("area" . area)
+    ("route" . route)
+    ("targets" . targets)
+    ("geofences" . geofences)
+    ("assignedActors" . assignedactors)
+    ("parentMission" . parentmission)
+    ("startsAt" . startsat)
+    ("endsAt" . endsat)
+    ("outputDataset" . outputdataset)
+    ("constraints" . constraints)
+    ("budget" . budget)
+    ("statusReason" . statusreason)
+  ))
+
+(defstruct mission-target
+  (id nil)
+  (rev nil)
+  (dataset nil)
+  (dtype nil)
+  (schemaversion nil)
+  (externalids nil)
+  (aliases nil)
+  (sources nil)
+  (sourceurls nil)
+  (sourcerecordids nil)
+  (sourcekinds nil)
+  (sourcelicense nil)
+  (sourceterms nil)
+  (sourceretrievedat nil)
+  (collectedat nil)
+  (observedat nil)
+  (firstseenat nil)
+  (lastseenat nil)
+  (createdat nil)
+  (updatedat nil)
+  (validfrom nil)
+  (validuntil nil)
+  (expiresat nil)
+  (collector nil)
+  (collectorversion nil)
+  (collectionmethod nil)
+  (collectionstatus nil)
+  (runid nil)
+  (correlationid nil)
+  (causationid nil)
+  (parentid nil)
+  (rootid nil)
+  (confidence nil)
+  (confidencebasis nil)
+  (qualityscore nil)
+  (completenessscore nil)
+  (verificationstatus nil)
+  (verifiedat nil)
+  (verifiedby nil)
+  (provenance nil)
+  (chainofcustody nil)
+  (transformhistory nil)
+  (labels nil)
+  (tags nil)
+  (topics nil)
+  (language nil)
+  (jurisdiction nil)
+  (countrycode nil)
+  (regioncode nil)
+  (timezone nil)
+  (sensitivity nil)
+  (visibility nil)
+  (owner nil)
+  (accesscontrol nil)
+  (legalbasis nil)
+  (retentionpolicy nil)
+  (contenttype nil)
+  (encoding nil)
+  (sizebytes nil)
+  (contenthash nil)
+  (hashalgorithm nil)
+  (normalizedhash nil)
+  (raw nil)
+  (rawcontent nil)
+  (notes nil)
+  (deleted nil)
+  (tombstonereason nil)
+  (extensions nil)
+  (mission nil)
+  (subject nil)
+  (state nil)
+  (objective nil)
+  (location nil)
+  (geofence nil)
+  (routestop nil)
+  (priority nil)
+  (assignedactor nil)
+  (requiredcapabilities nil)
+  (notbefore nil)
+  (deadline nil)
+  (options nil)
+  (resultrefs nil)
+)
+(defparameter +mission-target-wire-fields+
+  '(
+    ("id" . id)
+    ("rev" . rev)
+    ("dataset" . dataset)
+    ("dtype" . dtype)
+    ("schemaVersion" . schemaversion)
+    ("externalIds" . externalids)
+    ("aliases" . aliases)
+    ("sources" . sources)
+    ("sourceUrls" . sourceurls)
+    ("sourceRecordIds" . sourcerecordids)
+    ("sourceKinds" . sourcekinds)
+    ("sourceLicense" . sourcelicense)
+    ("sourceTerms" . sourceterms)
+    ("sourceRetrievedAt" . sourceretrievedat)
+    ("collectedAt" . collectedat)
+    ("observedAt" . observedat)
+    ("firstSeenAt" . firstseenat)
+    ("lastSeenAt" . lastseenat)
+    ("createdAt" . createdat)
+    ("updatedAt" . updatedat)
+    ("validFrom" . validfrom)
+    ("validUntil" . validuntil)
+    ("expiresAt" . expiresat)
+    ("collector" . collector)
+    ("collectorVersion" . collectorversion)
+    ("collectionMethod" . collectionmethod)
+    ("collectionStatus" . collectionstatus)
+    ("runId" . runid)
+    ("correlationId" . correlationid)
+    ("causationId" . causationid)
+    ("parentId" . parentid)
+    ("rootId" . rootid)
+    ("confidence" . confidence)
+    ("confidenceBasis" . confidencebasis)
+    ("qualityScore" . qualityscore)
+    ("completenessScore" . completenessscore)
+    ("verificationStatus" . verificationstatus)
+    ("verifiedAt" . verifiedat)
+    ("verifiedBy" . verifiedby)
+    ("provenance" . provenance)
+    ("chainOfCustody" . chainofcustody)
+    ("transformHistory" . transformhistory)
+    ("labels" . labels)
+    ("tags" . tags)
+    ("topics" . topics)
+    ("language" . language)
+    ("jurisdiction" . jurisdiction)
+    ("countryCode" . countrycode)
+    ("regionCode" . regioncode)
+    ("timezone" . timezone)
+    ("sensitivity" . sensitivity)
+    ("visibility" . visibility)
+    ("owner" . owner)
+    ("accessControl" . accesscontrol)
+    ("legalBasis" . legalbasis)
+    ("retentionPolicy" . retentionpolicy)
+    ("contentType" . contenttype)
+    ("encoding" . encoding)
+    ("sizeBytes" . sizebytes)
+    ("contentHash" . contenthash)
+    ("hashAlgorithm" . hashalgorithm)
+    ("normalizedHash" . normalizedhash)
+    ("raw" . raw)
+    ("rawContent" . rawcontent)
+    ("notes" . notes)
+    ("deleted" . deleted)
+    ("tombstoneReason" . tombstonereason)
+    ("extensions" . extensions)
+    ("mission" . mission)
+    ("subject" . subject)
+    ("state" . state)
+    ("objective" . objective)
+    ("location" . location)
+    ("geofence" . geofence)
+    ("routeStop" . routestop)
+    ("priority" . priority)
+    ("assignedActor" . assignedactor)
+    ("requiredCapabilities" . requiredcapabilities)
+    ("notBefore" . notbefore)
+    ("deadline" . deadline)
+    ("options" . options)
+    ("resultRefs" . resultrefs)
+  ))
+
+(defstruct route
+  (id nil)
+  (rev nil)
+  (dataset nil)
+  (dtype nil)
+  (schemaversion nil)
+  (externalids nil)
+  (aliases nil)
+  (sources nil)
+  (sourceurls nil)
+  (sourcerecordids nil)
+  (sourcekinds nil)
+  (sourcelicense nil)
+  (sourceterms nil)
+  (sourceretrievedat nil)
+  (collectedat nil)
+  (observedat nil)
+  (firstseenat nil)
+  (lastseenat nil)
+  (createdat nil)
+  (updatedat nil)
+  (validfrom nil)
+  (validuntil nil)
+  (expiresat nil)
+  (collector nil)
+  (collectorversion nil)
+  (collectionmethod nil)
+  (collectionstatus nil)
+  (runid nil)
+  (correlationid nil)
+  (causationid nil)
+  (parentid nil)
+  (rootid nil)
+  (confidence nil)
+  (confidencebasis nil)
+  (qualityscore nil)
+  (completenessscore nil)
+  (verificationstatus nil)
+  (verifiedat nil)
+  (verifiedby nil)
+  (provenance nil)
+  (chainofcustody nil)
+  (transformhistory nil)
+  (labels nil)
+  (tags nil)
+  (topics nil)
+  (language nil)
+  (jurisdiction nil)
+  (countrycode nil)
+  (regioncode nil)
+  (timezone nil)
+  (sensitivity nil)
+  (visibility nil)
+  (owner nil)
+  (accesscontrol nil)
+  (legalbasis nil)
+  (retentionpolicy nil)
+  (contenttype nil)
+  (encoding nil)
+  (sizebytes nil)
+  (contenthash nil)
+  (hashalgorithm nil)
+  (normalizedhash nil)
+  (raw nil)
+  (rawcontent nil)
+  (notes nil)
+  (deleted nil)
+  (tombstonereason nil)
+  (extensions nil)
+  (name nil)
+  (geometry nil)
+  (origin nil)
+  (destination nil)
+  (waypoints nil)
+  (mode nil)
+  (distancemeters nil)
+  (estimateddurationseconds nil)
+  (actualdurationseconds nil)
+  (plannedat nil)
+  (startedat nil)
+  (endedat nil)
+  (routingprovider nil)
+  (constraints nil)
+)
+(defparameter +route-wire-fields+
+  '(
+    ("id" . id)
+    ("rev" . rev)
+    ("dataset" . dataset)
+    ("dtype" . dtype)
+    ("schemaVersion" . schemaversion)
+    ("externalIds" . externalids)
+    ("aliases" . aliases)
+    ("sources" . sources)
+    ("sourceUrls" . sourceurls)
+    ("sourceRecordIds" . sourcerecordids)
+    ("sourceKinds" . sourcekinds)
+    ("sourceLicense" . sourcelicense)
+    ("sourceTerms" . sourceterms)
+    ("sourceRetrievedAt" . sourceretrievedat)
+    ("collectedAt" . collectedat)
+    ("observedAt" . observedat)
+    ("firstSeenAt" . firstseenat)
+    ("lastSeenAt" . lastseenat)
+    ("createdAt" . createdat)
+    ("updatedAt" . updatedat)
+    ("validFrom" . validfrom)
+    ("validUntil" . validuntil)
+    ("expiresAt" . expiresat)
+    ("collector" . collector)
+    ("collectorVersion" . collectorversion)
+    ("collectionMethod" . collectionmethod)
+    ("collectionStatus" . collectionstatus)
+    ("runId" . runid)
+    ("correlationId" . correlationid)
+    ("causationId" . causationid)
+    ("parentId" . parentid)
+    ("rootId" . rootid)
+    ("confidence" . confidence)
+    ("confidenceBasis" . confidencebasis)
+    ("qualityScore" . qualityscore)
+    ("completenessScore" . completenessscore)
+    ("verificationStatus" . verificationstatus)
+    ("verifiedAt" . verifiedat)
+    ("verifiedBy" . verifiedby)
+    ("provenance" . provenance)
+    ("chainOfCustody" . chainofcustody)
+    ("transformHistory" . transformhistory)
+    ("labels" . labels)
+    ("tags" . tags)
+    ("topics" . topics)
+    ("language" . language)
+    ("jurisdiction" . jurisdiction)
+    ("countryCode" . countrycode)
+    ("regionCode" . regioncode)
+    ("timezone" . timezone)
+    ("sensitivity" . sensitivity)
+    ("visibility" . visibility)
+    ("owner" . owner)
+    ("accessControl" . accesscontrol)
+    ("legalBasis" . legalbasis)
+    ("retentionPolicy" . retentionpolicy)
+    ("contentType" . contenttype)
+    ("encoding" . encoding)
+    ("sizeBytes" . sizebytes)
+    ("contentHash" . contenthash)
+    ("hashAlgorithm" . hashalgorithm)
+    ("normalizedHash" . normalizedhash)
+    ("raw" . raw)
+    ("rawContent" . rawcontent)
+    ("notes" . notes)
+    ("deleted" . deleted)
+    ("tombstoneReason" . tombstonereason)
+    ("extensions" . extensions)
+    ("name" . name)
+    ("geometry" . geometry)
+    ("origin" . origin)
+    ("destination" . destination)
+    ("waypoints" . waypoints)
+    ("mode" . mode)
+    ("distanceMeters" . distancemeters)
+    ("estimatedDurationSeconds" . estimateddurationseconds)
+    ("actualDurationSeconds" . actualdurationseconds)
+    ("plannedAt" . plannedat)
+    ("startedAt" . startedat)
+    ("endedAt" . endedat)
+    ("routingProvider" . routingprovider)
+    ("constraints" . constraints)
+  ))
+
+(defstruct geofence
+  (id nil)
+  (rev nil)
+  (dataset nil)
+  (dtype nil)
+  (schemaversion nil)
+  (externalids nil)
+  (aliases nil)
+  (sources nil)
+  (sourceurls nil)
+  (sourcerecordids nil)
+  (sourcekinds nil)
+  (sourcelicense nil)
+  (sourceterms nil)
+  (sourceretrievedat nil)
+  (collectedat nil)
+  (observedat nil)
+  (firstseenat nil)
+  (lastseenat nil)
+  (createdat nil)
+  (updatedat nil)
+  (validfrom nil)
+  (validuntil nil)
+  (expiresat nil)
+  (collector nil)
+  (collectorversion nil)
+  (collectionmethod nil)
+  (collectionstatus nil)
+  (runid nil)
+  (correlationid nil)
+  (causationid nil)
+  (parentid nil)
+  (rootid nil)
+  (confidence nil)
+  (confidencebasis nil)
+  (qualityscore nil)
+  (completenessscore nil)
+  (verificationstatus nil)
+  (verifiedat nil)
+  (verifiedby nil)
+  (provenance nil)
+  (chainofcustody nil)
+  (transformhistory nil)
+  (labels nil)
+  (tags nil)
+  (topics nil)
+  (language nil)
+  (jurisdiction nil)
+  (countrycode nil)
+  (regioncode nil)
+  (timezone nil)
+  (sensitivity nil)
+  (visibility nil)
+  (owner nil)
+  (accesscontrol nil)
+  (legalbasis nil)
+  (retentionpolicy nil)
+  (contenttype nil)
+  (encoding nil)
+  (sizebytes nil)
+  (contenthash nil)
+  (hashalgorithm nil)
+  (normalizedhash nil)
+  (raw nil)
+  (rawcontent nil)
+  (notes nil)
+  (deleted nil)
+  (tombstonereason nil)
+  (extensions nil)
+  (name nil)
+  (geometry nil)
+  (transitions nil)
+  (mission nil)
+  (subjects nil)
+  (activefrom nil)
+  (activeuntil nil)
+  (dwellseconds nil)
+  (enabled nil)
+  (policy nil)
+)
+(defparameter +geofence-wire-fields+
+  '(
+    ("id" . id)
+    ("rev" . rev)
+    ("dataset" . dataset)
+    ("dtype" . dtype)
+    ("schemaVersion" . schemaversion)
+    ("externalIds" . externalids)
+    ("aliases" . aliases)
+    ("sources" . sources)
+    ("sourceUrls" . sourceurls)
+    ("sourceRecordIds" . sourcerecordids)
+    ("sourceKinds" . sourcekinds)
+    ("sourceLicense" . sourcelicense)
+    ("sourceTerms" . sourceterms)
+    ("sourceRetrievedAt" . sourceretrievedat)
+    ("collectedAt" . collectedat)
+    ("observedAt" . observedat)
+    ("firstSeenAt" . firstseenat)
+    ("lastSeenAt" . lastseenat)
+    ("createdAt" . createdat)
+    ("updatedAt" . updatedat)
+    ("validFrom" . validfrom)
+    ("validUntil" . validuntil)
+    ("expiresAt" . expiresat)
+    ("collector" . collector)
+    ("collectorVersion" . collectorversion)
+    ("collectionMethod" . collectionmethod)
+    ("collectionStatus" . collectionstatus)
+    ("runId" . runid)
+    ("correlationId" . correlationid)
+    ("causationId" . causationid)
+    ("parentId" . parentid)
+    ("rootId" . rootid)
+    ("confidence" . confidence)
+    ("confidenceBasis" . confidencebasis)
+    ("qualityScore" . qualityscore)
+    ("completenessScore" . completenessscore)
+    ("verificationStatus" . verificationstatus)
+    ("verifiedAt" . verifiedat)
+    ("verifiedBy" . verifiedby)
+    ("provenance" . provenance)
+    ("chainOfCustody" . chainofcustody)
+    ("transformHistory" . transformhistory)
+    ("labels" . labels)
+    ("tags" . tags)
+    ("topics" . topics)
+    ("language" . language)
+    ("jurisdiction" . jurisdiction)
+    ("countryCode" . countrycode)
+    ("regionCode" . regioncode)
+    ("timezone" . timezone)
+    ("sensitivity" . sensitivity)
+    ("visibility" . visibility)
+    ("owner" . owner)
+    ("accessControl" . accesscontrol)
+    ("legalBasis" . legalbasis)
+    ("retentionPolicy" . retentionpolicy)
+    ("contentType" . contenttype)
+    ("encoding" . encoding)
+    ("sizeBytes" . sizebytes)
+    ("contentHash" . contenthash)
+    ("hashAlgorithm" . hashalgorithm)
+    ("normalizedHash" . normalizedhash)
+    ("raw" . raw)
+    ("rawContent" . rawcontent)
+    ("notes" . notes)
+    ("deleted" . deleted)
+    ("tombstoneReason" . tombstonereason)
+    ("extensions" . extensions)
+    ("name" . name)
+    ("geometry" . geometry)
+    ("transitions" . transitions)
+    ("mission" . mission)
+    ("subjects" . subjects)
+    ("activeFrom" . activefrom)
+    ("activeUntil" . activeuntil)
+    ("dwellSeconds" . dwellseconds)
+    ("enabled" . enabled)
+    ("policy" . policy)
+  ))
+
+(defstruct encounter
+  (id nil)
+  (rev nil)
+  (dataset nil)
+  (dtype nil)
+  (schemaversion nil)
+  (externalids nil)
+  (aliases nil)
+  (sources nil)
+  (sourceurls nil)
+  (sourcerecordids nil)
+  (sourcekinds nil)
+  (sourcelicense nil)
+  (sourceterms nil)
+  (sourceretrievedat nil)
+  (collectedat nil)
+  (observedat nil)
+  (firstseenat nil)
+  (lastseenat nil)
+  (createdat nil)
+  (updatedat nil)
+  (validfrom nil)
+  (validuntil nil)
+  (expiresat nil)
+  (collector nil)
+  (collectorversion nil)
+  (collectionmethod nil)
+  (collectionstatus nil)
+  (runid nil)
+  (correlationid nil)
+  (causationid nil)
+  (parentid nil)
+  (rootid nil)
+  (confidence nil)
+  (confidencebasis nil)
+  (qualityscore nil)
+  (completenessscore nil)
+  (verificationstatus nil)
+  (verifiedat nil)
+  (verifiedby nil)
+  (provenance nil)
+  (chainofcustody nil)
+  (transformhistory nil)
+  (labels nil)
+  (tags nil)
+  (topics nil)
+  (language nil)
+  (jurisdiction nil)
+  (countrycode nil)
+  (regioncode nil)
+  (timezone nil)
+  (sensitivity nil)
+  (visibility nil)
+  (owner nil)
+  (accesscontrol nil)
+  (legalbasis nil)
+  (retentionpolicy nil)
+  (contenttype nil)
+  (encoding nil)
+  (sizebytes nil)
+  (contenthash nil)
+  (hashalgorithm nil)
+  (normalizedhash nil)
+  (raw nil)
+  (rawcontent nil)
+  (notes nil)
+  (deleted nil)
+  (tombstonereason nil)
+  (extensions nil)
+  (participants nil)
+  (kind nil)
+  (location nil)
+  (geometry nil)
+  (startedat nil)
+  (endedat nil)
+  (minimumdistancemeters nil)
+  (observations nil)
+  (evidence nil)
+  (sourcerunids nil)
+)
+(defparameter +encounter-wire-fields+
+  '(
+    ("id" . id)
+    ("rev" . rev)
+    ("dataset" . dataset)
+    ("dtype" . dtype)
+    ("schemaVersion" . schemaversion)
+    ("externalIds" . externalids)
+    ("aliases" . aliases)
+    ("sources" . sources)
+    ("sourceUrls" . sourceurls)
+    ("sourceRecordIds" . sourcerecordids)
+    ("sourceKinds" . sourcekinds)
+    ("sourceLicense" . sourcelicense)
+    ("sourceTerms" . sourceterms)
+    ("sourceRetrievedAt" . sourceretrievedat)
+    ("collectedAt" . collectedat)
+    ("observedAt" . observedat)
+    ("firstSeenAt" . firstseenat)
+    ("lastSeenAt" . lastseenat)
+    ("createdAt" . createdat)
+    ("updatedAt" . updatedat)
+    ("validFrom" . validfrom)
+    ("validUntil" . validuntil)
+    ("expiresAt" . expiresat)
+    ("collector" . collector)
+    ("collectorVersion" . collectorversion)
+    ("collectionMethod" . collectionmethod)
+    ("collectionStatus" . collectionstatus)
+    ("runId" . runid)
+    ("correlationId" . correlationid)
+    ("causationId" . causationid)
+    ("parentId" . parentid)
+    ("rootId" . rootid)
+    ("confidence" . confidence)
+    ("confidenceBasis" . confidencebasis)
+    ("qualityScore" . qualityscore)
+    ("completenessScore" . completenessscore)
+    ("verificationStatus" . verificationstatus)
+    ("verifiedAt" . verifiedat)
+    ("verifiedBy" . verifiedby)
+    ("provenance" . provenance)
+    ("chainOfCustody" . chainofcustody)
+    ("transformHistory" . transformhistory)
+    ("labels" . labels)
+    ("tags" . tags)
+    ("topics" . topics)
+    ("language" . language)
+    ("jurisdiction" . jurisdiction)
+    ("countryCode" . countrycode)
+    ("regionCode" . regioncode)
+    ("timezone" . timezone)
+    ("sensitivity" . sensitivity)
+    ("visibility" . visibility)
+    ("owner" . owner)
+    ("accessControl" . accesscontrol)
+    ("legalBasis" . legalbasis)
+    ("retentionPolicy" . retentionpolicy)
+    ("contentType" . contenttype)
+    ("encoding" . encoding)
+    ("sizeBytes" . sizebytes)
+    ("contentHash" . contenthash)
+    ("hashAlgorithm" . hashalgorithm)
+    ("normalizedHash" . normalizedhash)
+    ("raw" . raw)
+    ("rawContent" . rawcontent)
+    ("notes" . notes)
+    ("deleted" . deleted)
+    ("tombstoneReason" . tombstonereason)
+    ("extensions" . extensions)
+    ("participants" . participants)
+    ("kind" . kind)
+    ("location" . location)
+    ("geometry" . geometry)
+    ("startedAt" . startedat)
+    ("endedAt" . endedat)
+    ("minimumDistanceMeters" . minimumdistancemeters)
+    ("observations" . observations)
+    ("evidence" . evidence)
+    ("sourceRunIds" . sourcerunids)
+  ))
+
+(defstruct map-layer
+  (id nil)
+  (rev nil)
+  (dataset nil)
+  (dtype nil)
+  (schemaversion nil)
+  (externalids nil)
+  (aliases nil)
+  (sources nil)
+  (sourceurls nil)
+  (sourcerecordids nil)
+  (sourcekinds nil)
+  (sourcelicense nil)
+  (sourceterms nil)
+  (sourceretrievedat nil)
+  (collectedat nil)
+  (observedat nil)
+  (firstseenat nil)
+  (lastseenat nil)
+  (createdat nil)
+  (updatedat nil)
+  (validfrom nil)
+  (validuntil nil)
+  (expiresat nil)
+  (collector nil)
+  (collectorversion nil)
+  (collectionmethod nil)
+  (collectionstatus nil)
+  (runid nil)
+  (correlationid nil)
+  (causationid nil)
+  (parentid nil)
+  (rootid nil)
+  (confidence nil)
+  (confidencebasis nil)
+  (qualityscore nil)
+  (completenessscore nil)
+  (verificationstatus nil)
+  (verifiedat nil)
+  (verifiedby nil)
+  (provenance nil)
+  (chainofcustody nil)
+  (transformhistory nil)
+  (labels nil)
+  (tags nil)
+  (topics nil)
+  (language nil)
+  (jurisdiction nil)
+  (countrycode nil)
+  (regioncode nil)
+  (timezone nil)
+  (sensitivity nil)
+  (visibility nil)
+  (owner nil)
+  (accesscontrol nil)
+  (legalbasis nil)
+  (retentionpolicy nil)
+  (contenttype nil)
+  (encoding nil)
+  (sizebytes nil)
+  (contenthash nil)
+  (hashalgorithm nil)
+  (normalizedhash nil)
+  (raw nil)
+  (rawcontent nil)
+  (notes nil)
+  (deleted nil)
+  (tombstonereason nil)
+  (extensions nil)
+  (name nil)
+  (kind nil)
+  (sourcedataset nil)
+  (query nil)
+  (features nil)
+  (style nil)
+  (visible nil)
+  (minimumzoom nil)
+  (maximumzoom nil)
+  (readonly nil)
+)
+(defparameter +map-layer-wire-fields+
+  '(
+    ("id" . id)
+    ("rev" . rev)
+    ("dataset" . dataset)
+    ("dtype" . dtype)
+    ("schemaVersion" . schemaversion)
+    ("externalIds" . externalids)
+    ("aliases" . aliases)
+    ("sources" . sources)
+    ("sourceUrls" . sourceurls)
+    ("sourceRecordIds" . sourcerecordids)
+    ("sourceKinds" . sourcekinds)
+    ("sourceLicense" . sourcelicense)
+    ("sourceTerms" . sourceterms)
+    ("sourceRetrievedAt" . sourceretrievedat)
+    ("collectedAt" . collectedat)
+    ("observedAt" . observedat)
+    ("firstSeenAt" . firstseenat)
+    ("lastSeenAt" . lastseenat)
+    ("createdAt" . createdat)
+    ("updatedAt" . updatedat)
+    ("validFrom" . validfrom)
+    ("validUntil" . validuntil)
+    ("expiresAt" . expiresat)
+    ("collector" . collector)
+    ("collectorVersion" . collectorversion)
+    ("collectionMethod" . collectionmethod)
+    ("collectionStatus" . collectionstatus)
+    ("runId" . runid)
+    ("correlationId" . correlationid)
+    ("causationId" . causationid)
+    ("parentId" . parentid)
+    ("rootId" . rootid)
+    ("confidence" . confidence)
+    ("confidenceBasis" . confidencebasis)
+    ("qualityScore" . qualityscore)
+    ("completenessScore" . completenessscore)
+    ("verificationStatus" . verificationstatus)
+    ("verifiedAt" . verifiedat)
+    ("verifiedBy" . verifiedby)
+    ("provenance" . provenance)
+    ("chainOfCustody" . chainofcustody)
+    ("transformHistory" . transformhistory)
+    ("labels" . labels)
+    ("tags" . tags)
+    ("topics" . topics)
+    ("language" . language)
+    ("jurisdiction" . jurisdiction)
+    ("countryCode" . countrycode)
+    ("regionCode" . regioncode)
+    ("timezone" . timezone)
+    ("sensitivity" . sensitivity)
+    ("visibility" . visibility)
+    ("owner" . owner)
+    ("accessControl" . accesscontrol)
+    ("legalBasis" . legalbasis)
+    ("retentionPolicy" . retentionpolicy)
+    ("contentType" . contenttype)
+    ("encoding" . encoding)
+    ("sizeBytes" . sizebytes)
+    ("contentHash" . contenthash)
+    ("hashAlgorithm" . hashalgorithm)
+    ("normalizedHash" . normalizedhash)
+    ("raw" . raw)
+    ("rawContent" . rawcontent)
+    ("notes" . notes)
+    ("deleted" . deleted)
+    ("tombstoneReason" . tombstonereason)
+    ("extensions" . extensions)
+    ("name" . name)
+    ("kind" . kind)
+    ("sourceDataset" . sourcedataset)
+    ("query" . query)
+    ("features" . features)
+    ("style" . style)
+    ("visible" . visible)
+    ("minimumZoom" . minimumzoom)
+    ("maximumZoom" . maximumzoom)
+    ("readOnly" . readonly)
   ))
 
 (defstruct message
@@ -13899,6 +15453,44 @@
   '(
     ("target" . target)
     ("requestedBy" . requestedby)
+  ))
+
+(defstruct schedule-mission
+  (mission nil)
+  (requestedby nil)
+)
+(defparameter +schedule-mission-wire-fields+
+  '(
+    ("mission" . mission)
+    ("requestedBy" . requestedby)
+  ))
+
+(defstruct query-spatial
+  (dataset nil)
+  (mode nil)
+  (geometry nil)
+  (boundingbox nil)
+  (referencepoint nil)
+  (maximumdistancemeters nil)
+  (dtype nil)
+  (filters nil)
+  (attime nil)
+  (limit nil)
+  (cursor nil)
+)
+(defparameter +query-spatial-wire-fields+
+  '(
+    ("dataset" . dataset)
+    ("mode" . mode)
+    ("geometry" . geometry)
+    ("boundingBox" . boundingbox)
+    ("referencePoint" . referencepoint)
+    ("maximumDistanceMeters" . maximumdistancemeters)
+    ("dtype" . dtype)
+    ("filters" . filters)
+    ("atTime" . attime)
+    ("limit" . limit)
+    ("cursor" . cursor)
   ))
 
 (defstruct actor-manifest-announcement

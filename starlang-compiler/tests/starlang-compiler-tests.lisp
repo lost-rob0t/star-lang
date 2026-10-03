@@ -247,6 +247,12 @@
                "org.starintel/core@1/geo-multi-polygon"
                "org.starintel/core@1/geo-geometry-collection"
                "org.starintel/core@1/location"
+               "org.starintel/core@1/mission"
+               "org.starintel/core@1/mission-target"
+               "org.starintel/core@1/route"
+               "org.starintel/core@1/geofence"
+               "org.starintel/core@1/encounter"
+               "org.starintel/core@1/map-layer"
                "org.starintel/core@1/pcap-capture"
                "org.starintel/core@1/network-device"
                "org.starintel/core@1/wireless-network"
@@ -305,6 +311,48 @@
     (signals staractorprotocol:invalid-wire-envelope-error
       (staractorprotocol:validate-portable-wire-value
        manifest "org.starintel/core@1/latitude" "-90.00000001"))))
+
+(test starintel-0101-mission-and-spatial-contracts-are-first-class
+  "Mission planning and spatial querying compile from StarLang without private downstream schemas."
+  (let* ((manifest (starintel-0101-manifest))
+         (types (getf manifest :types))
+         (messages (getf manifest :messages))
+         (find-type
+           (lambda (name)
+             (find name types :key (lambda (contract) (getf contract :name))
+                   :test #'string=)))
+         (field-names
+           (lambda (contract)
+             (mapcar (lambda (field) (getf field :name))
+                     (getf contract :fields)))))
+    (dolist (name '("org.starintel/core@1/mission"
+                    "org.starintel/core@1/mission-target"
+                    "org.starintel/core@1/route"
+                    "org.starintel/core@1/geofence"
+                    "org.starintel/core@1/encounter"
+                    "org.starintel/core@1/map-layer"))
+      (is (funcall find-type name)))
+    (dolist (field '("name" "objective" "state" "targets" "geofences" "route"))
+      (is (member field
+                  (funcall field-names
+                           (funcall find-type "org.starintel/core@1/mission"))
+                  :test #'string=)))
+    (dolist (field '("participants" "kind" "startedAt" "observations" "evidence"))
+      (is (member field
+                  (funcall field-names
+                           (funcall find-type "org.starintel/core@1/encounter"))
+                  :test #'string=)))
+    (is (find "org.starintel/core@1/query-spatial"
+              messages
+              :key (lambda (message) (getf message :name))
+              :test #'string=))
+    (let ((outputs (starlangcompiler:generate-all-bindings manifest)))
+      (is (search "Mission = TypedDict" (cdr (assoc :python outputs))))
+      (is (search "Geofence = TypedDict" (cdr (assoc :python outputs))))
+      (is (search "Encounter = TypedDict" (cdr (assoc :python outputs))))
+      (is (search "export interface Route" (cdr (assoc :typescript outputs))))
+      (is (search "data class MissionTarget" (cdr (assoc :kotlin outputs))))
+      (is (search "pub struct MapLayer" (cdr (assoc :rust outputs)))))))
 
 (test starintel-0101-generates-deterministic-json-schema
   "The portable StarLang manifest is the source for JSON Schema, with lowerCamelCase wire keys."

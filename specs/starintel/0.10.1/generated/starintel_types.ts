@@ -25,6 +25,8 @@ export type EmailAddress = string;
 
 export type PhoneNumber = string;
 
+export type DistanceMeters = string;
+
 export type Sensitivity = "public" | "internal" | "confidential" | "restricted" | "secret" | "unknown";
 
 export type Visibility = "public" | "private" | "shared" | "inherited" | "unknown";
@@ -38,6 +40,20 @@ export type HashAlgorithm = "sha256" | "sha512" | "blake2b" | "blake3" | "md5" |
 export type RelationDirection = "directed" | "symmetric" | "inverse" | "unknown";
 
 export type TargetState = "pending" | "scheduled" | "running" | "completed" | "failed" | "cancelled" | "paused" | "unknown";
+
+export type MissionState = "draft" | "ready" | "running" | "paused" | "completed" | "failed" | "cancelled" | "archived" | "unknown";
+
+export type MissionTargetState = "pending" | "active" | "completed" | "failed" | "skipped" | "cancelled" | "unknown";
+
+export type RouteMode = "walk" | "bicycle" | "vehicle" | "transit" | "air" | "marine" | "mixed" | "unknown";
+
+export type GeofenceTransition = "enter" | "exit" | "dwell" | "intersect" | "unknown";
+
+export type EncounterKind = "co-observed" | "proximity" | "radio" | "visual" | "manual" | "derived" | "unknown";
+
+export type SpatialQueryMode = "bounding-box" | "intersects" | "within" | "contains" | "nearest";
+
+export type MapLayerKind = "documents" | "heatmap" | "route" | "geofence" | "encounters" | "custom" | "unknown";
 
 export type GeoGeometryType = "point" | "line-string" | "polygon" | "multi-point" | "multi-line-string" | "multi-polygon" | "geometry-collection";
 
@@ -500,6 +516,98 @@ export interface Address extends Document {
   "validationProvider"?: string;
 }
 
+export interface Mission extends Document {
+  "name": string;
+  "objective": string;
+  "state": MissionState;
+  "scope"?: StarReference;
+  "area"?: StarReference;
+  "route"?: StarReference;
+  "targets"?: Array<StarReference>;
+  "geofences"?: Array<StarReference>;
+  "assignedActors"?: Array<StarReference>;
+  "parentMission"?: StarReference;
+  "startsAt"?: UnixTime;
+  "endsAt"?: UnixTime;
+  "outputDataset"?: string;
+  "constraints"?: Record<string, unknown>;
+  "budget"?: Record<string, unknown>;
+  "statusReason"?: string;
+}
+
+export interface MissionTarget extends Document {
+  "mission": StarReference;
+  "subject": StarReference;
+  "state": MissionTargetState;
+  "objective"?: string;
+  "location"?: StarReference;
+  "geofence"?: StarReference;
+  "routeStop"?: number;
+  "priority"?: number;
+  "assignedActor"?: StarReference;
+  "requiredCapabilities"?: Array<string>;
+  "notBefore"?: UnixTime;
+  "deadline"?: UnixTime;
+  "options"?: Record<string, unknown>;
+  "resultRefs"?: Array<StarReference>;
+}
+
+export interface Route extends Document {
+  "name"?: string;
+  "geometry": StarReference;
+  "origin"?: StarReference;
+  "destination"?: StarReference;
+  "waypoints"?: Array<StarReference>;
+  "mode"?: RouteMode;
+  "distanceMeters"?: DistanceMeters;
+  "estimatedDurationSeconds"?: number;
+  "actualDurationSeconds"?: number;
+  "plannedAt"?: UnixTime;
+  "startedAt"?: UnixTime;
+  "endedAt"?: UnixTime;
+  "routingProvider"?: string;
+  "constraints"?: Record<string, unknown>;
+}
+
+export interface Geofence extends Document {
+  "name"?: string;
+  "geometry": StarReference;
+  "transitions": Array<GeofenceTransition>;
+  "mission"?: StarReference;
+  "subjects"?: Array<StarReference>;
+  "activeFrom"?: UnixTime;
+  "activeUntil"?: UnixTime;
+  "dwellSeconds"?: number;
+  "enabled"?: boolean;
+  "policy"?: Record<string, unknown>;
+}
+
+export interface Encounter extends Document {
+  "participants": Array<StarReference>;
+  "kind": EncounterKind;
+  "location"?: StarReference;
+  "geometry"?: StarReference;
+  "startedAt": UnixTime;
+  "endedAt"?: UnixTime;
+  "minimumDistanceMeters"?: DistanceMeters;
+  "observations"?: Array<StarReference>;
+  "evidence"?: Array<StarReference>;
+  "sourceRunIds"?: Array<string>;
+}
+
+export interface MapLayer extends Document {
+  "name": string;
+  "kind": MapLayerKind;
+  "sourceDataset"?: string;
+  "query"?: Record<string, unknown>;
+  "features"?: Array<StarReference>;
+  "style"?: Record<string, unknown>;
+  "visible"?: boolean;
+  "minimumZoom"?: number;
+  "maximumZoom"?: number;
+  "readOnly"?: boolean;
+}
+
 export interface Message extends Document {
   "message": string;
   "platform": string;
@@ -904,6 +1012,25 @@ export interface QueryDocuments {
 export interface ScheduleTarget {
   "target": StarReference;
   "requestedBy"?: string;
+}
+
+export interface ScheduleMission {
+  "mission": StarReference;
+  "requestedBy"?: string;
+}
+
+export interface QuerySpatial {
+  "dataset": string;
+  "mode": SpatialQueryMode;
+  "geometry"?: StarReference;
+  "boundingBox"?: Array<string>;
+  "referencePoint"?: StarReference;
+  "maximumDistanceMeters"?: DistanceMeters;
+  "dtype"?: string;
+  "filters"?: Record<string, unknown>;
+  "atTime"?: UnixTime;
+  "limit"?: number;
+  "cursor"?: string;
 }
 
 export interface ActorManifestAnnouncement {
