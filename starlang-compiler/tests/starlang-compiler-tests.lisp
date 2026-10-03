@@ -370,8 +370,8 @@
                      (getf contract :fields)))))
     (let ((http (funcall find-type "org.starintel/core@1/http-transaction"))
           (web (funcall find-type "org.starintel/core@1/web-capture")))
-      (is http)
-      (is web)
+      (is (not (null http)))
+      (is (not (null web)))
       (dolist (field '("transactionId" "method" "url" "responseStatus"
                        "requestHeaders" "responseHeaders" "captureActorUri"
                        "redactedHeaders" "bodyCapturePolicy"))
