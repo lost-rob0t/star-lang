@@ -1,11 +1,11 @@
 {
   "artifacts": {
-    "portable-manifest.json": "62c0117364e68457965b2335ef7a26925c5219b33e440c44cab88a25782102a3",
-    "schema.json": "d717e4e3d48fdbb52f3b1eb5c4bdc589d3d4fb37e2a5fb9411ced9e2e7c68a55",
-    "starintel.lisp": "9ef722d87a201b05107f8b26b955106c0d0ed26af49a62ad2864b72d6a4fcc5b",
-    "starintel_types.nim": "ad526dbabcf49aed73f8f53a7267bcaad81ce009df059d7324ba8f3eb9e4ae13",
-    "starintel_types.py": "1ccda1f2e49e3e84961bbddaa8eeb1856232ec2b4589904a89cce48139ac4485",
-    "starintel_types.ts": "d59b1466382db22545b688636cd12cf8c5c55a8b073ee1f3afd7849f059297f5"
+    "portable-manifest.json": "ee92cb6a4dc969eef6911bc03afce474e71824245190e467dbbcca9da31ed455",
+    "schema.json": "0c65b2161491786ae349782cb8f2e3e3d1839c8b1a18e145ab64dcbce26b2be2",
+    "starintel.lisp": "a58590f6b4a5286505c03eefd8821e30a87da45af673085506d18e12b4b12afe",
+    "starintel_types.nim": "34f208cfdc094017cd6be0bdc7138bb70cc7145d57648ef10091cd449d916499",
+    "starintel_types.py": "b0d235aedceafddcd39218e881fd16ed310b972632cc36f8be9a7105672d0d37",
+    "starintel_types.ts": "d6cefa4cdc4c6cca8de77746c4d57ed7983bbd95b0a23c1dc07e04b9e37216e6"
   },
   "authorityLibrary": "org.starintel/core@1",
   "canonicalKeyStyle": "lowerCamelCase",
@@ -15,7 +15,7 @@
   "sources": {
     "compatibility-fixtures.json": "9e57f62022ea66bdc3a861185c7a6aea9b0f9a1094dbc3032364f6ff96e8da6f",
     "compatibility.json": "95b9af3c984912053b65d4df65b2db7b88d0d97c065dad9e211d751873ef7553",
-    "core.star": "75eb759147f5e01a9b7175be24f240847f7ea4083c7048994f910e58e387fcaa",
+    "core.star": "08c4a1cff2a12e4efdb0e21489cf18b2eafba27ee52df8f0f26cba0971bad4ed",
     "schema-lock-manifest.json": "c0b7fc34ed0c00814793789d32d9867c45e2e63963fd3ba09a720152cb94a7b5"
   }
 }
