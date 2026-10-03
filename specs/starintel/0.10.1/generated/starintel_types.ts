@@ -905,6 +905,82 @@ export interface Transcript extends Document {
   "wordTimings"?: Array<Record<string, unknown>>;
 }
 
+export interface HttpTransaction extends Document {
+  "transactionId": string;
+  "requestId"?: string;
+  "connectionId"?: string;
+  "parentTransactionId"?: string;
+  "method": string;
+  "url": Uri;
+  "scheme"?: string;
+  "host"?: string;
+  "port"?: PortNumber;
+  "path"?: string;
+  "query"?: string;
+  "httpVersion"?: string;
+  "requestHeaders"?: Record<string, unknown>;
+  "requestBodySize"?: number;
+  "requestBodyHash"?: string;
+  "requestBodyArtifactUri"?: Uri;
+  "responseStatus": number;
+  "responseReason"?: string;
+  "responseHeaders"?: Record<string, unknown>;
+  "responseBodySize"?: number;
+  "responseBodyHash"?: string;
+  "responseBodyArtifactUri"?: Uri;
+  "startedAt"?: string;
+  "endedAt"?: string;
+  "durationMs"?: string;
+  "remoteIp"?: string;
+  "remotePort"?: PortNumber;
+  "tlsVersion"?: string;
+  "tlsCipher"?: string;
+  "tlsServerName"?: string;
+  "certificateSha256"?: string;
+  "redirectFromId"?: string;
+  "redirectToId"?: string;
+  "captureActorUri"?: Uri;
+  "challengeStatus"?: string;
+  "captchaDetectionId"?: string;
+  "captchaCapability"?: string;
+  "browserSessionRef"?: Uri;
+  "networkContextRef"?: Uri;
+  "proxyActorUri"?: Uri;
+  "redactedHeaders"?: Array<string>;
+  "bodyCapturePolicy"?: string;
+  "requestTruncated"?: boolean;
+  "responseTruncated"?: boolean;
+}
+
+export interface WebCapture extends Document {
+  "captureId": string;
+  "url": Uri;
+  "finalUrl"?: Uri;
+  "title"?: string;
+  "statusCode"?: number;
+  "browser"?: string;
+  "browserVersion"?: string;
+  "viewportWidth"?: number;
+  "viewportHeight"?: number;
+  "deviceScaleFactor"?: string;
+  "screenshotUri": Uri;
+  "screenshotHash": string;
+  "screenshotMediaType"?: string;
+  "screenshotSizeBytes"?: number;
+  "domArtifactUri"?: Uri;
+  "domArtifactHash"?: string;
+  "domArtifactSizeBytes"?: number;
+  "capturedAt"?: string;
+  "httpTransactionIds"?: Array<string>;
+  "captureActorUri"?: Uri;
+  "challengeStatus"?: string;
+  "captchaDetectionId"?: string;
+  "captchaCapability"?: string;
+  "browserSessionRef"?: Uri;
+  "networkContextRef"?: Uri;
+  "proxyActorUri"?: Uri;
+}
+
 export interface PcapCapture extends Document {
   "captureId": string;
   "file"?: StarReference;
