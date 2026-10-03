@@ -605,8 +605,6 @@ export interface MapLayer extends Document {
   "visible"?: boolean;
   "minimumZoom"?: number;
   "maximumZoom"?: number;
-  "validFrom"?: UnixTime;
-  "validUntil"?: UnixTime;
   "readOnly"?: boolean;
 }
 

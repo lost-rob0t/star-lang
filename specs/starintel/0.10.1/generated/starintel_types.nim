@@ -2767,8 +2767,6 @@ type
     `visible`*: Option[bool]
     `minimumZoom`*: Option[int64]
     `maximumZoom`*: Option[int64]
-    `validFrom`*: Option[UnixTime]
-    `validUntil`*: Option[UnixTime]
     `readOnly`*: Option[bool]
 
   Message* = object

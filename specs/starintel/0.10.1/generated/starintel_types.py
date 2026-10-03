@@ -2832,8 +2832,6 @@ MapLayer = TypedDict("MapLayer", {
     "visible": NotRequired[bool],
     "minimumZoom": NotRequired[int],
     "maximumZoom": NotRequired[int],
-    "validFrom": NotRequired[UnixTime],
-    "validUntil": NotRequired[UnixTime],
     "readOnly": NotRequired[bool],
 })
 

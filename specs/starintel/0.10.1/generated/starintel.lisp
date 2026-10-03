@@ -10769,8 +10769,6 @@
   (visible nil)
   (minimumzoom nil)
   (maximumzoom nil)
-  (validfrom nil)
-  (validuntil nil)
   (readonly nil)
 )
 (defparameter +map-layer-wire-fields+
@@ -10852,8 +10850,6 @@
     ("visible" . visible)
     ("minimumZoom" . minimumzoom)
     ("maximumZoom" . maximumzoom)
-    ("validFrom" . validfrom)
-    ("validUntil" . validuntil)
     ("readOnly" . readonly)
   ))
 
