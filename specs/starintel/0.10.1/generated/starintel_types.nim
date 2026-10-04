@@ -32,6 +32,14 @@ type
   SpatialQueryMode* = distinct string
   MapLayerKind* = distinct string
   GeoGeometryType* = distinct string
+  OperationRole* = distinct string
+  OperationAccess* = distinct string
+  OperationCategory* = distinct string
+  OperationCapabilityStatus* = distinct string
+  OperationStatus* = distinct string
+  OperationAssignmentStatus* = distinct string
+  OperationPostActionStatus* = distinct string
+  OperationState* = distinct string
   PcapFormat* = distinct string
   NetworkLayer* = distinct string
   WirelessSecurity* = distinct string
@@ -2948,6 +2956,263 @@ type
     `editedAt`*: Option[UnixTime]
     `sensitive`*: Option[bool]
 
+  OperationCondition* = object
+    `conditionId`*: Option[string]
+    `kind`*: string
+    `predicate`*: Option[string]
+    `subject`*: Option[string]
+    `object`*: Option[string]
+    `expression`*: Option[string]
+    `required`*: Option[bool]
+    `metadata`*: Option[JsonNode]
+
+  OperationTargetPolicy* = object
+    `allowedDtypes`*: Option[seq[string]]
+    `allowedTargetTypes`*: Option[seq[string]]
+    `allowedRoles`*: Option[seq[string]]
+    `selectors`*: Option[seq[JsonNode]]
+
+  OperationTargetBindings* = object
+    `primary`*: Option[seq[string]]
+    `supporting`*: Option[seq[string]]
+    `derived`*: Option[seq[string]]
+    `excluded`*: Option[seq[string]]
+
+  OperationDatasetBinding* = object
+    `bindingId`*: string
+    `dataset`*: string
+    `role`*: OperationRole
+    `access`*: OperationAccess
+    `phases`*: Option[seq[string]]
+    `purpose`*: Option[string]
+
+  OperationCapabilityGap* = object
+    `capabilityId`*: string
+    `category`*: OperationCategory
+    `description`*: string
+    `requiredBy`*: Option[seq[string]]
+    `blocking`*: bool
+    `status`*: OperationCapabilityStatus
+    `capabilityRef`*: Option[string]
+    `resolutionRef`*: Option[string]
+    `owner`*: Option[string]
+    `metadata`*: Option[JsonNode]
+
+  OperationAssignment* = object
+    `assignmentId`*: string
+    `agentId`*: Option[string]
+    `actorId`*: Option[string]
+    `phaseIds`*: seq[string]
+    `role`*: Option[string]
+    `status`*: OperationAssignmentStatus
+    `metadata`*: Option[JsonNode]
+
+  OperationPostAction* = object
+    `actionId`*: string
+    `actionType`*: string
+    `condition`*: Option[OperationCondition]
+    `targetIds`*: Option[seq[string]]
+    `datasetBindingIds`*: Option[seq[string]]
+    `status`*: OperationPostActionStatus
+    `config`*: Option[JsonNode]
+
+  OperationPhase* = object
+    `phaseId`*: string
+    `title`*: Option[string]
+    `objective`*: string
+    `state`*: OperationState
+    `dependsOn`*: Option[seq[string]]
+    `entryConditions`*: Option[seq[OperationCondition]]
+    `exitConditions`*: Option[seq[OperationCondition]]
+    `inScope`*: Option[seq[string]]
+    `outOfScope`*: Option[seq[string]]
+    `targetPolicy`*: Option[OperationTargetPolicy]
+    `targetIds`*: Option[seq[string]]
+    `datasetBindingIds`*: Option[seq[string]]
+    `requiredCapabilityIds`*: Option[seq[string]]
+    `deliverableIds`*: Option[seq[string]]
+    `completionEvidence`*: Option[seq[string]]
+
+  Operation* = object
+    `id`*: DocumentId
+    `rev`*: Option[string]
+    `dataset`*: string
+    `dtype`*: string
+    `schemaVersion`*: string
+    `externalIds`*: Option[JsonNode]
+    `aliases`*: Option[seq[string]]
+    `sources`*: Option[seq[StarReference]]
+    `sourceUrls`*: Option[seq[Uri]]
+    `sourceRecordIds`*: Option[seq[string]]
+    `sourceKinds`*: Option[seq[SourceKind]]
+    `sourceLicense`*: Option[string]
+    `sourceTerms`*: Option[Uri]
+    `sourceRetrievedAt`*: Option[UnixTime]
+    `collectedAt`*: Option[UnixTime]
+    `observedAt`*: Option[UnixTime]
+    `firstSeenAt`*: Option[UnixTime]
+    `lastSeenAt`*: Option[UnixTime]
+    `createdAt`*: Option[UnixTime]
+    `updatedAt`*: Option[UnixTime]
+    `validFrom`*: Option[UnixTime]
+    `validUntil`*: Option[UnixTime]
+    `expiresAt`*: Option[UnixTime]
+    `collector`*: Option[string]
+    `collectorVersion`*: Option[string]
+    `collectionMethod`*: Option[string]
+    `collectionStatus`*: Option[CollectionStatus]
+    `runId`*: Option[string]
+    `correlationId`*: Option[string]
+    `causationId`*: Option[string]
+    `parentId`*: Option[DocumentId]
+    `rootId`*: Option[DocumentId]
+    `confidence`*: Option[ConfidenceScore]
+    `confidenceBasis`*: Option[string]
+    `qualityScore`*: Option[ConfidenceScore]
+    `completenessScore`*: Option[ConfidenceScore]
+    `verificationStatus`*: Option[string]
+    `verifiedAt`*: Option[UnixTime]
+    `verifiedBy`*: Option[string]
+    `provenance`*: Option[JsonNode]
+    `chainOfCustody`*: Option[seq[JsonNode]]
+    `transformHistory`*: Option[seq[JsonNode]]
+    `labels`*: Option[seq[string]]
+    `tags`*: Option[seq[string]]
+    `topics`*: Option[seq[string]]
+    `language`*: Option[string]
+    `jurisdiction`*: Option[string]
+    `countryCode`*: Option[string]
+    `regionCode`*: Option[string]
+    `timezone`*: Option[string]
+    `sensitivity`*: Option[Sensitivity]
+    `visibility`*: Option[Visibility]
+    `owner`*: Option[string]
+    `accessControl`*: Option[JsonNode]
+    `legalBasis`*: Option[string]
+    `retentionPolicy`*: Option[string]
+    `contentType`*: Option[string]
+    `encoding`*: Option[string]
+    `sizeBytes`*: Option[int64]
+    `contentHash`*: Option[string]
+    `hashAlgorithm`*: Option[HashAlgorithm]
+    `normalizedHash`*: Option[string]
+    `raw`*: Option[JsonNode]
+    `rawContent`*: Option[string]
+    `notes`*: Option[string]
+    `deleted`*: Option[bool]
+    `tombstoneReason`*: Option[string]
+    `extensions`*: Option[JsonNode]
+    `mission`*: string
+    `objectives`*: Option[seq[string]]
+    `status`*: OperationStatus
+    `inScope`*: Option[seq[string]]
+    `outOfScope`*: Option[seq[string]]
+    `targetPolicy`*: Option[OperationTargetPolicy]
+    `targets`*: Option[OperationTargetBindings]
+    `phases`*: seq[OperationPhase]
+    `datasets`*: Option[seq[OperationDatasetBinding]]
+    `capabilityGaps`*: Option[seq[OperationCapabilityGap]]
+    `assignments`*: Option[seq[OperationAssignment]]
+    `postActions`*: Option[seq[OperationPostAction]]
+
+  InvestigationTarget* = object
+    `id`*: DocumentId
+    `rev`*: Option[string]
+    `dataset`*: string
+    `dtype`*: string
+    `schemaVersion`*: string
+    `externalIds`*: Option[JsonNode]
+    `aliases`*: Option[seq[string]]
+    `sources`*: Option[seq[StarReference]]
+    `sourceUrls`*: Option[seq[Uri]]
+    `sourceRecordIds`*: Option[seq[string]]
+    `sourceKinds`*: Option[seq[SourceKind]]
+    `sourceLicense`*: Option[string]
+    `sourceTerms`*: Option[Uri]
+    `sourceRetrievedAt`*: Option[UnixTime]
+    `collectedAt`*: Option[UnixTime]
+    `observedAt`*: Option[UnixTime]
+    `firstSeenAt`*: Option[UnixTime]
+    `lastSeenAt`*: Option[UnixTime]
+    `createdAt`*: Option[UnixTime]
+    `updatedAt`*: Option[UnixTime]
+    `validFrom`*: Option[UnixTime]
+    `validUntil`*: Option[UnixTime]
+    `expiresAt`*: Option[UnixTime]
+    `collector`*: Option[string]
+    `collectorVersion`*: Option[string]
+    `collectionMethod`*: Option[string]
+    `collectionStatus`*: Option[CollectionStatus]
+    `runId`*: Option[string]
+    `correlationId`*: Option[string]
+    `causationId`*: Option[string]
+    `parentId`*: Option[DocumentId]
+    `rootId`*: Option[DocumentId]
+    `confidence`*: Option[ConfidenceScore]
+    `confidenceBasis`*: Option[string]
+    `qualityScore`*: Option[ConfidenceScore]
+    `completenessScore`*: Option[ConfidenceScore]
+    `verificationStatus`*: Option[string]
+    `verifiedAt`*: Option[UnixTime]
+    `verifiedBy`*: Option[string]
+    `provenance`*: Option[JsonNode]
+    `chainOfCustody`*: Option[seq[JsonNode]]
+    `transformHistory`*: Option[seq[JsonNode]]
+    `labels`*: Option[seq[string]]
+    `tags`*: Option[seq[string]]
+    `topics`*: Option[seq[string]]
+    `language`*: Option[string]
+    `jurisdiction`*: Option[string]
+    `countryCode`*: Option[string]
+    `regionCode`*: Option[string]
+    `timezone`*: Option[string]
+    `sensitivity`*: Option[Sensitivity]
+    `visibility`*: Option[Visibility]
+    `owner`*: Option[string]
+    `accessControl`*: Option[JsonNode]
+    `legalBasis`*: Option[string]
+    `retentionPolicy`*: Option[string]
+    `contentType`*: Option[string]
+    `encoding`*: Option[string]
+    `sizeBytes`*: Option[int64]
+    `contentHash`*: Option[string]
+    `hashAlgorithm`*: Option[HashAlgorithm]
+    `normalizedHash`*: Option[string]
+    `raw`*: Option[JsonNode]
+    `rawContent`*: Option[string]
+    `notes`*: Option[string]
+    `deleted`*: Option[bool]
+    `tombstoneReason`*: Option[string]
+    `extensions`*: Option[JsonNode]
+    `actor`*: Option[string]
+    `target`*: string
+    `targetId`*: Option[string]
+    `targetType`*: Option[string]
+    `query`*: Option[string]
+    `researchQuestion`*: Option[string]
+    `hypotheses`*: Option[seq[string]]
+    `objectives`*: Option[seq[string]]
+    `inScope`*: Option[seq[string]]
+    `outOfScope`*: Option[seq[string]]
+    `scopeType`*: Option[string]
+    `seedIds`*: Option[seq[string]]
+    `sourceIds`*: Option[seq[string]]
+    `requiredDtypes`*: Option[seq[string]]
+    `preferredSources`*: Option[seq[string]]
+    `excludedSources`*: Option[seq[string]]
+    `delay`*: Option[int64]
+    `recurring`*: Option[bool]
+    `recurrence`*: Option[string]
+    `options`*: Option[seq[JsonNode]]
+    `depth`*: Option[int64]
+    `maxDepth`*: Option[int64]
+    `breadth`*: Option[int64]
+    `priority`*: Option[string]
+    `score`*: Option[string]
+    `selectionReason`*: Option[seq[string]]
+    `status`*: Option[string]
+    `nextRunAt`*: Option[Option[string]]
+
   Target* = object
     `id`*: DocumentId
     `rev`*: Option[string]
@@ -5340,6 +5605,62 @@ const GeoGeometryTypeMultiPoint* = GeoGeometryType("multi-point")
 const GeoGeometryTypeMultiLineString* = GeoGeometryType("multi-line-string")
 const GeoGeometryTypeMultiPolygon* = GeoGeometryType("multi-polygon")
 const GeoGeometryTypeGeometryCollection* = GeoGeometryType("geometry-collection")
+const OperationRoleCollection* = OperationRole("collection")
+const OperationRoleWorking* = OperationRole("working")
+const OperationRoleDerived* = OperationRole("derived")
+const OperationRolePublication* = OperationRole("publication")
+const OperationRoleReference* = OperationRole("reference")
+const OperationRoleArchive* = OperationRole("archive")
+const OperationAccessRead* = OperationAccess("read")
+const OperationAccessAppend* = OperationAccess("append")
+const OperationAccessWrite* = OperationAccess("write")
+const OperationAccessReadWrite* = OperationAccess("read-write")
+const OperationCategoryActor* = OperationCategory("actor")
+const OperationCategorySoftware* = OperationCategory("software")
+const OperationCategoryHardware* = OperationCategory("hardware")
+const OperationCategoryDevice* = OperationCategory("device")
+const OperationCategorySource* = OperationCategory("source")
+const OperationCategoryDataset* = OperationCategory("dataset")
+const OperationCategorySchema* = OperationCategory("schema")
+const OperationCategoryProtocol* = OperationCategory("protocol")
+const OperationCategoryInfrastructure* = OperationCategory("infrastructure")
+const OperationCategoryResearch* = OperationCategory("research")
+const OperationCapabilityStatusRequired* = OperationCapabilityStatus("required")
+const OperationCapabilityStatusMissing* = OperationCapabilityStatus("missing")
+const OperationCapabilityStatusPlanned* = OperationCapabilityStatus("planned")
+const OperationCapabilityStatusInProgress* = OperationCapabilityStatus("in-progress")
+const OperationCapabilityStatusAvailable* = OperationCapabilityStatus("available")
+const OperationCapabilityStatusResolved* = OperationCapabilityStatus("resolved")
+const OperationCapabilityStatusWaived* = OperationCapabilityStatus("waived")
+const OperationStatusDraft* = OperationStatus("draft")
+const OperationStatusPlanned* = OperationStatus("planned")
+const OperationStatusActive* = OperationStatus("active")
+const OperationStatusBlocked* = OperationStatus("blocked")
+const OperationStatusSuspended* = OperationStatus("suspended")
+const OperationStatusCompleted* = OperationStatus("completed")
+const OperationStatusAborted* = OperationStatus("aborted")
+const OperationStatusArchived* = OperationStatus("archived")
+const OperationAssignmentStatusPlanned* = OperationAssignmentStatus("planned")
+const OperationAssignmentStatusAssigned* = OperationAssignmentStatus("assigned")
+const OperationAssignmentStatusActive* = OperationAssignmentStatus("active")
+const OperationAssignmentStatusCompleted* = OperationAssignmentStatus("completed")
+const OperationAssignmentStatusBlocked* = OperationAssignmentStatus("blocked")
+const OperationAssignmentStatusReleased* = OperationAssignmentStatus("released")
+const OperationPostActionStatusPlanned* = OperationPostActionStatus("planned")
+const OperationPostActionStatusReady* = OperationPostActionStatus("ready")
+const OperationPostActionStatusRunning* = OperationPostActionStatus("running")
+const OperationPostActionStatusCompleted* = OperationPostActionStatus("completed")
+const OperationPostActionStatusFailed* = OperationPostActionStatus("failed")
+const OperationPostActionStatusSkipped* = OperationPostActionStatus("skipped")
+const OperationStatePlanned* = OperationState("planned")
+const OperationStateReady* = OperationState("ready")
+const OperationStateActive* = OperationState("active")
+const OperationStateBlocked* = OperationState("blocked")
+const OperationStateAwaitingReview* = OperationState("awaiting-review")
+const OperationStateCompleted* = OperationState("completed")
+const OperationStateSkipped* = OperationState("skipped")
+const OperationStateFailed* = OperationState("failed")
+const OperationStateAborted* = OperationState("aborted")
 const PcapFormatPcap* = PcapFormat("pcap")
 const PcapFormatPcapng* = PcapFormat("pcapng")
 const PcapFormatUnknown* = PcapFormat("unknown")

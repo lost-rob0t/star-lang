@@ -1,11 +1,11 @@
 {
   "artifacts": {
-    "portable-manifest.json": "790269e4b7bf902fb03c807fe82eb79e81e3b1ca4e5a97bf8ec411c477918709",
-    "schema.json": "a7e81d8ff3361cc8a331ee6c81c3c8d539059f037944b7c54a61323c7af1ec3c",
-    "starintel.lisp": "13f969256b1da2636cede60fcfe0c15117f3a45da9dd03911dce8338c48c46c5",
-    "starintel_types.nim": "08c586ff8c1d3d07c68101943cfa4eb10681327c79e986998edffa7a1b96f5cb",
-    "starintel_types.py": "4a2afc894ca4fb351cecb8deb13860e53a0f006312262a47fe857beb92bffc47",
-    "starintel_types.ts": "6ba298711e6422f0f1c2f77aa848820d7e4cd8969ad9e4c20385c1944bfd228f"
+    "portable-manifest.json": "486d4f5b0b08ae495341fd4fa54ba0dca83ef8167c5d2d77c8ccb3829725ab9f",
+    "schema.json": "dbef552ecef812b19760c649059a7015d250f99ca257f6490f8e075f02304766",
+    "starintel.lisp": "a36b4ca1a6d1dd3a773429401ecc6d2a48ce7191bc2e28d03bb39a1e0f7f99a1",
+    "starintel_types.nim": "b30d9c3283b4544cc127b19c07f5d38ae3d4b8ea728aaf5bd1854e515b77e7a1",
+    "starintel_types.py": "1920df23523666166330b9df5e8359a90b2884684c846cfd8547946da3f74921",
+    "starintel_types.ts": "187934da751856d66a91695cb594eb9216ef1b2497d5d9112e7eb32d439a2128"
   },
   "authorityLibrary": "org.starintel/core@1",
   "canonicalKeyStyle": "lowerCamelCase",
@@ -15,7 +15,9 @@
   "sources": {
     "compatibility-fixtures.json": "9e57f62022ea66bdc3a861185c7a6aea9b0f9a1094dbc3032364f6ff96e8da6f",
     "compatibility.json": "95b9af3c984912053b65d4df65b2db7b88d0d97c065dad9e211d751873ef7553",
-    "core.star": "f0f2fe0aa759eab974e348b42c11615402bb52fba644cab455c069bb585440ef",
+    "core.star": "8024f94a1f1c34fcbdb3ea27f9fc0efc6dedd45b6f85af7094427c4d0e3cad9f",
+    "operation_semantics.py": "b422660d389aeeb894f0c0ec5f2007e39bd99dca33f25ee4c2b51a15f2bfb29f",
+    "research-fixtures.json": "929c5058f7e8a001d9a7000c5f708d2f9f6b4b071be7e5ec5dead40a11f264b9",
     "schema-lock-manifest.json": "c0b7fc34ed0c00814793789d32d9867c45e2e63963fd3ba09a720152cb94a7b5"
   }
 }

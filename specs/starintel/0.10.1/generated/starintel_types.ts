@@ -57,6 +57,22 @@ export type MapLayerKind = "documents" | "heatmap" | "route" | "geofence" | "enc
 
 export type GeoGeometryType = "point" | "line-string" | "polygon" | "multi-point" | "multi-line-string" | "multi-polygon" | "geometry-collection";
 
+export type OperationRole = "collection" | "working" | "derived" | "publication" | "reference" | "archive";
+
+export type OperationAccess = "read" | "append" | "write" | "read-write";
+
+export type OperationCategory = "actor" | "software" | "hardware" | "device" | "source" | "dataset" | "schema" | "protocol" | "infrastructure" | "research";
+
+export type OperationCapabilityStatus = "required" | "missing" | "planned" | "in-progress" | "available" | "resolved" | "waived";
+
+export type OperationStatus = "draft" | "planned" | "active" | "blocked" | "suspended" | "completed" | "aborted" | "archived";
+
+export type OperationAssignmentStatus = "planned" | "assigned" | "active" | "completed" | "blocked" | "released";
+
+export type OperationPostActionStatus = "planned" | "ready" | "running" | "completed" | "failed" | "skipped";
+
+export type OperationState = "planned" | "ready" | "active" | "blocked" | "awaiting-review" | "completed" | "skipped" | "failed" | "aborted";
+
 export type PcapFormat = "pcap" | "pcapng" | "unknown";
 
 export type NetworkLayer = "eth" | "ip" | "ipv6" | "tcp" | "udp";
@@ -651,6 +667,137 @@ export interface Socialmpost extends Document {
   "publishedAt"?: UnixTime;
   "editedAt"?: UnixTime;
   "sensitive"?: boolean;
+}
+
+export interface OperationCondition {
+  "conditionId"?: string;
+  "kind": string;
+  "predicate"?: string;
+  "subject"?: string;
+  "object"?: string;
+  "expression"?: string;
+  "required"?: boolean;
+  "metadata"?: Record<string, unknown>;
+}
+
+export interface OperationTargetPolicy {
+  "allowedDtypes"?: Array<string>;
+  "allowedTargetTypes"?: Array<string>;
+  "allowedRoles"?: Array<string>;
+  "selectors"?: Array<Record<string, unknown>>;
+}
+
+export interface OperationTargetBindings {
+  "primary"?: Array<string>;
+  "supporting"?: Array<string>;
+  "derived"?: Array<string>;
+  "excluded"?: Array<string>;
+}
+
+export interface OperationDatasetBinding {
+  "bindingId": string;
+  "dataset": string;
+  "role": OperationRole;
+  "access": OperationAccess;
+  "phases"?: Array<string>;
+  "purpose"?: string;
+}
+
+export interface OperationCapabilityGap {
+  "capabilityId": string;
+  "category": OperationCategory;
+  "description": string;
+  "requiredBy"?: Array<string>;
+  "blocking": boolean;
+  "status": OperationCapabilityStatus;
+  "capabilityRef"?: string;
+  "resolutionRef"?: string;
+  "owner"?: string;
+  "metadata"?: Record<string, unknown>;
+}
+
+export interface OperationAssignment {
+  "assignmentId": string;
+  "agentId"?: string;
+  "actorId"?: string;
+  "phaseIds": Array<string>;
+  "role"?: string;
+  "status": OperationAssignmentStatus;
+  "metadata"?: Record<string, unknown>;
+}
+
+export interface OperationPostAction {
+  "actionId": string;
+  "actionType": string;
+  "condition"?: OperationCondition;
+  "targetIds"?: Array<string>;
+  "datasetBindingIds"?: Array<string>;
+  "status": OperationPostActionStatus;
+  "config"?: Record<string, unknown>;
+}
+
+export interface OperationPhase {
+  "phaseId": string;
+  "title"?: string;
+  "objective": string;
+  "state": OperationState;
+  "dependsOn"?: Array<string>;
+  "entryConditions"?: Array<OperationCondition>;
+  "exitConditions"?: Array<OperationCondition>;
+  "inScope"?: Array<string>;
+  "outOfScope"?: Array<string>;
+  "targetPolicy"?: OperationTargetPolicy;
+  "targetIds"?: Array<string>;
+  "datasetBindingIds"?: Array<string>;
+  "requiredCapabilityIds"?: Array<string>;
+  "deliverableIds"?: Array<string>;
+  "completionEvidence"?: Array<string>;
+}
+
+export interface Operation extends Document {
+  "mission": string;
+  "objectives"?: Array<string>;
+  "status": OperationStatus;
+  "inScope"?: Array<string>;
+  "outOfScope"?: Array<string>;
+  "targetPolicy"?: OperationTargetPolicy;
+  "targets"?: OperationTargetBindings;
+  "phases": Array<OperationPhase>;
+  "datasets"?: Array<OperationDatasetBinding>;
+  "capabilityGaps"?: Array<OperationCapabilityGap>;
+  "assignments"?: Array<OperationAssignment>;
+  "postActions"?: Array<OperationPostAction>;
+}
+
+export interface InvestigationTarget extends Document {
+  "actor"?: string;
+  "target": string;
+  "targetId"?: string;
+  "targetType"?: string;
+  "query"?: string;
+  "researchQuestion"?: string;
+  "hypotheses"?: Array<string>;
+  "objectives"?: Array<string>;
+  "inScope"?: Array<string>;
+  "outOfScope"?: Array<string>;
+  "scopeType"?: string;
+  "seedIds"?: Array<string>;
+  "sourceIds"?: Array<string>;
+  "requiredDtypes"?: Array<string>;
+  "preferredSources"?: Array<string>;
+  "excludedSources"?: Array<string>;
+  "delay"?: number;
+  "recurring"?: boolean;
+  "recurrence"?: string;
+  "options"?: Array<unknown>;
+  "depth"?: number;
+  "maxDepth"?: number;
+  "breadth"?: number;
+  "priority"?: string;
+  "score"?: string;
+  "selectionReason"?: Array<string>;
+  "status"?: string;
+  "nextRunAt"?: string | null;
 }
 
 export interface Target extends Document {

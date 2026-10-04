@@ -41,7 +41,7 @@
           nativeBuildInputs = [
             sbcl
             swipl
-            pkgs.python3
+            (pkgs.python3.withPackages (ps: [ ps.jsonschema ]))
           ];
 
           dontConfigure = true;
@@ -119,6 +119,7 @@
             sbcl --disable-debugger \
               --script "$source_root/tools/generate-starintel-release.lisp" --check
             python3 "$source_root/tools/finalize-starintel-release.py" --check
+            python3 "$source_root/tools/test-starintel-research-contracts.py"
 
             sbcl --script "$source_root/prototype/run-star.lisp" \
               load "$source_root/fixtures/star-cl-constructors.star" \

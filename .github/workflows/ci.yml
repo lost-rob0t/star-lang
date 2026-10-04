@@ -102,6 +102,8 @@ jobs:
               ./tools/finalize-starintel-release.py) continue ;;
               ./tools/sync-starintel-consumer.py) continue ;;
               ./tools/test-starintel-consumer.py) continue ;;
+              ./tools/test-starintel-research-contracts.py) continue ;;
+              ./specs/starintel/0.10.1/operation_semantics.py) continue ;;
             esac
             forbidden="$forbidden $f"
           done < <(find . -path ./.git -prune -o -type f \( -name '*.rkt' -o -name '*.scm' -o -name '*.ss' -o -name '*.py' \) -print)
@@ -119,7 +121,8 @@ jobs:
             cl-fiveam \
             cl-ironclad \
             cl-usocket \
-            cl-yason
+            cl-yason \
+            python3-jsonschema
 
       - name: Verify generated StarIntel release artifacts
         shell: bash
@@ -129,6 +132,7 @@ jobs:
             --script tools/generate-starintel-release.lisp --check
           python3 tools/finalize-starintel-release.py --check
           python3 tools/test-starintel-consumer.py
+          python3 tools/test-starintel-research-contracts.py
 
       - name: Load starlang-prototype ASDF system
         shell: bash
