@@ -122,6 +122,9 @@
             python3 "$source_root/tools/test-starintel-research-contracts.py"
             python3 "$source_root/tools/test-supported-workflow-contracts.py"
             python3 "$source_root/tools/test-starintel-versioned-reader.py"
+            sbcl --script "$source_root/tools/generate-face-intel-extension.lisp" --check
+            python3 "$source_root/tools/finalize-face-intel-extension.py" --check
+            python3 "$source_root/tools/test-face-intel-extension.py"
 
             sbcl --script "$source_root/prototype/run-star.lisp" \
               load "$source_root/fixtures/star-cl-constructors.star" \
