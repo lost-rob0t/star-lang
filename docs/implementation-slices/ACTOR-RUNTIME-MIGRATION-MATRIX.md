@@ -87,3 +87,12 @@ dispatcher/runtime directory using the already-final actor reference, mailbox,
 and concrete Sento boundary. Do not broaden that work into supervision,
 journal, or lease policy. Split-phase nested ask remains a separately tracked
 semantic slice rather than an accidental consequence of backend integration.
+
+### Domain/service description follow-on
+
+`star-actor-protocol` owns pure domain/service descriptor validation and
+admission/completion decisions plus the Actor2Actor task/stream projection.
+The existing runtime directory and dispatcher remain registration and execution
+owners. These helpers do not constitute a new registry, scheduler or transport.
+See `../DOMAIN-SERVICE-CONTRACT.md` for original issue159 implementation provenance,
+server integration requirements and unexecuted distributed conformance gates.

@@ -2,7 +2,7 @@
   :description "Local lifecycle-envelope codec and managed external actor sessions"
   :version "0.2.0"
   :license "AGPL-3.0-only"
-  :depends-on ("star-zmq" "star-actor-protocol" "star-canonical-json"
+  :depends-on ("star-zmq" "star-actor-wire"
                "star-process-port" "babel" "yason" "bordeaux-threads")
   :serial t
   :components ((:file "src/wire") (:file "src/peer"))

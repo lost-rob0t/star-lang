@@ -1,0 +1,1 @@
+{"actor":"nim.echo","attempt":1,"causationId":"req","correlationId":"correlation/req","dataset":"fixture","kind":"cancel","messageId":"cancel","messageType":"star.protocol/cancel@1","payload":{"reason":"requested","targetCorrelationId":"correlation/req","targetMessageId":"req"},"starVersion":1}

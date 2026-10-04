@@ -100,6 +100,16 @@ class VersionedReaderTests(unittest.TestCase):
         result, _ = m.migrate(raw)
         self.assertEqual(m.restore(self.raw(result)), raw)
 
+    def test_shared_raw_duplicate_key_contract(self):
+        fixture = json.loads((ROOT / 'specs/starintel/wire/raw-json-unique-keys.json').read_text())
+        for case in fixture['cases']:
+            with self.subTest(case=case['name']):
+                if case['valid']:
+                    m.parse(case['wire'])
+                else:
+                    with self.assertRaisesRegex(ValueError, 'duplicate JSON key'):
+                        m.parse(case['wire'])
+
     def test_duplicate_and_nonfinite_rejected(self):
         for raw in [b'{"schema_version":"0.9.0","schema_version":"0.9.0"}', b'{"x":NaN}', b'{"x":Infinity}']:
             with self.assertRaises(Exception): m.read(raw)

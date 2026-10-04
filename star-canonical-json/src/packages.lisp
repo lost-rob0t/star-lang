@@ -16,6 +16,7 @@
    #:+json-false+
    #:+json-null+
    #:write-canonical-json
+   #:canonical-portable-json-string
    #:canonical-json-string
    #:canonical-manifest-json
    #:canonical-envelope-json
