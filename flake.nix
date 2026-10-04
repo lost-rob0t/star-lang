@@ -120,6 +120,7 @@
               --script "$source_root/tools/generate-starintel-release.lisp" --check
             python3 "$source_root/tools/finalize-starintel-release.py" --check
             python3 "$source_root/tools/test-starintel-research-contracts.py"
+            python3 "$source_root/tools/test-supported-workflow-contracts.py"
 
             sbcl --script "$source_root/prototype/run-star.lisp" \
               load "$source_root/fixtures/star-cl-constructors.star" \

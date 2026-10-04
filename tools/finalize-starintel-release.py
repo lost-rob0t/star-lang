@@ -131,6 +131,12 @@ def release_lock() -> dict[str, object]:
         "hashAlgorithm": "sha256",
         "sources": {
             "core.star": sha256(core),
+            "legacy-workflow-oracle.json": sha256(RELEASE / "legacy-workflow-oracle.json"),
+            "supported-workflow-fixtures.json": sha256(RELEASE / "supported-workflow-fixtures.json"),
+            "supported-workflow-mappings.json": sha256(RELEASE / "supported-workflow-mappings.json"),
+            "supported-workflow-inventory.json": sha256(RELEASE / "supported-workflow-inventory.json"),
+            "workflow_semantics.py": sha256(RELEASE / "workflow_semantics.py"),
+
             "operation_semantics.py": sha256(RELEASE / "operation_semantics.py"),
             "research-fixtures.json": sha256(RELEASE / "research-fixtures.json"),
             "compatibility.json": sha256(compatibility_path),

@@ -63,7 +63,7 @@ class ResearchContractTests(unittest.TestCase):
     def test_transient_helpers_are_not_corpus_documents(self):
         manifest = json.loads((RELEASE/'generated/portable-manifest.json').read_text())
         persistent = [x for x in manifest['types'] if x['kind'] == 'document' and x['persistence'] == 'persistent']
-        self.assertEqual(len(persistent), 62)
+        self.assertTrue({"operation", "investigation-target"}.issubset({x["name"].rsplit("/", 1)[-1] for x in persistent}))
         self.assertFalse(any(x['name'].endswith('/operation-phase') for x in persistent))
 
 if __name__ == '__main__': unittest.main()

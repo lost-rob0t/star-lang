@@ -103,6 +103,8 @@ jobs:
               ./tools/sync-starintel-consumer.py) continue ;;
               ./tools/test-starintel-consumer.py) continue ;;
               ./tools/test-starintel-research-contracts.py) continue ;;
+              ./tools/test-supported-workflow-contracts.py) continue ;;
+              ./specs/starintel/0.10.1/workflow_semantics.py) continue ;;
               ./specs/starintel/0.10.1/operation_semantics.py) continue ;;
             esac
             forbidden="$forbidden $f"
@@ -133,6 +135,7 @@ jobs:
           python3 tools/finalize-starintel-release.py --check
           python3 tools/test-starintel-consumer.py
           python3 tools/test-starintel-research-contracts.py
+          python3 tools/test-supported-workflow-contracts.py
 
       - name: Load starlang-prototype ASDF system
         shell: bash
