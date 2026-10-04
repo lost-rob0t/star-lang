@@ -7,7 +7,6 @@ from __future__ import annotations
 import argparse
 from copy import deepcopy
 from decimal import Decimal
-from datetime import datetime
 import re
 import hashlib
 import json
@@ -38,23 +37,44 @@ def is_number(checker, value):
 
 
 EXACT = Draft202012Validator.TYPE_CHECKER.redefine_many({'integer': is_integer, 'number': is_number})
-Validator = validators.extend(Draft202012Validator, type_checker=EXACT)
 FORMAT = FormatChecker()
 MARKER = 'starintelVersionedMigration'
 
 
 @FORMAT.checks('date-time', raises=ValueError)
 def strict_datetime(value):
+    """Authority-owned RFC3339 subset; never normalize invalid calendar/time."""
     if not isinstance(value, str):
         return True
-    if not re.fullmatch(r'[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt][0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]+)?(?:[Zz]|[+-][0-9]{2}:[0-9]{2})', value):
+    match = re.fullmatch(
+        r'([0-9]{4})-([0-9]{2})-([0-9]{2})[Tt]([0-9]{2}):([0-9]{2}):([0-9]{2})'
+        r'(?:\.[0-9]+)?(?:[Zz]|[+-]([0-9]{2}):([0-9]{2}))', value)
+    if match is None:
         return False
-    datetime.fromisoformat(value.upper().replace('Z', '+00:00'))
-    # datetime normalizes out-of-range offset minutes; RFC3339 forbids them.
-    if value[-1:].upper() != 'Z' and (int(value[-5:-3]) > 23 or int(value[-2:]) > 59):
+    year, month, day, hour, minute, second = map(int, match.groups()[:6])
+    if not (1 <= year <= 9999 and 1 <= month <= 12):
         return False
-    return True
+    leap = year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
+    month_days = (31, 29 if leap else 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
+    if not (1 <= day <= month_days[month - 1] and 0 <= hour <= 23 and
+            0 <= minute <= 59 and 0 <= second <= 59):
+        return False
+    offset_hour, offset_minute = match.groups()[6:]
+    return offset_hour is None or (int(offset_hour) <= 23 and int(offset_minute) <= 59)
 
+
+def validate_format(validator, name, instance, schema):
+    # Enforce date-time directly at every nested schema boundary. Optional
+    # FormatChecker registrations or host ISO parser behavior cannot weaken it.
+    if name == 'date-time':
+        if not strict_datetime(instance):
+            yield SchemaValidationError('invalid strict date-time: ' + repr(instance))
+    else:
+        yield from Draft202012Validator.VALIDATORS['format'](validator, name, instance, schema)
+
+
+Validator = validators.extend(Draft202012Validator, type_checker=EXACT,
+                              validators={'format': validate_format})
 
 
 class DecimalExpansionLimit(ValueError):

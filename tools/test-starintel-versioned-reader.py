@@ -247,6 +247,33 @@ class VersionedReaderTests(unittest.TestCase):
             if checker is not None:
                 m.FORMAT.checkers['uri'] = checker
 
+    def test_datetime_calendar_and_clock_validation_is_authority_owned(self):
+        node = {'type': 'string', 'format': 'date-time'}
+        valid = ['2000-02-29T23:59:59Z', '2024-02-29t00:00:00z',
+                 '2026-10-04T00:00:00.123456789+23:59', '0001-01-01T00:00:00-00:00']
+        invalid = ['1900-02-29T00:00:00Z', '0000-01-01T00:00:00Z',
+                   '2026-04-31T00:00:00Z', '2026-00-01T00:00:00Z',
+                   '2026-13-01T00:00:00Z', '2026-10-00T00:00:00Z',
+                   '2026-10-04T24:00:00Z', '2026-10-04T23:60:00Z',
+                   '2026-10-04T23:59:60Z', '2026-10-04T00:00:00+24:00',
+                   '2026-10-04T00:00:00-00:60', '2026-10-04T00:00:00.Z',
+                   '2026-10-04 00:00:00Z', '2026-10-04T00:00:00Z\n']
+        checker = m.FORMAT.checkers['date-time']
+        # Simulate an optional/host checker that accepts everything. The
+        # authority validator must still enforce both current and old records.
+        m.FORMAT.checkers['date-time'] = (lambda value: True, ())
+        try:
+            for value in valid:
+                with self.subTest(valid=value): m.validate_at(value, node)
+            for value in invalid:
+                with self.subTest(invalid=value):
+                    self.assertFalse(m.strict_datetime(value))
+                    with self.assertRaises(Exception): m.validate_at(value, node)
+                    doc = historical(); doc['date_added'] = value
+                    with self.assertRaises(Exception): m.read(self.raw(doc))
+        finally:
+            m.FORMAT.checkers['date-time'] = checker
+
     def test_paired_artifacts_and_schema_are_locked(self):
         registry = json.loads((PATH.parent / 'registry.json').read_text())
         for path, expected in registry['sha256'].items():
