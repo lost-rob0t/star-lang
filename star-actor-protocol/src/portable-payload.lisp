@@ -110,6 +110,27 @@
         (- (length value) dot 1)
         0)))
 
+(defun portable-decimal-rational (value)
+  "Parse a validated exact-decimal wire string without invoking the Lisp reader."
+  (unless (portable-decimal-wire-string-p value)
+    (fail-invalid-wire-envelope
+     "Exact decimal value ~S is malformed."
+     value))
+  (let* ((negative-p (char= (char value 0) #\-))
+         (signed-p (member (char value 0) '(#\+ #\-)))
+         (start (if signed-p 1 0))
+         (dot (position #\. value :start start))
+         (fraction-digits (if dot (- (length value) dot 1) 0))
+         (digits
+           (if dot
+               (concatenate 'string
+                            (subseq value start dot)
+                            (subseq value (1+ dot)))
+               (subseq value start)))
+         (numerator (parse-integer digits :junk-allowed nil))
+         (magnitude (/ numerator (expt 10 fraction-digits))))
+    (if negative-p (- magnitude) magnitude)))
+
 (defun validate-portable-manifest-json-value (value)
   (cond
     ((eq value t) t)
@@ -198,17 +219,23 @@
 (defun validate-portable-scalar-constraints (contract value context)
   (let ((minimum (getf contract :minimum))
         (maximum (getf contract :maximum))
-        (scale (getf contract :scale)))
+        (scale (getf contract :scale))
+        (numeric-value
+          (cond
+            ((numberp value) value)
+            ((portable-decimal-wire-string-p value)
+             (portable-decimal-rational value))
+            (t nil))))
     (when (and minimum
-               (numberp value)
-               (< value minimum))
+               numeric-value
+               (< numeric-value minimum))
       (fail-invalid-wire-envelope
        "~A is below scalar minimum ~A."
        context
        minimum))
     (when (and maximum
-               (numberp value)
-               (> value maximum))
+               numeric-value
+               (> numeric-value maximum))
       (fail-invalid-wire-envelope
        "~A exceeds scalar maximum ~A."
        context

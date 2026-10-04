@@ -202,6 +202,207 @@
          "{\"default\":false,\"name\":\"enabled\",\"required\":false,\"type\":\"boolean\"}"
          json))))
 
+(defun starintel-0101-manifest ()
+  (let* ((pathname
+           (asdf:system-relative-pathname
+            :starlang-compiler
+            "../specs/starintel/0.10.1/core.star"))
+         (source (uiop:read-file-string pathname))
+         (library
+           (starlangcompiler:compile-spec-library
+            (starlangcompiler:read-star-syntax
+             source
+             :source-id (namestring pathname)))))
+    (starlangcompiler:emit-portable-manifest library nil)))
+
+(test portable-schema-bindings-cover-language-matrix
+  "The final compiler owns every declared portable language boundary."
+  (is (equal
+       '(:common-lisp :kotlin :java :python :typescript :nim :go :rust
+         :emacs-lisp :prolog)
+       (starlangcompiler:supported-binding-languages))))
+
+(test starintel-0101-is-canonical-starlang-and-generates-every-binding
+  "StarIntel 0.10.1 media/network/file vocabulary compiles once and feeds every language binding."
+  (let* ((manifest (starintel-0101-manifest))
+         (names
+           (mapcar (lambda (contract) (getf contract :name))
+                   (getf manifest :types)))
+         (outputs (starlangcompiler:generate-all-bindings manifest)))
+    (dolist (required
+             '("org.starintel/core@1/file"
+               "org.starintel/core@1/image"
+               "org.starintel/core@1/picture"
+               "org.starintel/core@1/video"
+               "org.starintel/core@1/video-frame"
+               "org.starintel/core@1/audio"
+               "org.starintel/core@1/transcript"
+               "org.starintel/core@1/person-identifier"
+               "org.starintel/core@1/geo"
+               "org.starintel/core@1/geo-point"
+               "org.starintel/core@1/geo-line-string"
+               "org.starintel/core@1/geo-polygon"
+               "org.starintel/core@1/geo-multi-point"
+               "org.starintel/core@1/geo-multi-line-string"
+               "org.starintel/core@1/geo-multi-polygon"
+               "org.starintel/core@1/geo-geometry-collection"
+               "org.starintel/core@1/location"
+               "org.starintel/core@1/mission"
+               "org.starintel/core@1/mission-target"
+               "org.starintel/core@1/route"
+               "org.starintel/core@1/geofence"
+               "org.starintel/core@1/encounter"
+               "org.starintel/core@1/map-layer"
+               "org.starintel/core@1/http-transaction"
+               "org.starintel/core@1/web-capture"
+               "org.starintel/core@1/pcap-capture"
+               "org.starintel/core@1/network-device"
+               "org.starintel/core@1/wireless-network"
+               "org.starintel/core@1/wireless-station"))
+      (is (member required names :test #'string=)))
+    (is (= 10 (length outputs)))
+    (dolist (entry outputs)
+      (is (> (length (cdr entry)) 100)))
+    (is (search "File = TypedDict" (cdr (assoc :python outputs))))
+    (is (search "PersonIdentifier = TypedDict" (cdr (assoc :python outputs))))
+    (is (search "GeoPoint = TypedDict" (cdr (assoc :python outputs))))
+    (is (search "Transcript = TypedDict" (cdr (assoc :python outputs))))
+    (is (search "VideoFrame = TypedDict" (cdr (assoc :python outputs))))
+    (is (null (search "schema_version" (cdr (assoc :python outputs)))))
+    (is (search "export interface VideoFrame" (cdr (assoc :typescript outputs))))
+    (is (search "data class VideoFrame" (cdr (assoc :kotlin outputs))))
+    (is (search "record VideoFrame" (cdr (assoc :java outputs))))
+    (is (search "VideoFrame* = object" (cdr (assoc :nim outputs))))
+    (is (search "type VideoFrame struct" (cdr (assoc :go outputs))))
+    (is (search "pub struct VideoFrame" (cdr (assoc :rust outputs))))
+    (is (search "(defstruct video-frame" (cdr (assoc :common-lisp outputs))))
+    (is (search "starintel-video-frame" (cdr (assoc :emacs-lisp outputs))))
+    (is (search "org.starintel/core@1/video-frame" (cdr (assoc :prolog outputs))))))
+
+(test starintel-0101-common-lisp-binding-is-loadable
+  "The generated Common Lisp artifact is executable source, not merely recognizable text."
+  (let* ((manifest (starintel-0101-manifest))
+         (source (starlangcompiler:generate-common-lisp-bindings manifest))
+         (package-name "ORG.STARINTEL.CORE.V1"))
+    (when (find-package package-name)
+      (delete-package package-name))
+    (unwind-protect
+         (let ((*package* (find-package :cl-user)))
+           (with-input-from-string (stream source)
+             (loop for form = (read stream nil stream)
+                   until (eq form stream)
+                   do (eval form)))
+           (let ((package (find-package package-name)))
+             (is (not (null package)))
+             (is (eq :external (nth-value 1 (find-symbol "PERSON-IDENTIFIER" package))))
+             (is (eq :external (nth-value 1 (find-symbol "+GEO-POINT-WIRE-FIELDS+" package))))
+             (is (eq :external (nth-value 1 (find-symbol "TRANSCRIPT" package))))))
+      (when (find-package package-name)
+        (delete-package package-name)))))
+
+(test starintel-0101-geo-scalars-enforce-coordinate-ranges
+  "First-class geo coordinates reject values outside WGS84 longitude/latitude bounds."
+  (let ((manifest (starintel-0101-manifest)))
+    (is (staractorprotocol:validate-portable-wire-value
+         manifest "org.starintel/core@1/longitude" "-180.00000000"))
+    (is (staractorprotocol:validate-portable-wire-value
+         manifest "org.starintel/core@1/latitude" "90.00000000"))
+    (signals staractorprotocol:invalid-wire-envelope-error
+      (staractorprotocol:validate-portable-wire-value
+       manifest "org.starintel/core@1/longitude" "180.00000001"))
+    (signals staractorprotocol:invalid-wire-envelope-error
+      (staractorprotocol:validate-portable-wire-value
+       manifest "org.starintel/core@1/latitude" "-90.00000001"))))
+
+(test starintel-0101-mission-and-spatial-contracts-are-first-class
+  "Mission planning and spatial querying compile from StarLang without private downstream schemas."
+  (let* ((manifest (starintel-0101-manifest))
+         (types (getf manifest :types))
+         (messages (getf manifest :messages))
+         (find-type
+           (lambda (name)
+             (find name types :key (lambda (contract) (getf contract :name))
+                   :test #'string=)))
+         (field-names
+           (lambda (contract)
+             (mapcar (lambda (field) (getf field :name))
+                     (getf contract :fields)))))
+    (dolist (name '("org.starintel/core@1/mission"
+                    "org.starintel/core@1/mission-target"
+                    "org.starintel/core@1/route"
+                    "org.starintel/core@1/geofence"
+                    "org.starintel/core@1/encounter"
+                    "org.starintel/core@1/map-layer"))
+      (is (funcall find-type name)))
+    (dolist (field '("name" "objective" "state" "targets" "geofences" "route"))
+      (is (member field
+                  (funcall field-names
+                           (funcall find-type "org.starintel/core@1/mission"))
+                  :test #'string=)))
+    (dolist (field '("participants" "kind" "startedAt" "observations" "evidence"))
+      (is (member field
+                  (funcall field-names
+                           (funcall find-type "org.starintel/core@1/encounter"))
+                  :test #'string=)))
+    (is (find "org.starintel/core@1/query-spatial"
+              messages
+              :key (lambda (message) (getf message :name))
+              :test #'string=))
+    (let ((outputs (starlangcompiler:generate-all-bindings manifest)))
+      (is (search "Mission = TypedDict" (cdr (assoc :python outputs))))
+      (is (search "Geofence = TypedDict" (cdr (assoc :python outputs))))
+      (is (search "Encounter = TypedDict" (cdr (assoc :python outputs))))
+      (is (search "export interface Route" (cdr (assoc :typescript outputs))))
+      (is (search "data class MissionTarget" (cdr (assoc :kotlin outputs))))
+      (is (search "pub struct MapLayer" (cdr (assoc :rust outputs)))))))
+
+(test starintel-0101-network-capture-profile-is-canonical
+  "The retired 0.9.2 HTTP/browser profile is represented by canonical 0.10.1 StarLang contracts."
+  (let* ((manifest (starintel-0101-manifest))
+         (types (getf manifest :types))
+         (find-type
+           (lambda (name)
+             (find name types :key (lambda (contract) (getf contract :name))
+                   :test #'string=)))
+         (field-names
+           (lambda (contract)
+             (mapcar (lambda (field) (getf field :name))
+                     (getf contract :fields)))))
+    (let ((http (funcall find-type "org.starintel/core@1/http-transaction"))
+          (web (funcall find-type "org.starintel/core@1/web-capture")))
+      (is (not (null http)))
+      (is (not (null web)))
+      (dolist (field '("transactionId" "method" "url" "responseStatus"
+                       "requestHeaders" "responseHeaders" "captureActorUri"
+                       "redactedHeaders" "bodyCapturePolicy"))
+        (is (member field (funcall field-names http) :test #'string=)))
+      (dolist (field '("captureId" "url" "screenshotUri" "screenshotHash"
+                       "capturedAt" "httpTransactionIds" "captureActorUri"))
+        (is (member field (funcall field-names web) :test #'string=))))
+    (let ((outputs (starlangcompiler:generate-all-bindings manifest)))
+      (is (search "HttpTransaction = TypedDict" (cdr (assoc :python outputs))))
+      (is (search "WebCapture = TypedDict" (cdr (assoc :python outputs))))
+      (is (search "transactionId" (cdr (assoc :python outputs))))
+      (is (search "screenshotUri" (cdr (assoc :python outputs))))
+      (is (null (search "transaction_id" (cdr (assoc :python outputs)))))
+      (is (null (search "screenshot_uri" (cdr (assoc :python outputs)))))
+      (is (search "export interface HttpTransaction"
+                  (cdr (assoc :typescript outputs))))
+      (is (search "data class WebCapture" (cdr (assoc :kotlin outputs)))))))
+
+(test starintel-0101-generates-deterministic-json-schema
+  "The portable StarLang manifest is the source for JSON Schema, with lowerCamelCase wire keys."
+  (let* ((manifest (starintel-0101-manifest))
+         (first (starlangcompiler:generate-json-schema manifest))
+         (second (starlangcompiler:generate-json-schema manifest)))
+    (is (string= first second))
+    (is (search "\"$schema\":\"https://json-schema.org/draft/2020-12/schema\"" first))
+    (is (search "\"PersonIdentifier\"" first))
+    (is (search "\"GeoPoint\"" first))
+    (is (search "\"Transcript\"" first))
+    (is (search "\"schemaVersion\"" first))
+    (is (null (search "schema_version" first)))))
+
 (test final-compiler-logic-path-does-not-load-prototype
   "The final compiler logic compatibility path stays prototype-independent."
   (is (null (find-package "STAR-LANG.PROTOTYPE")))

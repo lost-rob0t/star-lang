@@ -5,6 +5,8 @@ on:
     paths:
       - "prototype/**"
       - "fixtures/**"
+      - "specs/**"
+      - "tools/**"
       - "ci/**"
       - "**/*.asd"
       - "**/*.lisp"
@@ -21,6 +23,8 @@ on:
     paths:
       - "prototype/**"
       - "fixtures/**"
+      - "specs/**"
+      - "tools/**"
       - "ci/**"
       - "**/*.asd"
       - "**/*.lisp"
@@ -87,12 +91,25 @@ jobs:
             echo "| Delta | $delta |"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Enforce Common Lisp-only implementation boundary
+      - name: Enforce compiler implementation boundary
         shell: bash
         run: |
           set -euo pipefail
           forbidden=""
           while IFS= read -r -d '' f; do
+            case "$f" in
+              ./specs/starintel/*/generated/*.py) continue ;;
+              ./tools/finalize-starintel-release.py) continue ;;
+              ./tools/sync-starintel-consumer.py) continue ;;
+              ./tools/test-starintel-consumer.py) continue ;;
+              ./tools/test-starintel-research-contracts.py) continue ;;
+              ./tools/test-supported-workflow-contracts.py) continue ;;
+              ./tools/test-starintel-versioned-reader.py) continue ;;
+              ./specs/starintel/compatibility/versioned_reader.py) continue ;;
+              ./specs/starintel/compatibility/raw_json_numbers.py) continue ;;
+              ./specs/starintel/0.10.1/workflow_semantics.py) continue ;;
+              ./specs/starintel/0.10.1/operation_semantics.py) continue ;;
+            esac
             forbidden="$forbidden $f"
           done < <(find . -path ./.git -prune -o -type f \( -name '*.rkt' -o -name '*.scm' -o -name '*.ss' -o -name '*.py' \) -print)
           if [ -n "$forbidden" ]; then
@@ -109,7 +126,20 @@ jobs:
             cl-fiveam \
             cl-ironclad \
             cl-usocket \
-            cl-yason
+            cl-yason \
+            python3-jsonschema
+
+      - name: Verify generated StarIntel release artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          sbcl --disable-debugger \
+            --script tools/generate-starintel-release.lisp --check
+          python3 tools/finalize-starintel-release.py --check
+          python3 tools/test-starintel-consumer.py
+          python3 tools/test-starintel-research-contracts.py
+          python3 tools/test-supported-workflow-contracts.py
+          python3 tools/test-starintel-versioned-reader.py
 
       - name: Load starlang-prototype ASDF system
         shell: bash

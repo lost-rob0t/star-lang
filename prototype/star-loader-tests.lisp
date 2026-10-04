@@ -122,6 +122,95 @@
        :validate t
        :if-does-not-exist :ignore))))
 
+(defun test-starintel-0101-schema ()
+  (let* ((fixture
+           (merge-pathnames
+            "../specs/starintel/0.10.1/core.star"
+            *load-truename*))
+         (cache (temporary-test-directory)))
+    (unwind-protect
+         (let* ((graph
+                  (load-star-file
+                   fixture
+                   :cache-directory cache))
+                (root (loaded-graph-root graph))
+                (library (library-node-compiled root))
+                (required-documents
+                  '("file" "media" "image" "picture" "video" "video-frame"
+                    "audio" "audio-segment" "speech-segment"
+                    "speaker" "speaker-observation" "speaker-turn"
+                    "transcript" "person-identifier"
+                    "geo" "geo-point" "geo-line-string" "geo-polygon"
+                    "geo-multi-point" "geo-multi-line-string"
+                    "geo-multi-polygon" "geo-geometry-collection" "location"
+                    "pcap-capture" "network-conversation"
+                    "network-device" "wireless-network" "wireless-station")))
+           (assert-equal "org.starintel/core@1"
+                         (library-node-name root)
+                         "StarIntel 0.10.1 library identity")
+           (assert-equal "0.10.1"
+                         (library-node-version root)
+                         "StarIntel 0.10.1 library version")
+           (dolist (name required-documents)
+             (assert-true
+              (find-document library name)
+              (format nil "StarIntel 0.10.1 document ~A" name)))
+           (dolist (field
+                    '("bytesHash" "bytesHashAlgorithm" "declaredMediaType" "sniffedMediaType"
+                      "magicType" "detectedFormat" "trustFilenameExtension"
+                      "quarantined" "executable"
+                      "archive" "parser" "parseStatus" "derivedFiles"))
+             (assert-true
+              (find-field (find-document library "file") field)
+              (format nil "generic file field ~A" field)))
+           (dolist (field '("video" "frameIndex" "timestampMs"))
+             (assert-true
+              (find-field (find-document library "video-frame") field)
+              (format nil "video-frame field ~A" field)))
+           (dolist (field '("recording" "speaker" "segment" "turnIndex"))
+             (assert-true
+              (find-field (find-document library "speaker-turn") field)
+              (format nil "speaker-turn field ~A" field)))
+           (dolist (field '("person" "scheme" "value" "normalizedValue"
+                            "issuer" "primary" "sensitive" "sourceDocument"))
+             (assert-true
+              (find-field (find-document library "person-identifier") field)
+              (format nil "person-identifier field ~A" field)))
+           (assert-true
+            (find-field (find-document library "person") "identifiers")
+            "person carries typed identifier references")
+           (dolist (field '("geometryType" "coordinateReferenceSystem"
+                            "boundingBox" "accuracyMeters"))
+             (assert-true
+              (find-field (find-document library "geo") field)
+              (format nil "geo field ~A" field)))
+           (dolist (field '("longitude" "latitude" "altitudeMeters"))
+             (assert-true
+              (find-field (find-document library "geo-point") field)
+              (format nil "geo-point field ~A" field)))
+           (dolist (field '("sourceMedia" "transcriptFile" "text" "segments"
+                            "speakerTurns" "wordTimings"))
+             (assert-true
+              (find-field (find-document library "transcript") field)
+              (format nil "transcript field ~A" field)))
+           (dolist (field '("codec" "sampleRateHz" "channels" "durationSeconds"
+                            "transcripts"))
+             (assert-true
+              (find-field (find-document library "audio") field)
+              (format nil "audio field ~A" field)))
+           (dolist (field '("captureId" "fileUri" "fileSha256" "format"))
+             (assert-true
+              (find-field (find-document library "pcap-capture") field)
+              (format nil "pcap-capture field ~A" field)))
+           (dolist (field '("bssid" "ssid" "security" "channel" "frequencyMhz"))
+             (assert-true
+              (find-field (find-document library "wireless-network") field)
+              (format nil "wireless-network field ~A" field))))
+      (uiop:delete-directory-tree
+       cache
+       :validate t
+       :if-does-not-exist :ignore))))
+
 (defun test-local-import-and-cache ()
   (let* ((directory (temporary-test-directory))
          (cache (merge-pathnames #P"cache/" directory))
@@ -421,6 +510,7 @@
 
 (defun run-tests ()
   (test-starintel-schema)
+  (test-starintel-0101-schema)
   (test-local-import-and-cache)
   (test-nested-import-origin-chain)
   (test-import-cycle-diagnostic-chain)

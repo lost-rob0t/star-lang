@@ -9,6 +9,7 @@
    atomic_list_concat([Dir, '/verification-workflow'], Workflow),
    atomic_list_concat([Dir, '/cli-surface'], CliSurface),
    atomic_list_concat([Dir, '/scraper-schema'], ScraperSchema),
+   atomic_list_concat([Dir, '/starintel-authority'], StarIntelAuthority),
    atomic_list_concat([Dir, '/canonical-json-roundtrip'], CanonicalJsonRoundtrip),
    consult(Toolchain),
    consult(Testing),
@@ -16,4 +17,5 @@
    consult(Workflow),
    consult(CliSurface),
    consult(ScraperSchema),
+   consult(StarIntelAuthority),
    consult(CanonicalJsonRoundtrip).
