@@ -1,0 +1,1 @@
+{"actor":"nim.echo","attempt":1,"correlationId":"correlation/req","dataset":"fixture","deadline":"2026-10-04T17:00:00Z","idempotencyKey":"req","kind":"command","messageId":"req","messageType":"star.zmq/echo@1","payload":{"text":"hello ☃"},"replyTo":"caller","sender":"caller","starVersion":1}

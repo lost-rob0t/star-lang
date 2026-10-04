@@ -92,6 +92,8 @@
               --eval '(require :asdf)' \
               --eval '(asdf:test-system :star-actor-protocol)' \
               --eval '(asdf:test-system :star-canonical-json)' \
+              --eval '(asdf:test-system :star-actor-wire)' \
+              --eval '(asdf:test-system :star-document-bus)' \
               --eval '(asdf:test-system :star-journal)' \
               --eval '(asdf:test-system :star-lease)' \
               --eval '(asdf:test-system :starlang-runtime)' \
@@ -122,6 +124,7 @@
             python3 "$source_root/tools/test-starintel-research-contracts.py"
             python3 "$source_root/tools/test-supported-workflow-contracts.py"
             python3 "$source_root/tools/test-starintel-versioned-reader.py"
+            python3 "$source_root/tools/test-starintel-raw-json.py"
 
             sbcl --script "$source_root/prototype/run-star.lisp" \
               load "$source_root/fixtures/star-cl-constructors.star" \
@@ -195,6 +198,8 @@
               --eval '(require :asdf)' \
               --eval '(asdf:test-system :star-actor-protocol)' \
               --eval '(asdf:test-system :star-canonical-json)' \
+              --eval '(asdf:test-system :star-actor-wire)' \
+              --eval '(asdf:test-system :star-document-bus)' \
               --eval '(asdf:test-system :star-journal)' \
               --eval '(asdf:test-system :star-lease)' \
               --eval '(asdf:test-system :starlang-runtime)' \

@@ -105,6 +105,7 @@ jobs:
               ./tools/test-starintel-research-contracts.py) continue ;;
               ./tools/test-supported-workflow-contracts.py) continue ;;
               ./tools/test-starintel-versioned-reader.py) continue ;;
+              ./tools/test-starintel-raw-json.py) continue ;;
               ./specs/starintel/compatibility/versioned_reader.py) continue ;;
               ./specs/starintel/compatibility/raw_json_numbers.py) continue ;;
               ./specs/starintel/0.10.1/workflow_semantics.py) continue ;;

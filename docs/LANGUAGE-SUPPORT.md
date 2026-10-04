@@ -34,3 +34,16 @@ Additional full runtimes may be added only by passing the same conformance suite
 Repository policy and reviews must reject changes that describe Common Lisp as
 temporary, fallback-only, legacy-only, retired, or scheduled for deletion as a
 consequence of Kotlin/JVM parity work.
+
+## Domain/service protocol integration slice
+
+The Common Lisp `star-actor-protocol` system additionally owns the local
+Actor2Actor task/stream projection and pure domain/service admission guards.
+See [scope and verification limits](DOMAIN-SERVICE-CONTRACT.md). No new wire
+schema, generated binding or JVM implementation is claimed by this slice;
+all existing supported language roles above remain unchanged.
+
+`star-actor-wire` is the shared Common Lisp canonical JSON codec extracted from
+the existing ZMQ actor adapter. Rabbit and ZMQ projections share its exact bytes.
+Native/Python/JS adapters may inject this authority rather than implement a second
+serializer; golden lifecycle fixtures are provided, not a new generated language model.
