@@ -1,0 +1,148 @@
+#!/usr/bin/env python3
+"""Deterministic offline diagnostics; no network, mutation, or schema authoring."""
+from __future__ import annotations
+
+import hashlib
+import importlib.util
+import json
+from pathlib import Path
+import tempfile
+import unittest
+
+HERE = Path(__file__).resolve().parent
+spec = importlib.util.spec_from_file_location("drift", HERE / "report-starintel-consumer-drift.py")
+drift = importlib.util.module_from_spec(spec)
+assert spec.loader is not None
+spec.loader.exec_module(drift)
+
+
+def sha(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+class DriftReportTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        self.authority = self.root / "authority"
+        self.consumer = self.root / "consumer"
+        self.lock = self.consumer / "schema/starintel-schema.lock.json"
+        self.lock.parent.mkdir(parents=True)
+        self.release = "specs/starintel/0.10.1"
+        self.source = self.release + "/core.star"
+        self.schema = self.release + "/generated/schema.json"
+        self.payloads = {self.source: b"(spec-library fixture)\n", self.schema: b'{"$schema": "fixture"}\n'}
+        for path, data in self.payloads.items():
+            target = self.authority / path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(data)
+        metadata = {"authorityLibrary": "org.starintel/core@1", "releaseVersion": "0.10.1",
+                    "schemaVersion": "0.10.1", "sources": {"core.star": sha(self.payloads[self.source])},
+                    "artifacts": {"schema.json": sha(self.payloads[self.schema])}}
+        target = self.authority / self.release / "release-lock.json"
+        target.write_text(json.dumps(metadata), encoding="utf-8")
+        self.payloads[self.release + "/release-lock.json"] = target.read_bytes()
+        self.vendor = {}
+        for canonical, data in self.payloads.items():
+            local = "vendor/" + canonical.removeprefix(self.release + "/")
+            path = self.consumer / local
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(data)
+            self.vendor[local] = {"source": canonical, "sha256": sha(data)}
+        self.write_lock()
+
+    def write_lock(self):
+        self.lock.write_text(json.dumps({"canonical_repository": "lost-rob0t/star-lang",
+                                         "release_version": "0.10.1", "schema_version": "0.10.1",
+                                         "vendored_files": self.vendor}), encoding="utf-8")
+
+    def test_exact_closed_release_reports_clean(self):
+        result = drift.audit(self.lock, self.authority)
+        self.assertTrue(result["ok"], result["errors"])
+        self.assertEqual(result["mode"], "release")
+
+    def test_reports_all_corrupted_files_without_short_circuit(self):
+        for local in list(self.vendor)[:2]:
+            (self.consumer / local).write_bytes(b"corrupt")
+        result = drift.audit(self.lock, self.authority)
+        self.assertFalse(result["ok"])
+        self.assertEqual(sum("vendored bytes drift" in x for x in result["errors"]), 2)
+        self.assertEqual(result["errors"], sorted(result["errors"]))
+
+    def test_duplicate_and_missing_sources_both_reported(self):
+        local = sorted(self.vendor)[0]
+        removed = sorted(self.vendor)[1]
+        self.vendor["vendor/duplicate.star"] = dict(self.vendor[local])
+        del self.vendor[removed]
+        self.write_lock()
+        result = drift.audit(self.lock, self.authority)
+        self.assertFalse(result["ok"])
+        self.assertTrue(any("duplicate source" in x for x in result["errors"]))
+        self.assertTrue(any("missing source" in x for x in result["errors"]))
+
+    def test_authority_drift_and_bad_pin_reported(self):
+        (self.authority / self.schema).write_bytes(b"corrupted authority")
+        local = sorted(self.vendor)[0]
+        self.vendor[local]["sha256"] = "0" * 64
+        self.write_lock()
+        result = drift.audit(self.lock, self.authority)
+        self.assertFalse(result["ok"])
+        self.assertTrue(any("authority: committed file drift" in x for x in result["errors"]))
+        self.assertTrue(any("consumer: stale lock hash" in x for x in result["errors"]))
+
+    def bundle_source(self):
+        compatibility = "specs/starintel/compatibility/reader.py"
+        target = self.authority / compatibility
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(b"reader fixture\n")
+        bundle = self.release + "/bundle-lock.json"
+        closure = dict(self.payloads)
+        closure[compatibility] = target.read_bytes()
+        metadata = {"bundleFormat": "starintel-consumer-bundle/1",
+                    "files": {p.removeprefix("specs/starintel/"): sha(data)
+                              for p, data in closure.items()}}
+        bundle_file = self.authority / bundle
+        bundle_file.write_text(json.dumps(metadata), encoding="utf-8")
+        closure[bundle] = bundle_file.read_bytes()
+        self.vendor = {}
+        for source, data in closure.items():
+            local = "vendor/starintel/" + source.removeprefix("specs/starintel/")
+            path = self.consumer / local
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(data)
+            self.vendor[local] = {"source": source, "sha256": sha(data)}
+        self.write_lock()
+        lock = json.loads(self.lock.read_text())
+        lock["bundle_format"] = "starintel-consumer-bundle/1"
+        self.lock.write_text(json.dumps(lock))
+        return compatibility
+
+    def test_bundle_closure_reports_clean(self):
+        self.bundle_source()
+        result = drift.audit(self.lock, self.authority)
+        self.assertTrue(result["ok"], result["errors"])
+        self.assertEqual(result["mode"], "bundle")
+
+    def test_bundle_reports_release_hash_disagreement(self):
+        self.bundle_source()
+        path = self.authority / self.release / "bundle-lock.json"
+        bundle = json.loads(path.read_text())
+        bundle["files"]["0.10.1/core.star"] = "0" * 64
+        path.write_text(json.dumps(bundle))
+        result = drift.audit(self.lock, self.authority)
+        self.assertFalse(result["ok"])
+        self.assertTrue(any("release/bundle hash mismatch" in x for x in result["errors"]))
+
+    def test_symlink_vendor_is_not_followed(self):
+        local = sorted(self.vendor)[0]
+        target = self.consumer / local
+        target.unlink()
+        target.symlink_to(self.consumer / sorted(self.vendor)[1])
+        result = drift.audit(self.lock, self.authority)
+        self.assertFalse(result["ok"])
+        self.assertTrue(any("unsafe symlink target" in x for x in result["errors"]))
+
+
+if __name__ == "__main__":
+    unittest.main()
