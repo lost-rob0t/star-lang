@@ -57,6 +57,19 @@ def safe_target(root: Path, relative: str) -> Path:
     return target
 
 
+def verify_closed_destination(root: Path, destination: str, allowed: set[Path]) -> None:
+    """A dedicated bundle directory must not contain unpinned import shadows."""
+    directory = safe_target(root, destination)
+    if not directory.exists():
+        return
+    require(directory.is_dir(), "bundle destination must be a directory")
+    for path in directory.rglob("*"):
+        require(not path.is_symlink(), f"unsafe bundle symlink: {path}")
+        if path.is_dir():
+            continue
+        require(path.is_file() and path in allowed, f"unlisted bundle file: {path}")
+
+
 def consumer_root(lock_path: Path) -> tuple[Path, Path]:
     # Do not resolve the lock first: that would let a lock symlink choose a
     # different repository root and erase the evidence of the symlink.
@@ -188,6 +201,8 @@ def sync(lock_path: Path, commit: str, source: Path | None, destination: str,
     targets = {path: safe_target(root, local) for path, local in paths.items()}
     require(len(set(targets.values())) == len(files), "duplicate consumer target")
     require(lock_path not in targets.values(), "consumer artifact cannot overwrite its lock")
+    if bundle:
+        verify_closed_destination(root, destination, set(targets.values()))
     for path, data in files.items():
         target = targets[path]
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -236,6 +251,7 @@ def check(lock_path: Path, source: Path | None, *, offline: bool = False) -> dic
             expected_local = destination + "/" + entry["source"].removeprefix(BUNDLE_ROOT + "/")
             require(local == expected_local, "bundle sibling layout mismatch")
         release, files = verify_bundle(lock["canonical_commit"], source, read)
+        verify_closed_destination(root, destination, set(local_paths.values()))
     else:
         release, files = verify_release(lock["canonical_commit"], source, read)
     for local, canonical in (("release_version", "releaseVersion"), ("schema_version", "schemaVersion"),

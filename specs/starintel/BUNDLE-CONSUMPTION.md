@@ -61,11 +61,16 @@ The online or local-Git check verifies exact upstream identity. The offline
 check verifies local closure without network access; it does not independently
 authenticate a locally rewritten lock. Hashes are integrity checks, not signatures.
 
+Use a dedicated bundle directory: checks and sync reject unlisted files, including
+Python import shadows and bytecode caches. Invoke the reader with `-B` (or set
+`PYTHONDONTWRITEBYTECODE=1`) so normal execution does not add bytecode to that
+closed directory. Existing cache files must be removed before verification.
+
 Run the complete consumer check before loading the reader or generated code:
 
 ```sh
 python3 tools/sync-starintel-consumer.py --bundle --offline &&
-python3 schemas/starintel/compatibility/versioned_reader.py read < old.json
+python3 -B schemas/starintel/compatibility/versioned_reader.py read < old.json
 ```
 
 ## Failure and activation boundary

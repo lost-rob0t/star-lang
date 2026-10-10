@@ -142,7 +142,7 @@ class ConsumerTests(unittest.TestCase):
         reader = root / "compatibility/versioned_reader.py"
         old = b' \n{"_id":"fixture:alert","dataset":"test","dtype":"alert","schema_version":"0.9.0","version":1,"date_added":"2026-10-04T00:00:00Z","date_updated":"2026-10-04T00:00:00Z","sources":[],"evidence":[],"data":{},"extensions":{"flag":false,"n":1e3}}\n'
         def run(*args, raw=old):
-            return subprocess.run([sys.executable, "-I", str(reader), *args], input=raw,
+            return subprocess.run([sys.executable, "-I", "-B", str(reader), *args], input=raw,
                                   capture_output=True, cwd=self.root, check=True).stdout
         self.assertEqual(run("read"), old)
         report = json.loads(run("migrate", "--dry-run"))
@@ -256,7 +256,7 @@ for index in range(64):
         raise AssertionError("duplicate-key mutation accepted")
 print("28 relocated paired workflows; 64 seeded archival cases passed")
 """
-        result = subprocess.run([sys.executable, "-I", "-c", script, str(root)],
+        result = subprocess.run([sys.executable, "-I", "-B", "-c", script, str(root)],
                                 capture_output=True, text=True, cwd=self.root, check=True)
         self.assertIn("64 seeded archival cases passed", result.stdout)
 
@@ -302,6 +302,26 @@ print("28 relocated paired workflows; 64 seeded archival cases passed")
                         consumer.sync(self.lock, commit, self.source, "vendor/starintel", bundle=True)
                 self.assertFalse(self.lock.exists())
                 self.assertFalse((self.lock.parent.parent / "vendor").exists())
+
+    def test_bundle_rejects_unlisted_import_shadows_and_bytecode(self):
+        commit = self.bundle_source()
+        consumer.sync(self.lock, commit, self.source, "vendor/starintel", bundle=True)
+        original_lock = self.lock.read_bytes()
+        directory = self.lock.parent.parent / "vendor/starintel/compatibility"
+        for name in ("operation_semantics.py", "raw_json_numbers.pyc",
+                     "__pycache__/raw_json_numbers.cpython-312.pyc"):
+            shadow = directory / name
+            shadow.parent.mkdir(parents=True, exist_ok=True)
+            shadow.write_bytes(b"# unpinned shadow")
+            with self.subTest(name=name):
+                for offline in (False, True):
+                    with self.assertRaisesRegex(ValueError, "unlisted bundle file"):
+                        consumer.check(self.lock, None if offline else self.source, offline=offline)
+                with self.assertRaisesRegex(ValueError, "unlisted bundle file"):
+                    consumer.sync(self.lock, commit, self.source, "vendor/starintel", bundle=True)
+                self.assertEqual(self.lock.read_bytes(), original_lock)
+            shadow.unlink()
+        consumer.check(self.lock, None, offline=True)
 
 
 if __name__ == "__main__":
