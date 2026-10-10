@@ -6,9 +6,8 @@
 ;;;; prototype loader script (prototype/run-star.lisp) and reach the installed
 ;;;; starlang wrapper through wrapper-level dispatch, never through here.
 ;;;;
-;;;; Program manifests carry the compiled unit's digest inside a synthetic
-;;;; single-library envelope until program-level compilation (multi-actor and
-;;;; dataflow programs) lands in the compiler.
+;;;; Single actors keep a synthetic digest-pinned library envelope.
+;;;; Spec-library inputs preserve their own identity, version, and import pins.
 ;;;;
 ;;;; Exit codes: 0 success; 1 runtime or diagnostic failure; 2 usage error.
 
@@ -49,14 +48,14 @@
   (let ((digest (ironclad:digest-file (ironclad:make-digest :sha256) file)))
     (format nil "sha256:~A" (ironclad:byte-array-to-hex-string digest))))
 
-(defun program-library-envelope (file library-name library-version)
+(defun program-library-envelope (file library-name library-version &optional digest)
   ;; Until program-level compilation (multi-actor/dataflow programs) lands in
   ;; the compiler, a program manifest wraps the compiled unit in a synthetic
   ;; single-library envelope whose digest pins the .star source octets.
   (list :kind :spec-library
         :name library-name
         :version library-version
-        :digest (file-sha256 file)
+        :digest (or digest (file-sha256 file))
         :imports '()
         :declarations '()))
 
@@ -77,6 +76,32 @@ and return (values actor-ir portable-manifest)."
   (nth-value 1 (compile-program file
                                 :library-name library-name
                                 :library-version library-version)))
+
+
+
+(defun source-octets-digest (octets)
+  "Hash the exact bounded octets consumed by the final closed parser."
+  (format nil "sha256:~A"
+          (ironclad:byte-array-to-hex-string
+           (ironclad:digest-sequence :sha256 octets))))
+
+(defun compile-file-manifest (file)
+  "Emit a source-pinned manifest for actors or full specification libraries."
+  (multiple-value-bind (kind ir octets)
+      (starlangcompiler:compile-star-file file)
+    (let ((digest (source-octets-digest octets)))
+      (ecase kind
+        (:actor
+         (starlangcompiler:emit-portable-manifest
+          (program-library-envelope file (pathname-name (pathname file))
+                                    "1" digest)
+          (list ir)))
+        (:spec-library
+         ;; Source-declared name, version, and import locks are authoritative.
+         ;; Supply exact source bytes as the pin when no digest is declared.
+         (unless (getf ir :digest)
+           (setf (getf ir :digest) digest))
+         (starlangcompiler:emit-portable-manifest ir '()))))))
 
 (defun evaluate-host-form (form package)
   ;; --eval and --load are trusted host-side CLI options; only they reach
@@ -227,15 +252,20 @@ from that package, and drain the dispatcher queue. Returns
             manifest)))
 
 (defun run-check-command (arguments)
-  (let* ((file (require-single-file arguments "check"))
-         (ir (starlangcompiler:compile-actor-file file)))
-    (format *standard-output* "ok: actor ~A~%" (getf ir :name))
-    0))
+  (let ((file (require-single-file arguments "check")))
+    (multiple-value-bind (kind ir)
+        (starlangcompiler:compile-star-file file)
+      (format *standard-output* "ok: ~A ~A~%"
+              (ecase kind
+                (:actor "actor")
+                (:spec-library "spec-library"))
+              (getf ir :name))
+      0)))
 
 (defun run-compile-command (arguments)
   (multiple-value-bind (file manifest-path)
       (parse-compile-arguments arguments)
-    (let ((manifest (compile-program-manifest file)))
+    (let ((manifest (compile-file-manifest file)))
       (write-manifest-json
        (starcanonicaljson:canonical-manifest-json manifest)
        manifest-path)

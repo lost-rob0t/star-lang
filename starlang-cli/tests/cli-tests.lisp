@@ -17,6 +17,12 @@
   (asdf:system-relative-pathname :starlang-cli
                                  "../fixtures/actor-compiler/enrichment-worker.star"))
 
+
+
+(defun canonical-starintel-spec-fixture ()
+  (asdf:system-relative-pathname
+   :starlang-cli "../specs/starintel/0.10.1/core.star"))
+
 (defun unknown-option-fixture ()
   (asdf:system-relative-pathname
    :starlang-cli "tests/fixtures/actor-unknown-option.star"))
@@ -211,6 +217,73 @@ dispatcher, and the real dispatcher routes a live command through it."
               :error-output sink
               :ignore-error-status nil))))
     (is (search "CLI-PROOF-OK" output))))
+
+
+
+(test check-accepts-canonical-starintel-spec-library
+  "The final CLI compiles the real 0.10.1 source through the closed compiler."
+  (multiple-value-bind (code stdout stderr)
+      (run-capturing (list "check" (namestring (canonical-starintel-spec-fixture))))
+    (is (= 0 code))
+    (is (string= "" stderr))
+    (is (search "ok: spec-library org.starintel/core@1" stdout))))
+
+(test compile-preserves-canonical-library-identity-and-source-digest
+  "Two compilations of the canonical library yield byte-identical source-pinned JSON."
+  (let* ((source (canonical-starintel-spec-fixture))
+         (argv (list "compile" (namestring source)))
+         (digest (star-lang.cli::file-sha256 source)))
+    (multiple-value-bind (code1 out1 err1) (run-capturing argv)
+      (multiple-value-bind (code2 out2 err2) (run-capturing argv)
+        (is (= 0 code1))
+        (is (= 0 code2))
+        (is (string= "" err1))
+        (is (string= "" err2))
+        (is (string= out1 out2))
+        (is (search "org.starintel/core@1" out1))
+        (is (search "0.10.1" out1))
+        (is (search digest out1))
+        (is (search "document" out1))
+        (is (char= #\Newline (char out1 (1- (length out1)))))))))
+
+(test compile-preserves-library-import-locks
+  "The final CLI passes exact-version and full-digest import locks into its manifest."
+  (let ((pin (concatenate 'string "sha256:"
+                          (make-string 64 :initial-element #\a))))
+    (uiop:with-temporary-file (:pathname source :suffix ".star" :keep t)
+      (with-open-file (stream source :direction :output :if-exists :supersede)
+        (format stream
+                "(spec-library ~S (:version ~S) (import ~S :version ~S :digest ~S) (enum state (ready)))~%"
+                "org.starintel/test@1" "1.0.0"
+                "org.starintel/dependency@1" "1.2.3" pin))
+      (multiple-value-bind (code stdout stderr)
+          (run-capturing (list "compile" (namestring source)))
+        (is (= 0 code))
+        (is (string= "" stderr))
+        (is (search "org.starintel/test@1" stdout))
+        (is (search "org.starintel/dependency@1" stdout))
+        (is (search "1.2.3" stdout))
+        (is (search pin stdout))))))
+
+(test reject-unknown-top-level-source-form
+  "The final CLI rejects unknown source heads instead of accepting arbitrary forms."
+  (uiop:with-temporary-file (:pathname source :suffix ".star" :keep t)
+    (with-open-file (stream source :direction :output :if-exists :supersede)
+      (write-line "(unrecognized-item anything)" stream))
+    (multiple-value-bind (code stdout stderr)
+        (run-capturing (list "check" (namestring source)))
+      (is (= 1 code))
+      (is (string= "" stdout))
+      (is (search "Expected actor or spec-library" stderr)))))
+
+(test missing-library-file-returns-structured-error
+  "A missing source file is a source diagnostic rather than an uncaught file error."
+  (uiop:with-temporary-file (:pathname source :suffix ".star")
+    (multiple-value-bind (code stdout stderr)
+        (run-capturing (list "check" (namestring source)))
+      (is (= 1 code))
+      (is (string= "" stdout))
+      (is (search "Could not read Star source" stderr)))))
 
 (defun run-tests ()
   ;; fiveam's run! returns T only when every check passed; surface failures

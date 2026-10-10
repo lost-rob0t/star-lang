@@ -19,6 +19,7 @@
     #:compile-actor
     #:compile-actor-source
     #:compile-actor-file
+    #:compile-star-file
     #:compile-spec-library
     #:compile-star-core
     #:emit-lifecycle-manifest

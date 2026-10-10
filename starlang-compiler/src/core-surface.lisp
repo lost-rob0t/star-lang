@@ -9,6 +9,7 @@
   (:export
    ;; Pipeline entry points and constants.
    #:compile-actor
+   #:compile-star-file
    #:compile-actor-source
    #:compile-spec-library
    #:compile-star-core

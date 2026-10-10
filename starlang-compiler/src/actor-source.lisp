@@ -38,3 +38,36 @@ lower it."
                             :limits effective-limits
                             :source-id (namestring path)
                             :pathname path))))
+
+
+(defun compile-star-file (pathname &key limits)
+  "Compile one bounded actor or spec-library .star unit from exact UTF-8 octets.
+Return (values kind normalized-ir source-octets) for deterministic source pins."
+  (let ((path (pathname pathname)))
+    (unless (and (pathname-type path)
+                 (string-equal (pathname-type path) "star"))
+      (fail 'star-lang-source-error
+            "Star source pathname must use the .star extension."))
+    (let* ((effective-limits (or limits (make-star-parser-limits)))
+           (octets (handler-case
+                       (read-star-path-octets path effective-limits)
+                     (file-error (condition)
+                       (fail 'star-lang-source-error
+                             "Could not read Star source ~A: ~A."
+                             path condition))))
+           (syntax (read-star-syntax octets
+                                     :limits effective-limits
+                                     :pathname path
+                                     :source-id (namestring path)))
+           (expanded (expand-star-syntax syntax :limits effective-limits))
+           (head (syntax-head-name expanded)))
+      (cond
+        ((string= (or head "") "spec-library")
+         (values :spec-library (compile-star-core expanded) octets))
+        ((string= (or head "") "actor")
+         (values :actor (compile-actor-declaration-syntax expanded) octets))
+        (t
+         (with-star-source-position (expanded)
+           (fail 'invalid-declaration-error
+                 "Expected actor or spec-library source unit, received ~S."
+                 head)))))))
