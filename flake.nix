@@ -41,7 +41,7 @@
           nativeBuildInputs = [
             sbcl
             swipl
-            pkgs.python3
+            (pkgs.python3.withPackages (ps: [ ps.jsonschema ]))
           ];
 
           dontConfigure = true;
@@ -92,6 +92,8 @@
               --eval '(require :asdf)' \
               --eval '(asdf:test-system :star-actor-protocol)' \
               --eval '(asdf:test-system :star-canonical-json)' \
+              --eval '(asdf:test-system :star-actor-wire)' \
+              --eval '(asdf:test-system :star-document-bus)' \
               --eval '(asdf:test-system :star-journal)' \
               --eval '(asdf:test-system :star-lease)' \
               --eval '(asdf:test-system :starlang-runtime)' \
@@ -118,7 +120,14 @@
 
             sbcl --disable-debugger \
               --script "$source_root/tools/generate-starintel-release.lisp" --check
-            python3 "$source_root/tools/finalize-starintel-release.py" --check
+            python3 "$source_root/tools/finalize-starintel-release.py" --check --bundle
+            python3 "$source_root/tools/test-starintel-research-contracts.py"
+            python3 "$source_root/tools/test-supported-workflow-contracts.py"
+            python3 "$source_root/tools/test-starintel-versioned-reader.py"
+            python3 "$source_root/tools/test-starintel-raw-json.py"
+            python3 -O "$source_root/tools/test-starintel-raw-json-harness.py"
+            python3 -O "$source_root/tools/test-starintel-consumer-optimized.py"
+            python3 "$source_root/tools/test-starintel-consumer-drift.py"
 
             sbcl --script "$source_root/prototype/run-star.lisp" \
               load "$source_root/fixtures/star-cl-constructors.star" \
@@ -192,6 +201,8 @@
               --eval '(require :asdf)' \
               --eval '(asdf:test-system :star-actor-protocol)' \
               --eval '(asdf:test-system :star-canonical-json)' \
+              --eval '(asdf:test-system :star-actor-wire)' \
+              --eval '(asdf:test-system :star-document-bus)' \
               --eval '(asdf:test-system :star-journal)' \
               --eval '(asdf:test-system :star-lease)' \
               --eval '(asdf:test-system :starlang-runtime)' \
@@ -219,7 +230,7 @@
             ${sbcl}/bin/sbcl --disable-debugger \
               --script "\$source_root/tools/generate-starintel-release.lisp" --check
             ${pkgs.python3}/bin/python3 \
-              "\$source_root/tools/finalize-starintel-release.py" --check
+              "\$source_root/tools/finalize-starintel-release.py" --check --bundle
             EOF_SCRIPT
 
             chmod +x "$out/bin/starlang" "$out/bin/starlang-test"

@@ -1,0 +1,31 @@
+(in-package :staractorprotocol)
+
+;; Explicit opaque JSON values are owned by the protocol, never by a downstream SDK.
+(defparameter +portable-json-null+ (gensym "JSON-NULL"))
+(defparameter +portable-json-false+ (gensym "JSON-FALSE"))
+(defparameter +portable-json-empty-object+ (gensym "JSON-EMPTY-OBJECT"))
+(defstruct (portable-json-number (:constructor %make-portable-json-number (lexeme)))
+  (lexeme "0" :type string :read-only t))
+
+(defun portable-json-number-token-p (value)
+  (and (stringp value) (<= 1 (length value) 128)
+       (let ((i 0) (size (length value)))
+         (labels ((peek () (and (< i size) (char value i)))
+                  (digit () (and (peek) (find (peek) "0123456789")))
+                  (digits () (let ((start i))
+                               (loop while (digit) do (incf i))
+                               (> i start))))
+           (when (eql (peek) #\-) (incf i))
+           (and (if (eql (peek) #\0) (progn (incf i) t) (digits))
+                (or (not (eql (peek) #\.)) (progn (incf i) (digits)))
+                (or (not (member (peek) '(#\e #\E)))
+                    (progn (incf i)
+                           (when (member (peek) '(#\+ #\-)) (incf i))
+                           (digits)))
+                (= i size))))))
+
+(defun make-portable-json-number (lexeme)
+  "Own a bounded exact JSON number token. Never coerce through binary float."
+  (unless (portable-json-number-token-p lexeme)
+    (fail-invalid-wire-envelope "Malformed or oversized exact JSON number token."))
+  (%make-portable-json-number (copy-seq lexeme)))

@@ -124,3 +124,12 @@ Retain historical contracts only behind an explicit versioned compatibility
 boundary. Migrations must follow the fixtures above; changing a version constant
 or renaming keys is insufficient. No downstream schema generator, handwritten
 model, or historical repository becomes an independent specification authority.
+
+## Explicit historical reading and archival migration
+
+The [versioned compatibility registry](compatibility/README.md) pins an actual
+historical full schema independently of the current writer. Its bounded reference
+supports validated historical reads, dry-run field reports, exact original-byte
+recovery and source-locked migrations. Existing adapter acceptance lists do not
+establish a complete historical profile: see the registry's explicit exclusions,
+including the documented same-version JSON-schema/executable-contract drift.

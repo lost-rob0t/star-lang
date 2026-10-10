@@ -116,6 +116,9 @@ mutate a later snapshot through an earlier alias."
                  (cond
                    ((null item) nil)
                    ((eq item t) t)
+                   ((portable-json-number-p item)
+                    (claim-string (portable-json-number-lexeme item))
+                    (make-portable-json-number (portable-json-number-lexeme item)))
                    ((integerp item) item)
                    ((symbolp item) item)
                    ((stringp item)
