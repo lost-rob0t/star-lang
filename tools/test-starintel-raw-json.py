@@ -29,6 +29,11 @@ def same_value(left, right):
     return left == right
 
 
+def require(condition, message):
+    if not condition:
+        raise ValueError(message)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--adapter', action='append', default=[], metavar='NAME=COMMAND')
@@ -38,18 +43,26 @@ def main():
     reader = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(reader)
     fixture = json.loads(FIXTURE.read_text(encoding='utf-8'))
-    assert fixture['contract'] == 'starintel.raw-json-unique-keys/1'
+    require(fixture.get('contract') == 'starintel.raw-json-unique-keys/1',
+            'raw JSON fixture contract mismatch')
     cases = fixture['cases']
-    assert len({case['name'] for case in cases}) == len(cases)
+    require(isinstance(cases, list) and all(isinstance(case, dict) and
+            isinstance(case.get('name'), str) for case in cases),
+            'raw JSON fixture cases must be named objects')
+    require(len({case['name'] for case in cases}) == len(cases),
+            'duplicate raw JSON fixture case')
     reports = []
     for case in cases:
+        require(type(case.get('valid')) is bool, 'raw JSON fixture validity must be boolean')
         try:
             reader.parse(case['wire'])
             accepted = True
         except ValueError as error:
-            assert 'duplicate JSON key' in str(error), (case['name'], str(error))
+            require('duplicate JSON key' in str(error),
+                    f"unexpected reference rejection for {case['name']}: {error}")
             accepted = False
-        assert accepted == case['valid'], ('authority', case['name'], accepted)
+        require(accepted == case['valid'],
+                f"authority raw JSON case mismatch: {case['name']} accepted={accepted}")
     print(f'authority: {len(cases)} raw JSON key cases passed', flush=True)
     failures = []
     for adapter in args.adapter:

@@ -125,6 +125,7 @@
             python3 "$source_root/tools/test-supported-workflow-contracts.py"
             python3 "$source_root/tools/test-starintel-versioned-reader.py"
             python3 "$source_root/tools/test-starintel-raw-json.py"
+            python3 -O "$source_root/tools/test-starintel-raw-json-harness.py"
             python3 "$source_root/tools/test-starintel-consumer-drift.py"
 
             sbcl --script "$source_root/prototype/run-star.lisp" \
