@@ -421,7 +421,7 @@
                                   :test #'string=)))
              (is (not (gethash qualified seen)))
              (setf (gethash qualified seen) t)
-             (is contract)
+             (is (consp contract))
              (when contract
                (is (eq (getf contract :kind)
                        (if message-p :message :document)))
