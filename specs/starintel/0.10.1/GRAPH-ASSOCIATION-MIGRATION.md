@@ -53,6 +53,28 @@ document type; 0.9.x records remain historical input only. This is a
 semantic-only change: the canonical `core.star` fields and source-generated
 JSON Schema, language bindings, and release locks remain byte-identical.
 
+## Source-content validity windows
+
+Entity and other 0.10.1 domain documents declare optional
+`contentValidFrom` / `contentValidUntil` RFC3339 date-times in canonical
+`core.star`. They are distinct from inherited document-level UnixTime
+`validFrom` / `validUntil` and must **not** be substituted for each other.
+After official generated-schema validation, semantic admission compares
+actual UTC instants (including timezone offsets and arbitrary fractional
+seconds) and rejects a reversed pair. Identical instants across offsets are
+valid; a missing or `null` endpoint remains open. The rule does not infer
+an absent endpoint or change candidate, disputed, or verified status.
+
+For historical records with reversed source-content windows, quarantine
+those records and retain both original strings, evidence, and provenance
+for operator review. Never silently swap timestamps or rewrite asserted
+identity links. IR14 / StarIntel Server and Pro Actors should apply this
+post-schema check before persistence; downstreams should not substitute
+lexicographic timestamp comparisons. It is a semantic-only hardening of
+fields already declared in `core.star`: no generated wire artifact or release
+lock changes. The regression corpus now exercises these fields using the
+existing generated 0.10.1 `Entity` definition.
+
 ## Verified links
 
 An asserted identity-equivalence `Relation` requires explicit verified

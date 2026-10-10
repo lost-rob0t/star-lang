@@ -5,6 +5,9 @@ identity resolver. Call it only after validating against canonical JSON Schema.
 """
 
 from collections.abc import Mapping
+from calendar import timegm
+from datetime import date
+import re
 from decimal import Decimal, InvalidOperation
 
 IDENTITY_EQUIVALENCE_PREDICATES = frozenset({
@@ -88,6 +91,63 @@ def _validate_common_validity_window(document):
         raise ValueError("validFrom must not be later than validUntil")
 
 
+
+# RFC 3339 date-time, with arbitrary fractional-second precision.
+# Compare UTC instants, not strings: differing offsets invert lexical order.
+_RFC3339 = re.compile(
+    r"^(\d{4})-(\d{2})-(\d{2})[Tt](\d{2}):(\d{2}):(\d{2})"
+    r"(?:\.(\d+))?([Zz]|[+-]\d{2}:\d{2})$",
+    re.ASCII,
+)
+
+
+def _utc_instant(value, label):
+    if not isinstance(value, str):
+        raise ValueError(f"{label} requires RFC3339 date-time string")
+    match = _RFC3339.fullmatch(value)
+    if match is None:
+        raise ValueError(f"{label} requires RFC3339 date-time string")
+    year, month, day, hour, minute, second = map(int, match.groups()[:6])
+    try:
+        date(year, month, day)
+    except ValueError as exc:
+        raise ValueError(f"{label} contains invalid calendar date") from exc
+    if hour > 23 or minute > 59 or second > 60:
+        raise ValueError(f"{label} contains invalid UTC clock time")
+    zone = match.group(8)
+    offset = 0
+    if zone not in ("Z", "z"):
+        offset_hours, offset_minutes = map(int, zone[1:].split(":"))
+        if offset_hours > 23 or offset_minutes > 59:
+            raise ValueError(f"{label} has invalid UTC offset")
+        offset = (offset_hours * 60 + offset_minutes) * 60
+        if zone[0] == "-":
+            offset = -offset
+    # A 60th (leap) second maps to the immediately following UTC second.
+    epoch_seconds = timegm((year, month, day, hour, minute, min(second, 59)))
+    epoch_seconds += int(second == 60) - offset
+    # A tuple comparison preserves every fractional digit, even beyond six.
+    fraction = Decimal("0." + (match.group(7) or "0"))
+    return epoch_seconds, fraction
+
+
+def _validate_content_validity_window(document):
+    """Reject reversed source-content intervals without changing resolution state.
+
+    Unlike inherited UnixTime Document.validFrom, these optional fields use
+    RFC3339 strings on Entity and other source-controlled domain documents.
+    Null and omitted endpoints both represent an open interval.
+    """
+    endpoints = {}
+    for field in ("contentValidFrom", "contentValidUntil"):
+        value = document.get(field)
+        if value is not None:
+            endpoints[field] = _utc_instant(value, field)
+    if (len(endpoints) == 2
+            and endpoints["contentValidFrom"] > endpoints["contentValidUntil"]):
+        raise ValueError("contentValidFrom must not be later than contentValidUntil")
+
+
 def validate_relation_assertion(document):
     """Validate a Relation's resolution semantics, without modifying it."""
     if not isinstance(document, Mapping):
@@ -97,6 +157,7 @@ def validate_relation_assertion(document):
     if document.get("schemaVersion") != "0.10.1":
         raise ValueError("relation semantics require schemaVersion 0.10.1")
     _validate_common_validity_window(document)
+    _validate_content_validity_window(document)
 
     status = document.get("verificationStatus")
     predicate = document.get("predicate")
@@ -176,6 +237,7 @@ def validate_entity_association(document, verified_relations=()):
     if document.get("schemaVersion") != "0.10.1":
         raise ValueError("entity semantics require schemaVersion 0.10.1")
     _validate_common_validity_window(document)
+    _validate_content_validity_window(document)
     _reject_false_attestation(document)
 
     same_as = _id_set(document, "sameAsIds")
@@ -203,4 +265,5 @@ def validate_graph_association(document, verified_relations=()):
     # including Person, Org, NetworkDevice, Address and Observation.
     if document.get("schemaVersion") == "0.10.1":
         _validate_common_validity_window(document)
+        _validate_content_validity_window(document)
     return document

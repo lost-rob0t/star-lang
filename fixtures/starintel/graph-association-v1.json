@@ -672,6 +672,114 @@
         "identityConfidence": "1.0000",
         "validFrom": 1760000100
       }
+    },
+    {
+      "name": "entity-content-reversed-zulu",
+      "valid": false,
+      "document": {
+        "id": "entity:entity-content-reversed-zulu",
+        "dataset": "fixtures",
+        "dtype": "entity",
+        "schemaVersion": "0.10.1",
+        "verificationStatus": "candidate",
+        "duplicateCandidateIds": [
+          "entity:two",
+          "entity:three"
+        ],
+        "identityConfidence": "1.0000",
+        "contentValidFrom": "2026-10-12T00:00:00Z",
+        "contentValidUntil": "2026-10-11T23:59:59Z"
+      }
+    },
+    {
+      "name": "entity-content-reversed-by-zone",
+      "valid": false,
+      "document": {
+        "id": "entity:entity-content-reversed-by-zone",
+        "dataset": "fixtures",
+        "dtype": "entity",
+        "schemaVersion": "0.10.1",
+        "verificationStatus": "candidate",
+        "duplicateCandidateIds": [
+          "entity:two",
+          "entity:three"
+        ],
+        "identityConfidence": "1.0000",
+        "contentValidFrom": "2026-10-12T00:00:00+02:00",
+        "contentValidUntil": "2026-10-11T21:00:00Z"
+      }
+    },
+    {
+      "name": "entity-content-precise-fraction-reversed",
+      "valid": false,
+      "document": {
+        "id": "entity:entity-content-precise-fraction-reversed",
+        "dataset": "fixtures",
+        "dtype": "entity",
+        "schemaVersion": "0.10.1",
+        "verificationStatus": "candidate",
+        "duplicateCandidateIds": [
+          "entity:two",
+          "entity:three"
+        ],
+        "identityConfidence": "1.0000",
+        "contentValidFrom": "2026-10-11T12:00:00.123456789Z",
+        "contentValidUntil": "2026-10-11T12:00:00.123456788Z"
+      }
+    },
+    {
+      "name": "entity-content-equal-zones",
+      "valid": true,
+      "document": {
+        "id": "entity:entity-content-equal-zones",
+        "dataset": "fixtures",
+        "dtype": "entity",
+        "schemaVersion": "0.10.1",
+        "verificationStatus": "candidate",
+        "duplicateCandidateIds": [
+          "entity:two",
+          "entity:three"
+        ],
+        "identityConfidence": "1.0000",
+        "contentValidFrom": "2026-10-11T12:00:00+02:00",
+        "contentValidUntil": "2026-10-11T10:00:00Z"
+      }
+    },
+    {
+      "name": "entity-content-open-null",
+      "valid": true,
+      "document": {
+        "id": "entity:entity-content-open-null",
+        "dataset": "fixtures",
+        "dtype": "entity",
+        "schemaVersion": "0.10.1",
+        "verificationStatus": "candidate",
+        "duplicateCandidateIds": [
+          "entity:two",
+          "entity:three"
+        ],
+        "identityConfidence": "1.0000",
+        "contentValidFrom": null,
+        "contentValidUntil": "2026-10-11T12:00:00Z"
+      }
+    },
+    {
+      "name": "entity-content-valid-cross-zone",
+      "valid": true,
+      "document": {
+        "id": "entity:entity-content-valid-cross-zone",
+        "dataset": "fixtures",
+        "dtype": "entity",
+        "schemaVersion": "0.10.1",
+        "verificationStatus": "candidate",
+        "duplicateCandidateIds": [
+          "entity:two",
+          "entity:three"
+        ],
+        "identityConfidence": "1.0000",
+        "contentValidFrom": "2026-10-11T20:00:00+03:00",
+        "contentValidUntil": "2026-10-11T16:00:00-02:00"
+      }
     }
   ]
 }

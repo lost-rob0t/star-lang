@@ -7,7 +7,7 @@ from pathlib import Path
 import sys
 import unittest
 
-from jsonschema import Draft202012Validator
+from jsonschema import Draft202012Validator, FormatChecker
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
@@ -20,8 +20,8 @@ from starintel_graph_contracts import (
 
 SCHEMA = json.loads((ROOT / "specs/starintel/0.10.1/generated/schema.json").read_text())
 FIXTURES = json.loads((ROOT / "fixtures/starintel/graph-association-v1.json").read_text())
-RELATION_SCHEMA_VALIDATOR = Draft202012Validator({**SCHEMA, "$ref": "#/$defs/Relation"})
-ENTITY_SCHEMA_VALIDATOR = Draft202012Validator({**SCHEMA, "$ref": "#/$defs/Entity"})
+RELATION_SCHEMA_VALIDATOR = Draft202012Validator({**SCHEMA, "$ref": "#/$defs/Relation"}, format_checker=FormatChecker())
+ENTITY_SCHEMA_VALIDATOR = Draft202012Validator({**SCHEMA, "$ref": "#/$defs/Entity"}, format_checker=FormatChecker())
 
 def check_generated_schema(document):
     if document.get("dtype") == "relation":
@@ -45,7 +45,7 @@ class GraphAssociationTests(unittest.TestCase):
 
     def test_goldens(self):
         self.assertEqual(FIXTURES["version"], "0.10.1")
-        self.assertEqual(len(FIXTURES["cases"]), 21)
+        self.assertEqual(len(FIXTURES["cases"]), 27)
         for case in FIXTURES["cases"]:
             with self.subTest(case=case["name"]):
                 # Both positive and semantic-negative fixtures must be
@@ -294,6 +294,59 @@ class GraphAssociationTests(unittest.TestCase):
                 doc[field] = malformed
                 with self.subTest(field=field, value=malformed), self.assertRaisesRegex(ValueError, field):
                     validate_relation_assertion(doc)
+
+    def test_content_validity_windows_are_ordered_at_entity_and_generic_admission(self):
+        cases = (
+            ("2026-10-12T00:00:00Z", "2026-10-11T23:59:59Z"),
+            ("2026-10-12T00:00:00+02:00", "2026-10-11T21:00:00Z"),
+            ("2026-10-11T12:00:00.123456789Z", "2026-10-11T12:00:00.123456788Z"),
+        )
+        for start, end in cases:
+            doc = copy.deepcopy(self.entity_candidate)
+            doc.update(contentValidFrom=start, contentValidUntil=end)
+            with self.subTest(start=start, end=end):
+                check_generated_schema(doc)
+                with self.assertRaisesRegex(ValueError, "contentValidFrom.*contentValidUntil"):
+                    validate_entity_association(doc)
+                with self.assertRaisesRegex(ValueError, "contentValidFrom.*contentValidUntil"):
+                    validate_graph_association(doc)
+                other = dict(doc, dtype="employment")
+                with self.assertRaisesRegex(ValueError, "contentValidFrom.*contentValidUntil"):
+                    validate_graph_association(other)
+
+    def test_content_validity_timezone_and_open_bounds(self):
+        cases = (
+            {"contentValidFrom": "2026-10-11T12:00:00+02:00",
+             "contentValidUntil": "2026-10-11T10:00:00Z"},
+            {"contentValidFrom": "2026-10-11T20:00:00+03:00",
+             "contentValidUntil": "2026-10-11T16:00:00-02:00"},
+            {"contentValidFrom": "2026-10-11T12:00:00.000000001Z",
+             "contentValidUntil": "2026-10-11T12:00:00.000000002Z"},
+            {"contentValidFrom": None, "contentValidUntil": "2026-10-11T12:00:00Z"},
+            {"contentValidFrom": "2026-10-11T12:00:00Z", "contentValidUntil": None},
+            {"contentValidUntil": "2026-10-11T12:00:00Z"},
+            {"contentValidFrom": "2026-10-11T12:00:00Z"},
+        )
+        for fields in cases:
+            doc = copy.deepcopy(self.entity_candidate)
+            doc.update(fields)
+            with self.subTest(fields=fields):
+                check_generated_schema(doc)
+                self.assertIs(validate_graph_association(doc), doc)
+
+    def test_content_validity_rejects_malformed_timestamps_without_schema_bypass(self):
+        for field in ("contentValidFrom", "contentValidUntil"):
+            for value in (True, 1, "2026-10-11", "2026-10-11T12:00:00", "2026-14-11T12:00:00Z"):
+                doc = copy.deepcopy(self.entity_candidate)
+                doc[field] = value
+                with self.subTest(field=field, value=value), self.assertRaisesRegex(ValueError, field):
+                    validate_entity_association(doc)
+
+    def test_content_validity_legacy_version_not_promoted(self):
+        doc = {"dtype": "employment", "schemaVersion": "0.9.1",
+               "contentValidFrom": "2026-10-12T00:00:00Z",
+               "contentValidUntil": "2026-10-11T00:00:00Z"}
+        self.assertIs(validate_graph_association(doc), doc)
 
     def test_old_versions_not_promoted_by_generic_validity_rule(self):
         doc = {"dtype": "person", "schemaVersion": "0.9.0",
