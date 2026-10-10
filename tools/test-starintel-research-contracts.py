@@ -22,6 +22,33 @@ BASE = {'id': 'operation:test', 'dataset': 'test', 'dtype': 'operation', 'schema
         'mission': 'Verify a documented question', 'status': 'planned',
         'phases': [{'phaseId': 'collect', 'objective': 'Collect references', 'state': 'planned'}]}
 
+OPERATION_HELPERS = (
+    'operation-condition', 'operation-target-policy', 'operation-target-bindings',
+    'operation-dataset-binding', 'operation-capability-gap', 'operation-assignment',
+    'operation-post-action', 'operation-phase',
+)
+OPERATION_ROOTS = ('operation', 'investigation-target')
+
+
+def check_operation_component_persistence(manifest):
+    """Operation carriers remain persistent; internal components never become corpus documents."""
+    tracked = set(OPERATION_HELPERS) | set(OPERATION_ROOTS)
+    found = {}
+    for definition in manifest['types']:
+        name = definition['name'].rsplit('/', 1)[-1]
+        if name not in tracked:
+            continue
+        if name in found or definition['kind'] != 'document':
+            raise ValueError('Duplicate or non-document Operation component: ' + name)
+        found[name] = definition
+    for name in OPERATION_ROOTS:
+        if name not in found or found[name].get('persistence') != 'persistent':
+            raise ValueError('Operation carrier must remain persistent: ' + name)
+    for name in OPERATION_HELPERS:
+        if name not in found or found[name].get('persistence') != 'transient':
+            raise ValueError('Operation component must remain transient: ' + name)
+
+
 class ResearchContractTests(unittest.TestCase):
     def test_valid_operation_and_investigation_are_distinct(self):
         validate(copy.deepcopy(BASE))
@@ -62,6 +89,7 @@ class ResearchContractTests(unittest.TestCase):
 
     def test_transient_helpers_are_not_corpus_documents(self):
         manifest = json.loads((RELEASE/'generated/portable-manifest.json').read_text())
+        check_operation_component_persistence(manifest)
         persistent = [x for x in manifest['types'] if x['kind'] == 'document' and x['persistence'] == 'persistent']
         self.assertTrue({"operation", "investigation-target"}.issubset({x["name"].rsplit("/", 1)[-1] for x in persistent}))
         self.assertFalse(any(x['name'].endswith('/operation-phase') for x in persistent))
