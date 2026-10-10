@@ -34,10 +34,11 @@ class HarnessPreflightTests(unittest.TestCase):
             encoding="utf-8",
         )
 
-    def check_fixture(self, cases, contract="starintel.raw-json-unique-keys/1"):
+    def check_fixture(self, cases, contract="starintel.raw-json-unique-keys/1", adapters=()):
         self.fixture.write_text(json.dumps({"contract": contract, "cases": cases}), encoding="utf-8")
         with patch.object(harness, "FIXTURE", self.fixture), patch.object(harness, "READER", self.reader), \
-                patch.object(sys, "argv", ["test-starintel-raw-json.py"]), \
+                patch.object(sys, "argv", ["test-starintel-raw-json.py"] +
+                             [f"--adapter={entry}" for entry in adapters]), \
                 contextlib.redirect_stdout(io.StringIO()):
             harness.main()
 
@@ -67,6 +68,38 @@ class HarnessPreflightTests(unittest.TestCase):
     def test_rejects_nonboolean_expected_validity(self):
         with self.assertRaisesRegex(ValueError, "boolean"):
             self.check_fixture([{"name": "wrong-bool", "wire": "{}", "valid": 1}])
+
+    def test_rejects_duplicate_adapter_names_before_process_execution(self):
+        cases = [{"name": "valid", "wire": "{}", "valid": True},
+                 {"name": "duplicate", "wire": "duplicate", "valid": False}]
+        for entries in (("shared=unused", "shared=unused"),
+                        ("shared=unused", "other=unused", "shared=unused")):
+            with self.subTest(entries=entries):
+                with patch.object(harness.subprocess, "run",
+                                  side_effect=AssertionError("adapter started before validation")) as run:
+                    with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                        with self.assertRaises(SystemExit) as rejected:
+                            self.check_fixture(cases, adapters=entries)
+                    self.assertEqual(rejected.exception.code, 2)
+                    self.assertIn("duplicate --adapter name: shared", stderr.getvalue())
+                    run.assert_not_called()
+
+    def test_distinct_adapter_names_preserve_commands(self):
+        self.assertEqual(harness.adapter_commands(
+            ["first=cmd --flag=a=b", "second=cmd --flag=c"]),
+            [("first", "cmd --flag=a=b"), ("second", "cmd --flag=c")])
+
+    def test_invalid_adapter_after_valid_adapter_rejects_before_launch(self):
+        cases = [{"name": "valid", "wire": "{}", "valid": True},
+                 {"name": "duplicate", "wire": "duplicate", "valid": False}]
+        with patch.object(harness.subprocess, "run",
+                          side_effect=AssertionError("preflight did not run")) as run:
+            with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                with self.assertRaises(SystemExit) as rejected:
+                    self.check_fixture(cases, adapters=("valid=unused", "bad"))
+            self.assertEqual(rejected.exception.code, 2)
+            self.assertIn("NAME=COMMAND", stderr.getvalue())
+            run.assert_not_called()
 
 
 if __name__ == "__main__":

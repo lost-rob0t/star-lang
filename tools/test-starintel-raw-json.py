@@ -34,11 +34,28 @@ def require(condition, message):
         raise ValueError(message)
 
 
+def adapter_commands(values):
+    """Validate all adapter identities before launching any subprocess."""
+    commands = []
+    names = set()
+    for value in values:
+        name, separator, command = value.partition('=')
+        require(bool(separator and name and command), '--adapter requires NAME=COMMAND')
+        require(name not in names, f'duplicate --adapter name: {name}')
+        names.add(name)
+        commands.append((name, command))
+    return commands
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--adapter', action='append', default=[], metavar='NAME=COMMAND')
     parser.add_argument('--report', type=Path)
     args = parser.parse_args()
+    try:
+        adapters = adapter_commands(args.adapter)
+    except ValueError as error:
+        parser.error(str(error))
     spec = importlib.util.spec_from_file_location('raw_json_reference', READER)
     reader = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(reader)
@@ -65,10 +82,7 @@ def main():
                 f"authority raw JSON case mismatch: {case['name']} accepted={accepted}")
     print(f'authority: {len(cases)} raw JSON key cases passed', flush=True)
     failures = []
-    for adapter in args.adapter:
-        name, separator, command = adapter.partition('=')
-        if not separator or not name or not command:
-            parser.error('--adapter requires NAME=COMMAND')
+    for name, command in adapters:
         for case in cases:
             request = '{"command":"roundtrip","document":' + case['wire'] + '}'
             run = subprocess.run(shlex.split(command), input=request, text=True,
