@@ -181,6 +181,18 @@ class DriftReportTests(unittest.TestCase):
                 path.unlink()
         self.assertTrue(drift.audit(self.lock, self.authority)["ok"])
 
+    def test_bundle_invalid_mapping_remains_a_structured_report(self):
+        self.bundle_source()
+        original = json.loads(self.lock.read_text())
+        for entry in (None, {"source": None}, {"source": 7}):
+            with self.subTest(entry=entry):
+                lock = json.loads(json.dumps(original))
+                lock["vendored_files"]["vendor/starintel/compatibility/versioned_reader.py"] = entry
+                self.lock.write_text(json.dumps(lock))
+                result = drift.audit(self.lock, self.authority)
+                self.assertFalse(result["ok"], result)
+                self.assertTrue(any("invalid mapping" in x for x in result["errors"]))
+
     def test_bundle_layout_failure_keeps_other_diagnostics(self):
         self.bundle_source()
         lock = json.loads(self.lock.read_text())
