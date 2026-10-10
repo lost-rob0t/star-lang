@@ -124,6 +124,9 @@
             python3 "$source_root/tools/test-starintel-research-contracts.py"
             python3 "$source_root/tools/test-supported-workflow-contracts.py"
             python3 "$source_root/tools/test-starintel-versioned-reader.py"
+            sbcl --script "$source_root/tools/generate-face-intel-extension.lisp" --check
+            python3 "$source_root/tools/finalize-face-intel-extension.py" --check
+            python3 "$source_root/tools/test-face-intel-extension.py"
             python3 "$source_root/tools/test-starintel-raw-json.py"
             python3 -O "$source_root/tools/test-starintel-raw-json-harness.py"
             python3 -O "$source_root/tools/test-starintel-consumer-optimized.py"
