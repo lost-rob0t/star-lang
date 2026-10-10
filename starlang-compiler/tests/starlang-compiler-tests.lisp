@@ -408,6 +408,88 @@
   (is (null (find-package "STAR-LANG.PROTOTYPE")))
   (is (null (find-package "STAR-LANG.CORE-SURFACE.PROTOTYPE"))))
 
+
+(defun compile-digest-conformance-fixture (digest &key import-p)
+  "Compile through the real closed parser, not the Common Lisp reader."
+  (let* ((format
+           (if import-p
+               "(spec-library \"test/digest@1\" (:version \"1.0.0\")
+                  (import \"test/dep@1\" :version \"1.0.0\" :digest ~S))"
+               "(spec-library \"test/digest@1\"
+                  (:version \"1.0.0\" :digest ~S)
+                  (enum flag (yes no)))"))
+         (source (format nil format digest)))
+    (starlangcompiler:compile-spec-library
+     (starlangcompiler:read-star-syntax
+      source :source-id "digest-conformance.star"))))
+
+(test compiler-digest-locks-require-exact-64-hex
+  "Final compiler accepts complete SHA-256 pins and rejects partial/invalid pins."
+  (let* ((valid
+           (concatenate 'string "sha256:" (make-string 64 :initial-element #\a)))
+         (valid-upper
+           (concatenate 'string "sha256:" (make-string 64 :initial-element #\F)))
+         (invalid
+           (list "sha256:"
+                 "sha256:deadbeef"
+                 (concatenate 'string "sha256:"
+                              (make-string 63 :initial-element #\a))
+                 (concatenate 'string "sha256:"
+                              (make-string 65 :initial-element #\a))
+                 (concatenate 'string "sha256:"
+                              (make-string 63 :initial-element #\a) "g")
+                 (concatenate 'string "sha256:"
+                              (make-string 63 :initial-element #\a) " ")
+                 (concatenate 'string "SHA256:"
+                              (make-string 64 :initial-element #\a))
+                 (concatenate 'string "sha512:"
+                              (make-string 64 :initial-element #\a)))))
+    (dolist (import-p '(nil t))
+      (dolist (digest (list valid valid-upper))
+        (let* ((library (compile-digest-conformance-fixture digest
+                                                           :import-p import-p))
+               (observed (if import-p
+                             (getf (first (getf library :imports)) :digest)
+                             (getf library :digest))))
+          (is (string= digest observed))))
+      (dolist (digest invalid)
+        (let ((condition
+                (handler-case
+                    (progn
+                      (compile-digest-conformance-fixture
+                       digest :import-p import-p)
+                      nil)
+                  (starlangcompiler:invalid-library-error (error)
+                    error))))
+          (is (typep condition 'starlangcompiler:invalid-library-error))
+          (when condition
+            (is (search "64 hex"
+                        (starlangcompiler:star-lang-core-error-message
+                         condition)))
+            (let ((span (starlangcompiler:star-lang-core-error-span
+                         condition)))
+              (is (not (null span)))
+              (when span
+                (is (string=
+                     "digest-conformance.star"
+                     (star-lang.compiler.core:star-source-span-source-id
+                      span)))))))))))
+
+(test compiler-optional-digest-and-trusted-source-stay-compatible
+  "Omitting the optional library digest remains supported; trusted input is checked."
+  (let* ((library
+           (starlangcompiler:compile-spec-library
+            (starlangcompiler:read-star-syntax
+             "(spec-library \"test/digest@1\" (:version \"1.0.0\")
+                (enum flag (yes no)))")))
+         (trusted
+           (starlangcompiler:trusted-form-to-star-syntax
+            '(spec-library "test/digest@1"
+               (:version "1.0.0" :digest "sha256:short")))))
+    (is (null (getf library :digest)))
+    (signals starlangcompiler:invalid-library-error
+      (starlangcompiler:compile-spec-library trusted))))
+
 (defun run-tests ()
   ;; fiveam's run! returns T only when every check passed; surface failures
   ;; through the process exit code so ASDF/Nix/CI gates cannot pass silently.

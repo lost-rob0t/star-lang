@@ -1183,10 +1183,14 @@ the approved declarative hygienic macro language is implemented."
     (required-option options key "options")))
 
 (defun digest-p (value)
+  "Require an exact sha256: digest with 64 ASCII hexadecimal characters."
   (setf value (if (star-syntax-p value) (syntax-atom value) value))
   (and (stringp value)
-       (> (length value) 7)
-       (string= "sha256:" value :end2 7)))
+       (= (length value) 71)
+       (string= "sha256:" value :end2 7)
+       (loop for index from 7 below 71
+             always (find (char value index)
+                          "0123456789abcdefABCDEF"))))
 
 (defun normalize-persistence (value)
   (let ((name (identifier-key value)))
@@ -1363,7 +1367,7 @@ the approved declarative hygienic macro language is implemented."
                    (eq (star-syntax-kind version) :string)
                    (digest-p digest))
         (fail 'invalid-library-error
-              "Imports require string name, exact version, and sha256 digest."))
+              "Imports require string name, exact version, and sha256:<64 hex digits> digest."))
       (list :kind :import
             :name (syntax-atom name)
             :version (syntax-atom version)
@@ -1587,7 +1591,7 @@ the approved declarative hygienic macro language is implemented."
                 "Specification library version must be a string."))
         (when (and digest (not (digest-p digest)))
           (fail 'invalid-library-error
-                "Specification library digest must use sha256:."))
+                "Specification library digest must use sha256:<64 hex digits>."))
         (list :ir-version +normalized-ir-version+
               :ir-schema +normalized-ir-schema+
               :kind :spec-library
