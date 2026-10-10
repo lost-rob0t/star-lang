@@ -1,0 +1,220 @@
+{
+  "authority": {
+    "library": "org.starintel/core@1",
+    "sourceVersion": "0.10.1",
+    "candidateVersion": "0.10.2",
+    "released": false
+  },
+  "cases": [
+    {
+      "name": "complete-empty",
+      "result": "accept",
+      "payload": {
+        "dataset": "public",
+        "mode": "bounding-box",
+        "matches": [],
+        "completeness": "complete",
+        "hasMore": false,
+        "evaluatedAt": 1791648000
+      }
+    },
+    {
+      "name": "partial-typed",
+      "result": "accept",
+      "payload": {
+        "dataset": "public",
+        "mode": "intersects",
+        "matches": [
+          {
+            "source": {
+              "schema": "org.starintel/core@1/document",
+              "id": "source:1"
+            },
+            "projection": {
+              "schema": "org.starintel/core@1/document",
+              "id": "projection:1"
+            },
+            "geometry": {
+              "schema": "org.starintel/core@1/document",
+              "id": "geo:1"
+            },
+            "participation": "anchored",
+            "evidence": [
+              {
+                "schema": "org.starintel/core@1/document",
+                "id": "evidence:1"
+              }
+            ],
+            "relationPath": [
+              {
+                "schema": "org.starintel/core@1/document",
+                "id": "relation:1"
+              }
+            ],
+            "distanceMeters": "0.250",
+            "confidence": "0.9900"
+          }
+        ],
+        "completeness": "partial",
+        "partialReasons": [
+          "backend timeout"
+        ],
+        "snapshotId": "snapshot:1",
+        "nextCursor": "opaque:2",
+        "hasMore": true,
+        "evaluatedAt": 1791648000
+      }
+    },
+    {
+      "name": "missing-evidence",
+      "result": "reject",
+      "payload": {
+        "dataset": "public",
+        "mode": "intersects",
+        "matches": [
+          {
+            "source": {
+              "schema": "org.starintel/core@1/document",
+              "id": "source:1"
+            },
+            "projection": {
+              "schema": "org.starintel/core@1/document",
+              "id": "projection:1"
+            },
+            "geometry": {
+              "schema": "org.starintel/core@1/document",
+              "id": "geo:1"
+            },
+            "participation": "anchored",
+            "relationPath": [
+              {
+                "schema": "org.starintel/core@1/document",
+                "id": "relation:1"
+              }
+            ],
+            "distanceMeters": "0.250",
+            "confidence": "0.9900"
+          }
+        ],
+        "completeness": "partial",
+        "partialReasons": [
+          "backend timeout"
+        ],
+        "snapshotId": "snapshot:1",
+        "nextCursor": "opaque:2",
+        "hasMore": true,
+        "evaluatedAt": 1791648000
+      }
+    },
+    {
+      "name": "invalid-completeness",
+      "result": "reject",
+      "payload": {
+        "dataset": "public",
+        "mode": "bounding-box",
+        "matches": [],
+        "completeness": "exhaustive",
+        "hasMore": false,
+        "evaluatedAt": 1791648000
+      }
+    },
+    {
+      "name": "invalid-time",
+      "result": "reject",
+      "payload": {
+        "dataset": "public",
+        "mode": "bounding-box",
+        "matches": [],
+        "completeness": "complete",
+        "hasMore": false,
+        "evaluatedAt": -1
+      }
+    },
+    {
+      "name": "wrong-has-more",
+      "result": "reject",
+      "payload": {
+        "dataset": "public",
+        "mode": "bounding-box",
+        "matches": [],
+        "completeness": "complete",
+        "hasMore": "false",
+        "evaluatedAt": 1791648000
+      }
+    },
+    {
+      "name": "unsupported-identity-claim",
+      "result": "reject",
+      "payload": {
+        "dataset": "public",
+        "mode": "bounding-box",
+        "matches": [],
+        "completeness": "complete",
+        "hasMore": false,
+        "evaluatedAt": 1791648000,
+        "identityClaim": {
+          "schema": "org.starintel/core@1/document",
+          "id": "evidence:1"
+        }
+      }
+    },
+    {
+      "name": "missing-dataset",
+      "result": "reject",
+      "payload": {
+        "mode": "bounding-box",
+        "matches": [],
+        "completeness": "complete",
+        "hasMore": false,
+        "evaluatedAt": 1791648000
+      }
+    },
+    {
+      "name": "negative-distance",
+      "result": "reject",
+      "payload": {
+        "dataset": "public",
+        "mode": "intersects",
+        "matches": [
+          {
+            "source": {
+              "schema": "org.starintel/core@1/document",
+              "id": "source:1"
+            },
+            "projection": {
+              "schema": "org.starintel/core@1/document",
+              "id": "projection:1"
+            },
+            "geometry": {
+              "schema": "org.starintel/core@1/document",
+              "id": "geo:1"
+            },
+            "participation": "anchored",
+            "evidence": [
+              {
+                "schema": "org.starintel/core@1/document",
+                "id": "evidence:1"
+              }
+            ],
+            "relationPath": [
+              {
+                "schema": "org.starintel/core@1/document",
+                "id": "relation:1"
+              }
+            ],
+            "distanceMeters": "-0.001",
+            "confidence": "0.9900"
+          }
+        ],
+        "completeness": "partial",
+        "partialReasons": [
+          "backend timeout"
+        ],
+        "snapshotId": "snapshot:1",
+        "nextCursor": "opaque:2",
+        "hasMore": true,
+        "evaluatedAt": 1791648000
+      }
+    }
+  ]
+}

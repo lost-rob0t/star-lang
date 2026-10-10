@@ -7,6 +7,7 @@
   :components
   ((:file "starlang-compiler-tests")
    (:file "geo-generator-boundary-tests")
+   (:file "geo-spatial-response-tests")
    (:file "actor-compiler-tests")
    (:file "actor-option-key-tests")
    (:file "actor-capabilities-tests")
@@ -18,6 +19,7 @@
     (declare (ignore op c))
     (uiop:symbol-call :starlangcompiler-tests :run-tests)
     (uiop:symbol-call :starlang-geo-generator-boundary-tests :run-tests)
+    (uiop:symbol-call :starlang-geo-spatial-response-tests :run-tests)
     (uiop:symbol-call :starlang-actor-compiler-tests :run-tests)
     (uiop:symbol-call :starlang-actor-option-key-tests :run-tests)
     (uiop:symbol-call :starlang-actor-capabilities-tests :run-tests)
