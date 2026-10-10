@@ -1,0 +1,163 @@
+{
+  "authority": {
+    "library": "org.starintel/core@1",
+    "sourceVersion": "0.10.1",
+    "candidateVersion": "0.10.2",
+    "released": false
+  },
+  "cases": [
+    {
+      "name": "columbus-bbox",
+      "result": "accept",
+      "payload": {
+        "dataset": "public",
+        "bounds": {
+          "west": "-84.25",
+          "south": "39.95",
+          "east": "-82.75",
+          "north": "40.75"
+        },
+        "atTime": 1791648000
+      }
+    },
+    {
+      "name": "antimeridian-bbox",
+      "result": "accept",
+      "payload": {
+        "dataset": "public",
+        "bounds": {
+          "west": "170.0",
+          "south": "-10.0",
+          "east": "-170.0",
+          "north": "10.0"
+        },
+        "atTime": 0,
+        "cursor": "opaque:1"
+      }
+    },
+    {
+      "name": "missing-bounds",
+      "result": "reject",
+      "payload": {
+        "dataset": "public"
+      }
+    },
+    {
+      "name": "bbox-array-not-object",
+      "result": "reject",
+      "payload": {
+        "dataset": "public",
+        "bounds": [
+          "-84.25",
+          "39.95",
+          "-82.75",
+          "40.75"
+        ]
+      }
+    },
+    {
+      "name": "missing-south",
+      "result": "reject",
+      "payload": {
+        "dataset": "public",
+        "bounds": {
+          "west": "-84.25",
+          "east": "-82.75",
+          "north": "40.75"
+        }
+      }
+    },
+    {
+      "name": "missing-north",
+      "result": "reject",
+      "payload": {
+        "dataset": "public",
+        "bounds": {
+          "west": "-84.25",
+          "south": "39.95",
+          "east": "-82.75"
+        }
+      }
+    },
+    {
+      "name": "latitude-over-90",
+      "result": "reject",
+      "payload": {
+        "dataset": "public",
+        "bounds": {
+          "west": "-84.25",
+          "south": "39.95",
+          "east": "-82.75",
+          "north": "90.00000001"
+        }
+      }
+    },
+    {
+      "name": "longitude-over-180",
+      "result": "reject",
+      "payload": {
+        "dataset": "public",
+        "bounds": {
+          "west": "-84.25",
+          "south": "39.95",
+          "east": "180.00000001",
+          "north": "40.75"
+        }
+      }
+    },
+    {
+      "name": "json-number-longitude",
+      "result": "reject",
+      "payload": {
+        "dataset": "public",
+        "bounds": {
+          "west": -84.25,
+          "south": "39.95",
+          "east": "-82.75",
+          "north": "40.75"
+        }
+      }
+    },
+    {
+      "name": "negative-atTime",
+      "result": "reject",
+      "payload": {
+        "dataset": "public",
+        "bounds": {
+          "west": "-84.25",
+          "south": "39.95",
+          "east": "-82.75",
+          "north": "40.75"
+        },
+        "atTime": -1
+      }
+    },
+    {
+      "name": "missing-dataset",
+      "result": "reject",
+      "payload": {
+        "bounds": {
+          "west": "-84.25",
+          "south": "39.95",
+          "east": "-82.75",
+          "north": "40.75"
+        }
+      }
+    },
+    {
+      "name": "identity-claim-not-part-of-query",
+      "result": "reject",
+      "payload": {
+        "dataset": "public",
+        "bounds": {
+          "west": "-84.25",
+          "south": "39.95",
+          "east": "-82.75",
+          "north": "40.75"
+        },
+        "atTime": 1791648000,
+        "identityClaim": "unverified"
+      }
+    }
+  ]
+}

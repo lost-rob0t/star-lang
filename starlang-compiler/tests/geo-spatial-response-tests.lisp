@@ -13,7 +13,10 @@
 
 (defun sl04-manifest ()
   (let* ((source (sl04-source "../specs/starintel/0.10.1/core.star"))
-         (fragment (sl04-source "../specs/starintel/proposals/query-spatial-result.star.inc"))
+         (fragment (concatenate 'string
+                    (sl04-source "../specs/starintel/proposals/query-spatial-result.star.inc")
+                    (string (code-char 10))
+                    (sl04-source "../specs/starintel/proposals/query-spatial-bbox.star.inc")))
          (needle "(:version \"0.10.1\")")
          (at (search needle source)))
     (unless at (error "Frozen 0.10.1 source header changed."))
@@ -116,6 +119,71 @@
               manifest message payload)))
           (t (error "Unknown geo spatial fixture outcome.")))))
     (is (= 3 accepts))
+    (is (= 10 rejects))))
+
+
+(defun sl04-bbox-goldens ()
+  (let ((yason:*parse-json-arrays-as-vectors* t))
+    (yason:parse
+     (sl04-source "tests/fixtures/geo-spatial-bbox-probes-0102.json"))))
+
+(test geo-spatial-bbox-generated-shape
+  (let* ((manifest (sl04-manifest))
+         (schema (yason:parse (starlangcompiler:generate-json-schema manifest)))
+         (defs (gethash "$defs" schema))
+         (bounds (gethash "SpatialBounds" defs))
+         (bounds-properties (gethash "properties" bounds))
+         (request (gethash "QuerySpatialBbox" defs))
+         (request-properties (gethash "properties" request))
+         (bindings (starlangcompiler:generate-all-bindings manifest))
+         (message (find (format nil "~A/query-spatial-bbox" +authority+)
+                        (getf manifest :messages)
+                        :key (lambda (item) (getf item :name))
+                        :test #'string=)))
+    (is (consp message))
+    (is (hash-table-p bounds))
+    (is (hash-table-p request))
+    (is (string= "#/$defs/SpatialBounds"
+                 (gethash "$ref" (gethash "bounds" request-properties))))
+    (is (member "bounds"
+                (loop for field in (getf message :fields)
+                      when (getf field :required)
+                      collect (getf field :name))
+                :test #'string=))
+    (dolist (pair '(("west" "Longitude") ("south" "Latitude")
+                    ("east" "Longitude") ("north" "Latitude")))
+      (is (string= (format nil "#/$defs/~A" (second pair))
+                   (gethash "$ref" (gethash (first pair) bounds-properties))))
+      (is (member (first pair) (coerce (gethash "required" bounds) 'list)
+                  :test #'string=)))
+    (is (search "export interface SpatialBounds"
+                (cdr (assoc :typescript bindings))))
+    (is (search "SpatialBounds = TypedDict"
+                (cdr (assoc :python bindings))))
+    (is (search "pub struct SpatialBounds"
+                (cdr (assoc :rust bindings))))))
+
+(test geo-spatial-bbox-wire-goldens
+  (let* ((manifest (sl04-manifest))
+         (goldens (sl04-bbox-goldens))
+         (cases (gethash "cases" goldens))
+         (message (format nil "~A/query-spatial-bbox" +authority+))
+         (accepts 0) (rejects 0))
+    (is (= 12 (length cases)))
+    (loop for example across cases do
+      (let ((payload (sl04-wire (gethash "payload" example))))
+        (cond
+          ((string= "accept" (gethash "result" example))
+           (incf accepts)
+           (is (staractorprotocol:validate-portable-message-payload
+                manifest message payload)))
+          ((string= "reject" (gethash "result" example))
+           (incf rejects)
+           (signals staractorprotocol:invalid-wire-envelope-error
+             (staractorprotocol:validate-portable-message-payload
+              manifest message payload)))
+          (t (error "Unknown bbox golden outcome.")))))
+    (is (= 2 accepts))
     (is (= 10 rejects))))
 
 (defun run-tests ()
