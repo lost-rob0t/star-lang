@@ -133,3 +133,135 @@ Validation failures signal `starscrape.schema:scraper-policy-error`
   layers; the manifest is the declaration those layers consume.
 - Runtime actor consumption of scraper manifests (building runtime
   scrape plans from a manifest) is a follow-up migration slice.
+
+
+## Version 2: reusable offline mapping
+
+`fixtures/star-scrape-core-v2.star` declares `org.starscrape/scraper@2`
+version `2.0.0`. Version 1 source and wire contracts stay unchanged. A
+consumer must explicitly select v2; unknown major versions fail closed.
+The pure entry point is:
+
+```lisp
+(starscrape.schema:compile-mapping-manifest vocabulary mapping-plan)
+```
+
+It yields `{manifestSchema: "org.starscrape/mapping-manifest@2",
+wireVersion: 2, vocabulary: ..., mappingPlan: ...}`. The existing
+`compile-scraper-manifest` entry accepts either vocabulary version and
+emits the matching `org.starscrape/scraper-manifest@1` or `@2`. A v2
+acquisition policy contains `mappingPlan` instead of the v1 `extraction`
+and `mapping` pair. Never silently reinterpret a v1 plan as v2.
+
+### Pure mapping wire fields
+
+- `inputFormat`: `html` or `json`.
+- `maxInputBytes`, `maxRows`, `maxDepth`: required bounded integers from
+  the vocabulary. Runtime checks apply before/during parsing, not only
+  after allocating the full input. `maxRows` limits total scope rows and
+  each multi-valued field's selected values. Depth bounds parsed input
+  nesting and traversal. Configuration and output size should also be
+  bounded by the consumer's execution budget.
+- `scopes`: unique named parent-row selectors, each containing `name`,
+  `selectorKind` (`css`, `xpath`, `json-path`), `selector`, and `fields`.
+- Each field contains `name`, `selectorKind`, `selector`, and `kind`
+  (`text`, `attribute`, `html`, `value`); `attribute`, `many`, `required`,
+  and ordered `transform` are optional. Only `attribute` extractors may
+  declare an attribute. JSON uses `value`, HTML uses the other kinds.
+- `documents`: unique mappings with `name`, `scope`, canonical
+  `documentType`, `naturalKey` (distinct extracted field names), and
+  `fields` (`source` extraction name and canonical `target` field).
+  Identity keys must be required scalar extractions. Missing, null, or
+  empty natural keys fail; row position is never an identity key.
+- `relations` is optional. Each entry has `name`, `scope`, canonical
+  `predicate`, `sourceDocument`, and `destinationDocument`. Endpoint
+  names reference document mappings emitted in that same row, never raw
+  source IDs, unrelated rows, or array positions. Predicate endpoint
+  types must conform to canonical inheritance. Resulting canonical
+  relations use typed `source` and `destination` references plus
+  `predicate`; `relationType`, `subject`, and `object` are not output
+  fields. Relation identity derives from emitted endpoints and predicate.
+- `emitSource` and `emitUrl` are optional booleans. When enabled, the
+  runtime emits canonical `source`/`url` documents from explicitly
+  supplied source identity/provenance; these flags grant no fetch or
+  filesystem capability. URL emission requires a supplied usable URL.
+
+Canonical output authority remains `specs/starintel/0.10.1/core.star`.
+The mapping compiler loads it through the same closed compiler and
+checks dtypes, inherited fields, predicates, and endpoint types. No
+copied dtype registry or second schema parser is introduced. Runtime
+output validation must additionally check required fields, value types,
+scalar bounds and cross-field semantics. Outputs use flat StarIntel
+0.10.1 camelCase envelopes (`id`, `dataset`, `dtype`, `schemaVersion`),
+never nested legacy envelopes. Mapping cannot override those four fields.
+
+### Selection and transformation semantics
+
+JSON paths consist of `$`, ASCII `.property` identifiers (initial letter
+or underscore, then letters/digits/underscore), and nonnegative `[index]`
+steps. `$` always means the current selection root. Filters, wildcards,
+recursive descent, host expressions and evaluation are forbidden. Scope
+selectors start at the input root; an array result expands to its items,
+an object/scalar result creates one row, and a missing result creates
+zero rows. Field selectors start at that row, never the input root.
+`many: true` selects an array; otherwise a scalar is required. JSON null
+is distinct from missing and false during extraction; required/null and
+natural-key/null fail. Optional null must not be coerced to the string
+`"null"`; output omission or rejection follows the canonical field type.
+
+HTML scopes select row elements. Field CSS and XPath selection is
+relative to that element. Field XPath must start with `.`; runtimes must
+also enforce that all returned nodes belong to the row subtree and
+reject escaping axes, absolute alternatives, scalar expressions, or
+extension functions. HTML parsing must disable external resource loads,
+DTDs and entity expansion. No scraping adapter is being implemented by
+this compiler-only contract change.
+
+Transforms are closed, ordered, and data-only: `trim`, `lowercase`,
+`uppercase`, `strip-tags`, `absolute-url`, `decode-entities`, `integer`,
+`decimal`, `boolean`. Unknown transforms are rejected. String transforms
+require strings; conversions are explicit and strict, never Python/Lisp
+truthiness or evaluation. `integer` rejects fractional values and boolean
+inputs; `decimal` preserves exact decimal precision and rejects NaN or
+infinity; `boolean` accepts booleans or exact `true`/`false` text only.
+Conversions apply elementwise for `many`. Consumer resource limits bound
+numeric tokens and collection sizes. `absolute-url` requires explicitly
+supplied source URI and does not fetch the result. The canonical output
+adapter must use the canonical SDK's exact-number representation.
+
+Stable identity must include dataset, source namespace, scope and mapping
+name, and typed natural-key values, encoded unambiguously. Reordering
+rows must not change IDs. Supplied source URI is preferred; a content-hash
+URN is a deterministic fallback for a fixed offline input, but changing
+input bytes changes that fallback namespace. Local absolute filenames
+must never be implicitly persisted as provenance. Runtime execution
+context supplies dataset, collector and source identity separately from
+the pure plan.
+
+### Acquisition and generation
+
+V2 request policy optionally accepts `authRef` with lexical shape
+`secret-ref:<bounded-identifier>`. It cannot contain a credential value,
+URL, query string, bearer prefix or arbitrary header map. Omission is
+anonymous, including public API usage. Runtime resolves a reference only
+through its authorized scoped secret port; the mapper never resolves it.
+Existing SSRF, origin, redirect, robots and rate-limit gates still apply.
+The versioned effect allowlist adds `parse-json` for JSON acquisition.
+
+Generate consumable artifacts only with:
+
+```sh
+CL_SOURCE_REGISTRY="$PWD//:" sbcl --script tools/generate-scraper-release.lisp
+CL_SOURCE_REGISTRY="$PWD//:" sbcl --script tools/generate-scraper-release.lisp --check
+```
+
+The generator uses the existing compiler and JSON-schema emitter to
+produce `specs/scraper/2.0.0/generated/portable-manifest.json`,
+`schema.json`, and `bundle-lock.json`. The lock pins the source, manifest
+and schema SHA-256 bytes (including final newline), vocabulary version,
+and canonical StarIntel output version. Consumers import these outputs,
+verify digests and reject unsupported contracts; they do not edit them.
+The generated artifact CI job re-generates and verifies exact bytes.
+These portable schema artifacts do not claim a new runtime backend or
+new generated language-specific mapper implementations. Existing language
+ownership and supported backend matrix remain unchanged.

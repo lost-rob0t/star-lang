@@ -52,6 +52,24 @@
     (reject (lambda (p) (setf (getf (first (getf p :relations)) :predicate) "invented")) "unknown predicate")
     (reject (lambda (p) (setf (getf (first (getf (first (getf p :scopes)) :fields)) :transform) '(:eval))) "executable transform")
     (reject (lambda (p) (setf (getf (first (getf (first (getf p :scopes)) :fields)) :required) nil)) "optional natural key"))
+  ;; Both HTML selector dialects preserve the same mapping graph.
+  (dolist (dialect '(:css :xpath))
+    (let* ((plan (copy-tree (example-mapping-plan)))
+           (scope (first (getf plan :scopes))))
+      (setf (getf plan :input-format) :html
+            (getf scope :selector-kind) dialect
+            (getf scope :selector) (if (eq dialect :css) "article.person" "//article"))
+      (dolist (field (getf scope :fields))
+        (setf (getf field :selector-kind) dialect
+              (getf field :selector) (if (eq dialect :css) "span.name" ".//span")
+              (getf field :kind) :text
+              (getf field :transform) '(:trim)))
+      (compile-test-mapping plan)))
+  (let* ((plan (copy-tree (example-mapping-plan)))
+         (field (first (getf (first (getf plan :scopes)) :fields))))
+    (dolist (transform '(:integer :decimal :boolean))
+      (setf (getf field :transform) (list transform))
+      (compile-test-mapping plan)))
   (check (signals-p 'scraper-schema-error
                    (lambda () (starscrape.schema:compile-mapping-manifest (fixture-vocabulary-manifest) (example-mapping-plan))))
          "V1 vocabulary accepted a v2 mapping plan.")

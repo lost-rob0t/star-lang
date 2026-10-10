@@ -83,7 +83,7 @@
   ;; Closed effect-capability allowlist. Any capability outside this enum
   ;; is forbidden for website scrapers.
   (enum effect-capability
-    (net-https-fetch parse-html rate-limit-scheduler crawl-budget
+    (net-https-fetch parse-html parse-json rate-limit-scheduler crawl-budget
                      starintel-documents))
 
   (enum extractor-kind
@@ -108,6 +108,9 @@
   (enum backoff-jitter
     (none equal full))
 
+  (scalar secret-reference
+    (:base string :pattern "^secret-ref:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"))
+
   (document request-policy
     (:persistence transient)
     (authRef secret-reference :optional)
@@ -121,8 +124,6 @@
     (allowedContentTypes (list media-type) :required))
 
   ;; Pure mapping has no URL, credential, network or filesystem capability.
-  (scalar secret-reference
-    (:base string :pattern "^secret-ref:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"))
   (scalar input-byte-limit (:base integer :minimum 1 :maximum 104857600))
   (scalar row-limit (:base integer :minimum 1 :maximum 10000))
   (scalar nesting-limit (:base integer :minimum 1 :maximum 64))
