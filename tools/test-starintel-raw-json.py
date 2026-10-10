@@ -51,6 +51,11 @@ def main():
             'raw JSON fixture cases must be named objects')
     require(len({case['name'] for case in cases}) == len(cases),
             'duplicate raw JSON fixture case')
+    require(all(type(case.get('valid')) is bool for case in cases),
+            'raw JSON fixture validity must be boolean')
+    require(any(case.get('valid') is True for case in cases) and
+            any(case.get('valid') is False for case in cases),
+            'raw JSON fixture must include accepted and rejected cases')
     reports = []
     for case in cases:
         require(type(case.get('valid')) is bool, 'raw JSON fixture validity must be boolean')

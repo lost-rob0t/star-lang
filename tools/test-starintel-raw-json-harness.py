@@ -47,6 +47,18 @@ class HarnessPreflightTests(unittest.TestCase):
             {"name": "duplicate", "wire": "duplicate", "valid": False},
         ])
 
+    def test_rejects_empty_fixture_without_false_green(self):
+        with self.assertRaisesRegex(ValueError, 'accepted and rejected cases'):
+            self.check_fixture([])
+
+    def test_rejects_positive_only_fixture_without_duplicate_coverage(self):
+        with self.assertRaisesRegex(ValueError, 'accepted and rejected cases'):
+            self.check_fixture([{'name': 'valid', 'wire': '{}', 'valid': True}])
+
+    def test_rejects_negative_only_fixture_without_positive_control(self):
+        with self.assertRaisesRegex(ValueError, 'accepted and rejected cases'):
+            self.check_fixture([{'name': 'duplicate', 'wire': 'duplicate', 'valid': False}])
+
     def test_rejects_unrecognized_contract_when_optimized(self):
         with self.assertRaisesRegex(ValueError, "fixture contract"):
             self.check_fixture([], contract="unrecognized/0")
