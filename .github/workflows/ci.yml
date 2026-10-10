@@ -136,7 +136,7 @@ jobs:
           set -euo pipefail
           sbcl --disable-debugger \
             --script tools/generate-starintel-release.lisp --check
-          python3 tools/finalize-starintel-release.py --check
+          python3 tools/finalize-starintel-release.py --check --bundle
           python3 tools/test-starintel-consumer.py
           python3 tools/test-starintel-research-contracts.py
           python3 tools/test-supported-workflow-contracts.py
