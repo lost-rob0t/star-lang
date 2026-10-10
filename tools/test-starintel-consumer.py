@@ -1,6 +1,7 @@
 """Integration tests for release pinning, tampering, and consumer drift."""
 import importlib.util
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -338,6 +339,21 @@ print("28 relocated paired workflows; 64 seeded archival cases passed")
         with self.assertRaisesRegex(ValueError, "hardlinked"):
             consumer.sync(self.lock, commit, self.source, "vendor/starintel", bundle=True)
         self.assertEqual(outside.read_bytes(), original)
+
+    @unittest.skipUnless(hasattr(os, "mkfifo"), "FIFO test requires POSIX")
+    def test_nonregular_bundle_target_rejects_without_blocking(self):
+        commit = self.bundle_source()
+        consumer.sync(self.lock, commit, self.source, "vendor/starintel", bundle=True)
+        target = self.lock.parent.parent / "vendor/starintel/compatibility/raw_json_numbers.py"
+        target.unlink()
+        os.mkfifo(target)
+        result = subprocess.run([sys.executable, str(ROOT / "tools/sync-starintel-consumer.py"),
+                                 "--lock", str(self.lock), "--offline", "--bundle"],
+                                capture_output=True, text=True, timeout=5)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("nonregular", result.stderr)
+        with self.assertRaisesRegex(ValueError, "nonregular"):
+            consumer.sync(self.lock, commit, self.source, "vendor/starintel", bundle=True)
 
 
 if __name__ == "__main__":

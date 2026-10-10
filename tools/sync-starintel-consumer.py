@@ -45,7 +45,7 @@ def safe_path(path: str) -> str:
     return path
 
 
-def safe_target(root: Path, relative: str) -> Path:
+def safe_target(root: Path, relative: str, *, file: bool = False) -> Path:
     """Reject symlinks and escapes before touching consumer-owned files."""
     relative = safe_path(relative)
     target = root / relative
@@ -54,6 +54,9 @@ def safe_target(root: Path, relative: str) -> Path:
     for part in PurePosixPath(relative).parts:
         current = current / part
         require(not current.is_symlink(), f"unsafe symlink target: {relative}")
+    if file and target.exists():
+        require(target.is_file(), f"unsafe nonregular target: {relative}")
+        require(target.stat().st_nlink == 1, f"unsafe hardlinked target: {relative}")
     return target
 
 
@@ -77,7 +80,7 @@ def consumer_root(lock_path: Path) -> tuple[Path, Path]:
     # different repository root and erase the evidence of the symlink.
     absolute = lock_path.absolute()
     root = absolute.parent.parent
-    return root, safe_target(root, absolute.relative_to(root).as_posix())
+    return root, safe_target(root, absolute.relative_to(root).as_posix(), file=True)
 
 
 def read_source(commit: str, path: str, source: Path | None) -> bytes:
@@ -200,7 +203,7 @@ def sync(lock_path: Path, commit: str, source: Path | None, destination: str,
     if bundle:
         lock["bundle_format"] = BUNDLE_FORMAT
         lock["bundle_lock_path"] = f"{RELEASE}/bundle-lock.json"
-    targets = {path: safe_target(root, local) for path, local in paths.items()}
+    targets = {path: safe_target(root, local, file=True) for path, local in paths.items()}
     require(len(set(targets.values())) == len(files), "duplicate consumer target")
     require(lock_path not in targets.values(), "consumer artifact cannot overwrite its lock")
     if bundle:
@@ -226,7 +229,7 @@ def check(lock_path: Path, source: Path | None, *, offline: bool = False) -> dic
         canonical = safe_path(entry["source"])
         require(canonical not in seen_sources, "duplicate canonical source")
         seen_sources.add(canonical)
-        local_paths[local] = safe_target(root, local)
+        local_paths[local] = safe_target(root, local, file=True)
     read = None
     if offline:
         # Package builds verify their complete local release closure. CI must
