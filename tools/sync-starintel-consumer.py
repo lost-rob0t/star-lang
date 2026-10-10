@@ -10,7 +10,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-from pathlib import Path, PurePosixPath
+from pathlib import Path, PurePosixPath, PureWindowsPath
 import re
 import subprocess
 import urllib.request
@@ -30,8 +30,27 @@ def require(condition: bool, message: str) -> None:
 
 def safe_path(path: str) -> str:
     value = PurePosixPath(path)
-    require(not value.is_absolute() and ".." not in value.parts, f"unsafe path: {path}")
+    require(
+        bool(path) and "\\" not in path and not PureWindowsPath(path).drive
+        and not value.is_absolute() and ".." not in value.parts,
+        f"unsafe path: {path}",
+    )
     return str(value)
+
+
+def vendored_path(root: Path, local: str) -> Path:
+    """Reject escaping or symlinked destinations before reading or writing.
+
+    Symlinked vendor files do not form a self-contained offline release and
+    following them during sync can overwrite files outside the consumer.
+    """
+    relative = PurePosixPath(safe_path(local))
+    require(bool(relative.parts), f"unsafe empty vendored path: {local}")
+    target = root
+    for component in relative.parts:
+        target /= component
+        require(not target.is_symlink(), f"unsafe vendored symlink: {local}")
+    return target
 
 
 def read_source(commit: str, path: str, source: Path | None) -> bytes:
@@ -73,6 +92,8 @@ def sync(lock_path: Path, commit: str, source: Path | None, destination: str) ->
     root = lock_path.resolve().parent.parent
     destination = safe_path(destination)
     paths = {path: f"{destination}/{path.removeprefix(RELEASE + '/')}" for path in files}
+    # Preflight every destination before copying any artifact.
+    targets = {path: vendored_path(root, local) for path, local in paths.items()}
     lock = {
         "canonical_repository": REPOSITORY,
         "canonical_commit": commit,
@@ -89,7 +110,7 @@ def sync(lock_path: Path, commit: str, source: Path | None, destination: str) ->
         },
     }
     for path, data in files.items():
-        target = root / paths[path]
+        target = targets[path]
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(data)
     lock_path.parent.mkdir(parents=True, exist_ok=True)
@@ -108,7 +129,7 @@ def check(lock_path: Path, source: Path | None, *, offline: bool = False) -> dic
         local_sources = {}
         for local, entry in lock["vendored_files"].items():
             require(entry["source"] not in local_sources, "duplicate canonical source")
-            data = (root / safe_path(local)).read_bytes()
+            data = vendored_path(root, local).read_bytes()
             require(digest(data) == entry["sha256"], f"consumer hash mismatch: {local}")
             local_sources[entry["source"]] = data
         def read(path):
@@ -128,7 +149,7 @@ def check(lock_path: Path, source: Path | None, *, offline: bool = False) -> dic
         require(entry["source"] in files, f"unlocked upstream artifact: {local}")
         canonical = files[entry["source"]]
         require(entry["sha256"] == digest(canonical), f"consumer hash mismatch: {local}")
-        require((root / safe_path(local)).read_bytes() == canonical, f"vendored artifact drift: {local}")
+        require(vendored_path(root, local).read_bytes() == canonical, f"vendored artifact drift: {local}")
         seen.add(entry["source"])
     require(seen == set(files), "consumer must vendor the complete locked release")
     return lock

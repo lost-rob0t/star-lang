@@ -75,5 +75,61 @@ class ConsumerTests(unittest.TestCase):
         self.assertFalse(self.lock.exists())
 
 
+    def test_windows_style_escape_and_empty_vendor_paths_rejected(self):
+        for unsafe in (r"..\escape", "C:/escape", r"C:\escape", r"\\host\share\file"):
+            with self.subTest(unsafe=unsafe), self.assertRaisesRegex(ValueError, "unsafe"):
+                consumer.safe_path(unsafe)
+        for unsafe in ("", "."):
+            with self.subTest(unsafe=unsafe), self.assertRaisesRegex(ValueError, "unsafe"):
+                consumer.vendored_path(self.root, unsafe)
+
+    def test_offline_closure_rejects_symlink_with_correct_bytes(self):
+        self.sync()
+        lock = json.loads(self.lock.read_text())
+        root = self.lock.parent.parent
+        local = next(p for p in lock["vendored_files"] if p.endswith("generated/schema.json"))
+        schema = root / local
+        external = self.root / "external-schema.json"
+        external.write_bytes(schema.read_bytes())
+        schema.unlink()
+        try:
+            schema.symlink_to(external)
+        except (OSError, NotImplementedError) as error:
+            self.skipTest(f"symlinks unavailable: {error}")
+        with self.assertRaisesRegex(ValueError, "symlink"):
+            consumer.check(self.lock, None, offline=True)
+
+    def test_sync_preflights_all_destinations_before_writing(self):
+        self.sync()
+        lock = json.loads(self.lock.read_text())
+        root = self.lock.parent.parent
+        release_copy = root / next(p for p in lock["vendored_files"] if p.endswith("release-lock.json"))
+        schema = root / next(p for p in lock["vendored_files"] if p.endswith("generated/schema.json"))
+        external = self.root / "external-schema.json"
+        external.write_bytes(b"outside-sentinel")
+        schema.unlink()
+        try:
+            schema.symlink_to(external)
+        except (OSError, NotImplementedError) as error:
+            self.skipTest(f"symlinks unavailable: {error}")
+        release_copy.write_bytes(b"local-sentinel")
+        with self.assertRaisesRegex(ValueError, "symlink"):
+            self.sync()
+        self.assertEqual(release_copy.read_bytes(), b"local-sentinel")
+        self.assertEqual(external.read_bytes(), b"outside-sentinel")
+
+    def test_vendor_path_rejects_symlinked_parent(self):
+        root = self.root / "checkout"
+        root.mkdir()
+        external = self.root / "external"
+        external.mkdir()
+        try:
+            (root / "schemas").symlink_to(external, target_is_directory=True)
+        except (OSError, NotImplementedError) as error:
+            self.skipTest(f"symlinks unavailable: {error}")
+        with self.assertRaisesRegex(ValueError, "symlink"):
+            consumer.vendored_path(root, "schemas/starintel-0.10.1/schema.json")
+
+
 if __name__ == "__main__":
     unittest.main()
