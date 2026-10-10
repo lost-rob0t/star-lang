@@ -57,3 +57,21 @@ Coordinates use canonical 0.10.1 decimal strings in these regression
 fixtures. SL01/SL02 must reconcile the future binary64 coordinate
 decision (issue #5) before IR14 generates and locks a successor release.
 No Android, wireless, Quasar or media repin is authorized by this proposal.
+
+## SL04 bounded candidate spatial pagination
+
+The provisional 0.10.2 `query-spatial-bbox` message now uses the source-owned
+`spatial-query-page-size` integer scalar for its optional `limit`, bounded
+inclusively to **1–1000**. A zero, negative, non-integer or greater-than-1000
+page size is malformed; 1 and 1000 are valid. The compiler's portable manifest,
+generated JSON Schema and real portable validator share this scalar declaration.
+The executable `geo-spatial-bbox-probes-0102.json` goldens and compiler test
+assert both the generated constraints and wire acceptance/rejection.
+
+These values are **candidate semantics requiring explicit SL01/SL02 review and
+IR14 version approval**, not a silently changed 0.10.1 contract or a new
+indexing/search runtime. The 0.10.1 core, generated language bindings,
+portable manifest, JSON Schema and release lock are unchanged. A consumer
+must not ship this candidate until a separately versioned release is generated,
+finalized, locked and repinned. SS11/SS13 own the backend's authorization,
+CouchDB JSON/GeoCouch indexing and any smaller server-side result limits.
