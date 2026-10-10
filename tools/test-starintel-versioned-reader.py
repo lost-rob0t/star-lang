@@ -22,6 +22,24 @@ def historical(dtype='alert', data=None):
             'date_updated': '2026-10-04T00:00:00Z', 'sources': [], 'evidence': [], 'data': data or {}}
 
 
+
+def fixture_pairs(historical, canonical, expected_count):
+    """Require a complete, ordered, unique pairing before testing migrations."""
+    if (type(historical) is not list or type(canonical) is not list
+            or len(historical) != expected_count or len(canonical) != expected_count):
+        raise ValueError('paired migration fixture count mismatch')
+    pairs = list(zip(historical, canonical, strict=True))
+    names = []
+    for before, after in pairs:
+        if (not isinstance(before, dict) or not isinstance(after, dict)
+                or not isinstance(before.get('name'), str)
+                or not before['name'] or before['name'] != after.get('name')):
+            raise ValueError('paired migration fixture name mismatch')
+        names.append(before['name'])
+    if len(names) != len(set(names)):
+        raise ValueError('duplicate paired migration fixture name')
+    return pairs
+
 class VersionedReaderTests(unittest.TestCase):
     def raw(self, doc):
         return m.encode(doc).encode()
@@ -290,8 +308,7 @@ class VersionedReaderTests(unittest.TestCase):
             self.assertEqual(m.digest((PATH.parent / path).read_bytes()), expected)
         old = json.loads((PATH.parent / 'historical-reader-fixtures.json').read_text())
         new = json.loads((PATH.parent / 'canonical-migration-fixtures.json').read_text())
-        self.assertEqual(len(old), 28)
-        for before, after in zip(old, new):
+        for before, after in fixture_pairs(old, new, 28):
             raw = before['sourceUtf8'].encode()
             self.assertEqual(before['name'], after['name'])
             self.assertEqual(m.digest(raw), before['sourceSha256'])
@@ -301,8 +318,7 @@ class VersionedReaderTests(unittest.TestCase):
     def test_numeric_migration_artifacts_support_equivalent_notation(self):
         old = m.load(PATH.parent / 'numeric-historical-reader-fixtures.json')
         new = m.load(PATH.parent / 'numeric-canonical-migration-fixtures.json')
-        self.assertEqual(len(old), 6)
-        for source, target in zip(old, new):
+        for source, target in fixture_pairs(old, new, 6):
             raw = source['sourceUtf8'].encode()
             self.assertEqual(source['name'], target['name'])
             self.assertEqual(m.migrate(raw)[0], target['document'])
