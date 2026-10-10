@@ -247,6 +247,9 @@ anonymous, including public API usage. Runtime resolves a reference only
 through its authorized scoped secret port; the mapper never resolves it.
 Existing SSRF, origin, redirect, robots and rate-limit gates still apply.
 The versioned effect allowlist adds `parse-json` for JSON acquisition.
+V2 acquisition requires exactly `net-https-fetch`, the input format's
+`parse-json` or `parse-html`, `rate-limit-scheduler`, `crawl-budget`, and
+`starintel-documents`, without duplicates or unrelated parser grants.
 
 Generate consumable artifacts only with:
 
