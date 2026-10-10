@@ -71,11 +71,12 @@ express. Both must pass before the manifest exists."
       (fail-schema "Scraper vocabulary does not declare ~A." type-name))
     (staractorprotocol:validate-portable-wire-value
      vocabulary type-name policy "Scraper policy"))
-  (validate-scraper-policy-gate policy)
-  (list :manifest-schema +scraper-manifest-schema+
-        :wire-version +scraper-manifest-wire-version+
-        :vocabulary vocabulary
-        :policy policy))
+  (let ((version (scraper-vocabulary-version vocabulary)))
+    (ecase version
+      (1 (validate-scraper-policy-gate policy))
+      (2 (validate-scraper-v2-policy-gate policy)))
+    (list :manifest-schema (format nil "org.starscrape/scraper-manifest@~D" version)
+          :wire-version version :vocabulary vocabulary :policy policy)))
 
 (defun scraper-manifest-json (manifest)
   "Serialize a scraper manifest to canonical JSON (RFC 8785-style
@@ -360,3 +361,4 @@ sorted keys, lower camelCase field keys)."
     (when method
       (validate-identifier method "Provenance collectionMethod")))
   provenance)
+
