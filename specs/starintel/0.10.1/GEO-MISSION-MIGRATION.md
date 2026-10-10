@@ -97,3 +97,26 @@ modify the frozen 0.10.1 release artifacts.
 
 The isolated Logic IR workflow installs Yason's transitive
 cl-trivial-gray-streams dependency so the compiler goldens run there.
+
+## Frozen source/generator boundary audit (SL04)
+
+The compiler's \`geo-generator-boundary-tests.lisp\` validates canonical
+0.10.1 source with the real portable validator using 12 scalar goldens in
+\`geo-generator-boundaries-0101.json\`. It also inspects JSON Schema emitted
+by the real compiler instead of maintaining a competing spatial schema.
+The regression snapshot records six known limitations:
+
+1. Decimal-string JSON Schema does not enforce scalar bounds/scale.
+2. \`Geo.boundingBox\` lacks four-coordinate cardinality.
+3. \`GeoPoint.geometryType\` is not fixed to \`point\`.
+4. \`Geo.accuracyMeters\` has no nonnegative constraint.
+5. \`query-spatial\` has no typed result/page response.
+6. \`mission-target.location\` lacks separate location proof/evidence fields.
+
+These tests assert the **frozen state**, not JSON Schema validation parity.
+Consumers must use the portable validator for scalar bounds and must not treat
+missing fields as implicit location evidence. SL01 owns normalized semantics;
+SL02 owns successor-release generator parity; IR14 owns immutable consumer
+repins. SS11/SS13 own CouchDB JSON storage, authorization, GeoCouch and bbox
+execution. Android, wireless, Quasar and media preserve original location and
+provenance references. No search or index runtime was added to StarLang.

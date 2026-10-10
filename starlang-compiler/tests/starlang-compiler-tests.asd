@@ -6,6 +6,7 @@
   :serial t
   :components
   ((:file "starlang-compiler-tests")
+   (:file "geo-generator-boundary-tests")
    (:file "actor-compiler-tests")
    (:file "actor-option-key-tests")
    (:file "actor-capabilities-tests")
@@ -16,6 +17,7 @@
   (test-op (op c)
     (declare (ignore op c))
     (uiop:symbol-call :starlangcompiler-tests :run-tests)
+    (uiop:symbol-call :starlang-geo-generator-boundary-tests :run-tests)
     (uiop:symbol-call :starlang-actor-compiler-tests :run-tests)
     (uiop:symbol-call :starlang-actor-option-key-tests :run-tests)
     (uiop:symbol-call :starlang-actor-capabilities-tests :run-tests)
