@@ -1,20 +1,17 @@
-# StarIntel release transition plan
+# StarIntel 0.10.1 bundle prerequisites
 
-Status: proposal and implementation sequence, not a published 0.10.2 contract.
+Scope updated 2026-10-10: focus only on canonical 0.10.1 alignment and its
+complete compatibility bundle. Earlier next-version planning is withdrawn;
+this document does not propose a future version or release transition.
 Tracking: #204 and fleet alignment #196.
 
 ## Verified baseline
 
-On 2026-10-10, main was `fa1c8f4fb0590526c39aa3e9bc4a7e6eac30bea7`.
-The repository release and tag-ref collections were empty, no 0.10.2 issue
-matched, and the recursive main tree contained no 0.10.2 specification.
-Absence from these inspected surfaces is not evidence about unpublished work.
-
+Main was `fa1c8f4fb0590526c39aa3e9bc4a7e6eac30bea7` when inspected.
 The final generator, finalizer and consumer verifier explicitly target 0.10.1.
-The verifier currently requires `releaseVersion == schemaVersion == 0.10.1`.
 The reference compatibility reader also explicitly targets 0.10.1. A package
 release, a document wire version, a source commit and a historical read profile
-are different identities. A bare constant edit does not establish a new contract.
+are different identities.
 
 The 0.10.1 release-lock blob is identical at upstream commits `96d26c338078676ec1dc6928755901636c9f7ef0`
 and `fa1c8f4fb0590526c39aa3e9bc4a7e6eac30bea7` (`c8336c3f427b14e341f1f4b72b5dc4ba32036c64`).
@@ -61,29 +58,12 @@ profiles. Passing canonical serialization is not historical-reader support.
 The executable-only legacy dialect, nested 0.10.1, unpinned 0.7.3 and arbitrary
 downgrade remain unsupported by this reference.
 
-## 0.10.2 proposal after fleet alignment
 
-First establish the same verified 0.10.1 contract at every actual downstream
-creation, validation, serialization and ingestion boundary. Record exact
-library/application pins, lock digests, supported profiles and runtime test
-results; a matching version string is insufficient. Missing producers or
-unapproved extension contracts remain explicit blockers.
+## Fleet acceptance
 
-Then review an authority-owned version-only patch. Its proposed invariant is
-no document type, field, requirement, mapping rule or runtime semantic change
-beyond the explicitly reviewed version metadata. The decision must state
-whether 0.10.2 is only a release/package revision with 0.10.1 wire identity, or
-a new canonical wire identity. Current equality assumptions do not allow these
-alternatives to be conflated.
-
-For a release-only revision, decouple release identity from wire identity in
-source metadata and verifier tests without relabeling documents. For a new wire
-identity, define explicit reader dispatch and version-transition fixtures before
-updating writers. Preserve 0.10.1 artifacts immutably and validate both versions;
-never silently restamp historical or persisted records.
-
-Regenerate schema, manifest, bindings and locks from source, review the normalized
-semantic diff, and require applicable ASDF, Nix and actual cross-language gates.
-Only then prepare downstream pin-update draft PRs with exact-head CI. No merge,
-tag, release publication or production corpus migration is authorized by this
-plan.
+Establish the same verified 0.10.1 contract at every actual downstream creation,
+validation, serialization and ingestion boundary. Record exact library/application
+pins, lock digests, supported profiles and runtime test results. Matching version
+strings are insufficient. Missing producers and unapproved extension contracts
+remain explicit blockers. Keep all changes in scoped draft PRs with exact-head
+CI; no merge, tag, release publication or production corpus rewrite is included.
