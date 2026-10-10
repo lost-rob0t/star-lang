@@ -226,6 +226,28 @@ def sync(lock_path: Path, commit: str, source: Path | None, destination: str,
     return lock
 
 
+def verify_bundle_layout(lock: dict) -> str:
+    """Return the dedicated destination after checking canonical sibling paths."""
+    require(lock["bundle_format"] == BUNDLE_FORMAT, "unsupported bundle format")
+    require(lock.get("bundle_lock_path") == f"{RELEASE}/bundle-lock.json", "bundle lock path mismatch")
+    for local, entry in lock["vendored_files"].items():
+        safe_path(local)
+        require(isinstance(entry, dict) and isinstance(entry.get("source"), str),
+                f"invalid bundle mapping: {local}")
+    bundle_locals = [local for local, entry in lock["vendored_files"].items()
+                     if entry["source"] == lock["bundle_lock_path"]]
+    require(len(bundle_locals) == 1, "consumer must vendor the complete locked bundle")
+    suffix = "/0.10.1/bundle-lock.json"
+    require(bundle_locals[0].endswith(suffix), "bundle sibling layout mismatch")
+    destination = bundle_locals[0][:-len(suffix)]
+    safe_path(destination)
+    for local, entry in lock["vendored_files"].items():
+        require(entry["source"].startswith(BUNDLE_ROOT + "/"), "bundle source root mismatch")
+        expected_local = destination + "/" + entry["source"].removeprefix(BUNDLE_ROOT + "/")
+        require(local == expected_local, "bundle sibling layout mismatch")
+    return destination
+
+
 def check(lock_path: Path, source: Path | None, *, offline: bool = False) -> dict:
     root, lock_path = consumer_root(lock_path)
     lock = json.loads(lock_path.read_text(encoding="utf-8"))
@@ -251,19 +273,7 @@ def check(lock_path: Path, source: Path | None, *, offline: bool = False) -> dic
             require(path in local_sources, f"consumer must vendor the complete locked release: {path}")
             return local_sources[path]
     if "bundle_format" in lock:
-        require(lock["bundle_format"] == BUNDLE_FORMAT, "unsupported bundle format")
-        require(lock.get("bundle_lock_path") == f"{RELEASE}/bundle-lock.json", "bundle lock path mismatch")
-        bundle_locals = [local for local, entry in lock["vendored_files"].items()
-                         if entry["source"] == lock["bundle_lock_path"]]
-        require(len(bundle_locals) == 1, "consumer must vendor the complete locked bundle")
-        suffix = "/0.10.1/bundle-lock.json"
-        require(bundle_locals[0].endswith(suffix), "bundle sibling layout mismatch")
-        destination = bundle_locals[0][:-len(suffix)]
-        safe_path(destination)
-        for local, entry in lock["vendored_files"].items():
-            require(entry["source"].startswith(BUNDLE_ROOT + "/"), "bundle source root mismatch")
-            expected_local = destination + "/" + entry["source"].removeprefix(BUNDLE_ROOT + "/")
-            require(local == expected_local, "bundle sibling layout mismatch")
+        destination = verify_bundle_layout(lock)
         release, files = verify_bundle(lock["canonical_commit"], source, read)
         verify_closed_destination(root, destination, set(local_paths.values()))
     else:

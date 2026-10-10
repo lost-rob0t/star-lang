@@ -21,6 +21,8 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
+      - name: Verify read-only consumer drift diagnostics
+        run: python3 -B tools/test-starintel-consumer-drift.py
       - name: Install reader test dependency
         run: |
           sudo apt-get update

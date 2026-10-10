@@ -9,10 +9,19 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 from pathlib import Path, PurePosixPath
 
 HERE = Path(__file__).resolve().parent
+# Keep the downstream sync tool standalone; this repository-side report reuses
+# its filesystem contract rather than maintaining a second bundle validator.
+_sync_spec = importlib.util.spec_from_file_location(
+    "starintel_consumer_sync", HERE / "sync-starintel-consumer.py")
+consumer = importlib.util.module_from_spec(_sync_spec)
+assert _sync_spec.loader is not None
+_sync_spec.loader.exec_module(consumer)
+
 RELEASE = "specs/starintel/0.10.1"
 BUNDLE_ROOT = "specs/starintel"
 BUNDLE_FORMAT = "starintel-consumer-bundle/1"
@@ -111,6 +120,13 @@ def audit(lock_path: Path, authority_root: Path) -> dict:
     files = lock.get("vendored_files")
     if not isinstance(files, dict):
         raise ValueError("vendored_files must be a JSON object")
+    if bundle:
+        try:
+            destination = consumer.verify_bundle_layout(lock)
+            allowed = {consumer.safe_target(root, local, file=True) for local in files}
+            consumer.verify_closed_destination(root, destination, allowed)
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            errors.append("consumer: " + str(exc))
     seen: dict[str, str] = {}
     for local, entry in sorted(files.items()):
         if not isinstance(entry, dict) or not isinstance(entry.get("source"), str):

@@ -94,7 +94,7 @@ class DriftReportTests(unittest.TestCase):
         self.assertTrue(any("consumer: stale lock hash" in x for x in result["errors"]))
 
     def bundle_source(self):
-        compatibility = "specs/starintel/compatibility/reader.py"
+        compatibility = "specs/starintel/compatibility/versioned_reader.py"
         target = self.authority / compatibility
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(b"reader fixture\n")
@@ -117,6 +117,7 @@ class DriftReportTests(unittest.TestCase):
         self.write_lock()
         lock = json.loads(self.lock.read_text())
         lock["bundle_format"] = "starintel-consumer-bundle/1"
+        lock["bundle_lock_path"] = bundle
         self.lock.write_text(json.dumps(lock))
         return compatibility
 
@@ -135,6 +136,73 @@ class DriftReportTests(unittest.TestCase):
         result = drift.audit(self.lock, self.authority)
         self.assertFalse(result["ok"])
         self.assertTrue(any("release/bundle hash mismatch" in x for x in result["errors"]))
+
+
+    def test_bundle_rejects_remapped_reader_with_identical_bytes(self):
+        self.bundle_source()
+        lock = json.loads(self.lock.read_text())
+        old = "vendor/starintel/compatibility/versioned_reader.py"
+        new = "safe-elsewhere/versioned_reader.py"
+        target = self.consumer / new
+        target.parent.mkdir()
+        (self.consumer / old).rename(target)
+        lock["vendored_files"][new] = lock["vendored_files"].pop(old)
+        self.lock.write_text(json.dumps(lock))
+        result = drift.audit(self.lock, self.authority)
+        self.assertFalse(result["ok"], result)
+        self.assertTrue(any("sibling layout" in x for x in result["errors"]))
+
+    def test_bundle_rejects_invalid_lock_path_metadata(self):
+        self.bundle_source()
+        original = json.loads(self.lock.read_text())
+        for value in (None, "specs/starintel/0.9.0/bundle-lock.json"):
+            with self.subTest(value=value):
+                lock = dict(original)
+                lock["bundle_lock_path"] = value
+                self.lock.write_text(json.dumps(lock))
+                result = drift.audit(self.lock, self.authority)
+                self.assertFalse(result["ok"], result)
+                self.assertTrue(any("bundle lock path" in x for x in result["errors"]))
+
+    def test_bundle_rejects_unlisted_import_shadows_and_bytecode(self):
+        self.bundle_source()
+        for name in ("operation_semantics.py", "raw_json_numbers.pyc",
+                     "__pycache__/raw_json_numbers.cpython-312.pyc"):
+            with self.subTest(name=name):
+                path = self.consumer / "vendor/starintel/compatibility" / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(b"# unpinned shadow")
+                before = self.lock.read_bytes()
+                result = drift.audit(self.lock, self.authority)
+                self.assertFalse(result["ok"], result)
+                self.assertTrue(any("unlisted bundle file" in x for x in result["errors"]))
+                self.assertEqual(self.lock.read_bytes(), before)
+                self.assertEqual(path.read_bytes(), b"# unpinned shadow")
+                path.unlink()
+        self.assertTrue(drift.audit(self.lock, self.authority)["ok"])
+
+    def test_bundle_invalid_mapping_remains_a_structured_report(self):
+        self.bundle_source()
+        original = json.loads(self.lock.read_text())
+        for entry in (None, {"source": None}, {"source": 7}):
+            with self.subTest(entry=entry):
+                lock = json.loads(json.dumps(original))
+                lock["vendored_files"]["vendor/starintel/compatibility/versioned_reader.py"] = entry
+                self.lock.write_text(json.dumps(lock))
+                result = drift.audit(self.lock, self.authority)
+                self.assertFalse(result["ok"], result)
+                self.assertTrue(any("invalid mapping" in x for x in result["errors"]))
+
+    def test_bundle_layout_failure_keeps_other_diagnostics(self):
+        self.bundle_source()
+        lock = json.loads(self.lock.read_text())
+        lock["bundle_lock_path"] = "wrong"
+        self.lock.write_text(json.dumps(lock))
+        (self.consumer / "vendor/starintel/0.10.1/core.star").write_bytes(b"corrupt")
+        result = drift.audit(self.lock, self.authority)
+        self.assertFalse(result["ok"], result)
+        self.assertTrue(any("bundle lock path" in x for x in result["errors"]))
+        self.assertTrue(any("vendored bytes drift" in x for x in result["errors"]))
 
     def assert_authority_lock_not_read(self, lock_path, *, bundle):
         """A rejected lock must not be opened before path validation."""
