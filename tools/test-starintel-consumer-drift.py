@@ -5,9 +5,11 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 HERE = Path(__file__).resolve().parent
 spec = importlib.util.spec_from_file_location("drift", HERE / "report-starintel-consumer-drift.py")
@@ -133,6 +135,45 @@ class DriftReportTests(unittest.TestCase):
         result = drift.audit(self.lock, self.authority)
         self.assertFalse(result["ok"])
         self.assertTrue(any("release/bundle hash mismatch" in x for x in result["errors"]))
+
+    def assert_authority_lock_not_read(self, lock_path, *, bundle):
+        """A rejected lock must not be opened before path validation."""
+        original_read = Path.read_bytes
+        forbidden_reads = []
+
+        def guarded_read(path):
+            if path == lock_path:
+                forbidden_reads.append(str(path))
+                raise AssertionError("untrusted authority lock was read before validation")
+            return original_read(path)
+
+        with patch.object(Path, "read_bytes", guarded_read):
+            with self.assertRaisesRegex(ValueError, "unsafe"):
+                drift.authority_closure(self.authority, bundle)
+        self.assertEqual(forbidden_reads, [])
+
+    def test_release_lock_symlink_outside_authority_is_never_read(self):
+        path = self.authority / self.release / "release-lock.json"
+        external = self.root / "untrusted-release.json"
+        external.write_bytes(path.read_bytes())
+        path.unlink()
+        path.symlink_to(external)
+        self.assert_authority_lock_not_read(path, bundle=False)
+
+    def test_bundle_lock_symlink_inside_authority_is_never_read(self):
+        self.bundle_source()
+        path = self.authority / self.release / "bundle-lock.json"
+        alternate = self.authority / self.release / "alternate-bundle.json"
+        alternate.write_bytes(path.read_bytes())
+        path.unlink()
+        path.symlink_to(alternate)
+        self.assert_authority_lock_not_read(path, bundle=True)
+
+    def test_release_lock_hardlink_is_never_read(self):
+        path = self.authority / self.release / "release-lock.json"
+        other = self.root / "linked-release.json"
+        os.link(path, other)
+        self.assert_authority_lock_not_read(path, bundle=False)
 
     def test_symlink_vendor_is_not_followed(self):
         local = sorted(self.vendor)[0]

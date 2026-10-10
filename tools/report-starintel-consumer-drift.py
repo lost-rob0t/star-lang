@@ -55,7 +55,7 @@ def authority_closure(root: Path, bundle: bool) -> tuple[dict[str, str], list[st
     """Derive expected source hashes *only* from the canonical release locks."""
     errors: list[str] = []
     release_path = RELEASE + "/release-lock.json"
-    release_bytes = (root / release_path).read_bytes()
+    release_bytes = safe_target(root, release_path, file=True).read_bytes()
     release = json.loads(release_bytes)
     if release.get("releaseVersion") != "0.10.1" or release.get("schemaVersion") != "0.10.1":
         errors.append("authority: release version is not 0.10.1")
@@ -69,7 +69,7 @@ def authority_closure(root: Path, bundle: bool) -> tuple[dict[str, str], list[st
             expected[path] = digest
     if bundle:
         bundle_path = RELEASE + "/bundle-lock.json"
-        bundle_bytes = (root / bundle_path).read_bytes()
+        bundle_bytes = safe_target(root, bundle_path, file=True).read_bytes()
         metadata = json.loads(bundle_bytes)
         if metadata.get("bundleFormat") != BUNDLE_FORMAT:
             errors.append("authority: unsupported bundle format")
