@@ -81,7 +81,9 @@ express. Both must pass before the manifest exists."
 (defun scraper-manifest-json (manifest)
   "Serialize a scraper manifest to canonical JSON (RFC 8785-style
 sorted keys, lower camelCase field keys)."
-  (starcanonicaljson:canonical-manifest-json manifest))
+  (if (eql (getf manifest :wire-version) 2)
+      (scraper-v2-manifest-json manifest)
+      (starcanonicaljson:canonical-manifest-json manifest)))
 
 ;;;; Closed scraper policy gate.
 ;;;;

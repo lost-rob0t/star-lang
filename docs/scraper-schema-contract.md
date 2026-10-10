@@ -265,3 +265,11 @@ The generated artifact CI job re-generates and verifies exact bytes.
 These portable schema artifacts do not claim a new runtime backend or
 new generated language-specific mapper implementations. Existing language
 ownership and supported backend matrix remain unchanged.
+
+V2 serialization reuses the canonical typed wire codec for `mappingPlan`
+and `policy`, while retaining the established vocabulary codec for the
+embedded type manifest. Explicit false flags stay false, omitted flags
+stay absent, and `relations: []` stays an empty array. Lisp callers may
+use either NIL or `staractorprotocol:+portable-json-false+` for false;
+a false sentinel never counts as a required natural-key field. An empty
+transform list should be omitted rather than declared.

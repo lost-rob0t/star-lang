@@ -39,7 +39,6 @@
     (reject (lambda (p) (setf (getf p :max-depth) 65)) "depth above bound")
     (reject (lambda (p) (setf (getf p :max-input-bytes) 0)) "zero byte budget")
     (reject (lambda (p) (setf (getf p :scopes) nil)) "empty scopes")
-    (reject (lambda (p) (setf (getf p :relations) nil)) "explicit empty relations")
     (reject (lambda (p) (setf (getf (first (getf (first (getf p :scopes)) :fields)) :transform) nil)) "explicit empty transforms")
     (reject (lambda (p) (push (copy-tree (first (getf p :scopes))) (getf p :scopes))) "duplicate scopes")
     (reject (lambda (p) (setf (getf (first (getf p :scopes)) :selector) "$..name")) "recursive JSONPath")
@@ -54,6 +53,25 @@
     (reject (lambda (p) (setf (getf (first (getf p :relations)) :predicate) "invented")) "unknown predicate")
     (reject (lambda (p) (setf (getf (first (getf (first (getf p :scopes)) :fields)) :transform) '(:eval))) "executable transform")
     (reject (lambda (p) (setf (getf (first (getf (first (getf p :scopes)) :fields)) :required) nil)) "optional natural key"))
+  (let* ((plan (copy-tree (example-mapping-plan)))
+         (field (first (getf (first (getf plan :scopes)) :fields))))
+    (setf (getf field :required) staractorprotocol:+portable-json-false+)
+    (check (signals-p 'scraper-policy-error (lambda () (compile-test-mapping plan)))
+           "Explicit JSON false was treated as a required identity field.")
+    (setf (getf field :required) t
+          (getf field :many) staractorprotocol:+portable-json-false+
+          (getf plan :emit-source) staractorprotocol:+portable-json-false+
+          (getf plan :emit-url) nil
+          (getf plan :relations) nil)
+    (let ((json (scraper-manifest-json (compile-test-mapping plan))))
+      (check (and (search "\"emitSource\":false" json)
+                  (search "\"emitUrl\":false" json)
+                  (search "\"many\":false" json)
+                  (search "\"relations\":[]" json))
+             "Typed v2 serialization lost false or empty-array semantics.")
+      (remf plan :emit-url)
+      (check (not (search "\"emitUrl\":" (scraper-manifest-json (compile-test-mapping plan))))
+             "Absent boolean became explicit false.")))
   ;; Both HTML selector dialects preserve the same mapping graph.
   (dolist (dialect '(:css :xpath))
     (let* ((plan (copy-tree (example-mapping-plan)))

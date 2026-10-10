@@ -122,8 +122,6 @@
   (let* ((scopes (getf plan :scopes)) (documents (getf plan :documents))
          (relations (getf plan :relations))
          (canonical (canonical-mapping-vocabulary)))
-    (when (and (member :relations plan) (null relations))
-      (fail-policy "Omit relations when there are no relation mappings."))
     (nonempty-unique-names scopes :name "row scope")
     (nonempty-unique-names documents :name "document mapping")
     (nonempty-unique-names relations :name "relation mapping" :allow-empty t)
@@ -143,7 +141,7 @@
           (fail-policy "Natural key must contain distinct extracted field names."))
         (dolist (key keys)
           (let ((field (named-entry key fields "natural key")))
-            (unless (and (getf field :required) (not (getf field :many)))
+            (unless (and (eq (getf field :required) t) (not (eq (getf field :many) t)))
               (fail-policy "Natural key fields must be required scalar extractions."))))
         (nonempty-unique-names (getf document :fields) :target "mapped target field")
         (dolist (mapping (getf document :fields))
@@ -194,3 +192,28 @@
   (validate-robots-gate (policy-area policy :robots "Robots"))
   (validate-provenance-gate (policy-area policy :provenance "Provenance"))
   policy)
+
+(defun scraper-v2-manifest-json (manifest)
+  ;; Reuse the canonical typed wire codec so false and empty arrays retain
+  ;; their types. The generic vocabulary codec intentionally omits NIL
+  ;; metadata and is therefore unsuitable for policy payloads.
+  (let* ((vocabulary (getf manifest :vocabulary))
+         (pure-p (equal (getf manifest :manifest-schema)
+                        "org.starscrape/mapping-manifest@2"))
+         (key (if pure-p :mapping-plan :policy))
+         (type (if pure-p "mapping-plan" "scraper-policy")))
+    (unless (or pure-p (equal (getf manifest :manifest-schema)
+                             "org.starscrape/scraper-manifest@2"))
+      (fail-schema "Unsupported v2 manifest envelope."))
+    (validate-v2-value vocabulary type (getf manifest key))
+    (starcanonicaljson:canonical-json-string
+     (starcanonicaljson:make-json-object
+      (list
+       (cons "manifestSchema" (getf manifest :manifest-schema))
+       (cons "wireVersion" 2)
+       (cons "vocabulary"
+             (starcanonicaljson::starlang-manifest-json-object vocabulary vocabulary))
+       (cons (if pure-p "mappingPlan" "policy")
+             (starcanonicaljson::starlang-wire-json-value-for-type
+              vocabulary (format nil "org.starscrape/scraper@2/~A" type)
+              (getf manifest key) "Scraper v2 payload")))))))
