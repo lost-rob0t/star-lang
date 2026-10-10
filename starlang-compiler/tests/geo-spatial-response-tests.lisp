@@ -63,6 +63,29 @@
                       when (getf f :required) collect (getf f :name))
                 :test #'string=))
     (is (hash-table-p match))
+    ;; Check the compiled normalized source, actual JSON Schema, and bindings.
+    (let ((contract
+            (find (format nil "~A/spatial-match" +authority+)
+                  (getf manifest :types)
+                  :key (lambda (entry) (getf entry :name))
+                  :test #'string=)))
+      (is (consp contract))
+      (dolist (name '("observedAt" "validFrom" "validUntil"))
+        (let ((field (find name (getf contract :fields)
+                           :key (lambda (entry) (getf entry :name))
+                           :test #'string=))
+              (property (gethash name properties)))
+          (is (consp field))
+          (is (string= (format nil "~A/unix-time" +authority+)
+                       (getf field :type)))
+          (is (not (getf field :required)))
+          (is (string= "#/$defs/UnixTime" (gethash "$ref" property)))
+          (is (not (member name (coerce (gethash "required" match) 'list)
+                           :test #'string=))))))
+    (dolist (name '("observedAt" "validFrom" "validUntil"))
+      (is (search name (cdr (assoc :typescript bindings))))
+      (is (search name (cdr (assoc :python bindings))))
+      (is (search name (cdr (assoc :rust bindings)))))
     (is (string= "#/$defs/StarReference"
                  (gethash "$ref" (gethash "items" (gethash "evidence" properties)))))
     (is (search "export interface QuerySpatialResult"
@@ -78,7 +101,7 @@
          (cases (gethash "cases" goldens))
          (message (format nil "~A/query-spatial-result" +authority+))
          (accepts 0) (rejects 0))
-    (is (= 9 (length cases)))
+    (is (= 13 (length cases)))
     (loop for example across cases do
       (let ((payload (sl04-wire (gethash "payload" example))))
         (cond
@@ -92,8 +115,8 @@
              (staractorprotocol:validate-portable-message-payload
               manifest message payload)))
           (t (error "Unknown geo spatial fixture outcome.")))))
-    (is (= 2 accepts))
-    (is (= 7 rejects))))
+    (is (= 3 accepts))
+    (is (= 10 rejects))))
 
 (defun run-tests ()
   (unless (run! 'starlang-geo-spatial-response-tests)

@@ -10,9 +10,12 @@ participation distinguishes direct, anchored and derived. QuerySpatialResult
 carries typed matches, completeness (complete/partial/unknown), snapshot
 identity, opaque cursor pagination, hasMore and evaluatedAt.
 
-The nine golden message cases exercise the real portable validator:
-two accepted envelopes, seven rejected malformed or semantically invalid
-shapes. Tests generate actual JSON Schema and Python/TypeScript/Rust bindings
+Thirteen golden message cases exercise the real portable validator:
+three accepted envelopes, ten rejected malformed or semantically invalid
+shapes. Spatial matches optionally distinguish observedAt (source observation)
+from validFrom/validUntil (projection applicability) and evaluatedAt (query
+execution). The wire validator checks Unix timestamp types and nonnegativity,
+not cross-field interval ordering or the credibility of evidence references. Tests generate actual JSON Schema and Python/TypeScript/Rust bindings
 from a compiled candidate; generated output is checked in memory and must
 not be mistaken for a published immutable release.
 
