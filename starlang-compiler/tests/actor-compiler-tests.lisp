@@ -171,6 +171,39 @@ never sees the prototype packages."
               :ignore-error-status nil))))
     (is (search "ACTOR-COMPILER-PROOF-OK" output))))
 
+
+(defun trusted-mailbox-actor-form (mailbox)
+  "Make a trusted host actor form with MAILBOX kept as the supplied cons."
+  (list 'actor 'probe
+        (list :runtime 'native :accepts '() :produces '()
+              :handler 'probe-handler :restart 'temporary
+              :mailbox mailbox)))
+
+(test trusted-malformed-mailboxes-signal-compiler-errors
+  "Dotted host mailbox lists must signal INVALID-ACTOR-ERROR, not TYPE-ERROR."
+  (dolist (mailbox (list (cons 'bounded 4)
+                        (list* 'bounded 4 :unexpected)
+                        (cons 'bounded (cons 4 7))))
+    (signals star-lang.compiler.core:invalid-actor-error
+      (starlangcompiler:compile-actor
+       (trusted-mailbox-actor-form mailbox)))))
+
+(test trusted-cyclic-mailbox-signals-compiler-error
+  "Cyclic host mailbox conses must fail deterministically without traversing."
+  (let ((mailbox (list 'bounded 4)))
+    (setf (cddr mailbox) mailbox)
+    (signals star-lang.compiler.core:invalid-actor-error
+      (starlangcompiler:compile-actor
+       (trusted-mailbox-actor-form mailbox)))))
+
+(test trusted-valid-mailbox-preserves-lowered-shape
+  "A proper positive bounded mailbox remains unchanged."
+  (let ((actor
+          (starlangcompiler:compile-actor
+           (trusted-mailbox-actor-form '(bounded 4)))))
+    (is (equal '(:kind :bounded :capacity 4)
+               (getf actor :mailbox)))))
+
 (defun run-tests ()
   ;; fiveam's run! returns T only when every check passed; surface failures
   ;; through the process exit code so ASDF/Nix/CI gates cannot pass silently.

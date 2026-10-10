@@ -1220,7 +1220,11 @@ the approved declarative hygienic macro language is implemented."
 
 (defun normalize-mailbox (value)
   (when (and (listp value) (not (star-syntax-p value)))
-    (unless (= (length value) 2)
+    ;; Trusted Common Lisp values can be dotted or cyclic. Check exactly two
+    ;; proper cons cells without invoking LENGTH on malformed host lists.
+    (unless (and (consp value)
+                 (consp (cdr value))
+                 (null (cddr value)))
       (fail 'invalid-actor-error "Mailbox must be (bounded positive-integer)."))
     (destructuring-bind (kind capacity) value
       (unless (and (string= (identifier-key kind) "bounded")
