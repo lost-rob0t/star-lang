@@ -171,6 +171,51 @@ never sees the prototype packages."
               :ignore-error-status nil))))
     (is (search "ACTOR-COMPILER-PROOF-OK" output))))
 
+(defun trusted-actor-with-contracts (accepts produces)
+  "A trusted host form exercises final actor lowering without the .star reader."
+  `(actor probe
+     (:runtime native
+      :handler handle-probe
+      :accepts ,accepts
+      :produces ,produces
+      :restart temporary
+      :mailbox (bounded 1))))
+
+(test trusted-actor-accepts-rejects-dotted-list
+  "Dotted accepts must signal the compiler condition, not a host TYPE-ERROR."
+  (signals star-lang.compiler.core:invalid-actor-error
+    (star-lang.compiler.core:compile-actor
+     (trusted-actor-with-contracts (cons "person" "tail")
+                                   '("filing")))))
+
+(test trusted-actor-produces-rejects-dotted-list
+  "Dotted produces must signal the same typed compiler condition."
+  (signals star-lang.compiler.core:invalid-actor-error
+    (star-lang.compiler.core:compile-actor
+     (trusted-actor-with-contracts '("person")
+                                   (cons "filing" "tail")))))
+
+#+sbcl
+(test trusted-actor-cyclic-contracts-reject-without-traversal
+  "Circular trusted-host contracts must fail within a bounded SBCL timeout."
+  (let ((cycle (list "person")))
+    (setf (cdr cycle) cycle)
+    (dolist (field '(:accepts :produces))
+      (sb-ext:with-timeout 3
+        (signals star-lang.compiler.core:invalid-actor-error
+          (star-lang.compiler.core:compile-actor
+           (if (eq field :accepts)
+               (trusted-actor-with-contracts cycle '("filing"))
+               (trusted-actor-with-contracts '("person") cycle))))))))
+
+(test trusted-actor-valid-contracts-preserve-order
+  "Existing proper accepts/produces lists retain their normalized IR."
+  (let ((actor (star-lang.compiler.core:compile-actor
+                (trusted-actor-with-contracts
+                 '("person" "committee") '("filing")))))
+    (is (equal '("person" "committee") (getf actor :accepts)))
+    (is (equal '("filing") (getf actor :produces)))))
+
 (defun run-tests ()
   ;; fiveam's run! returns T only when every check passed; surface failures
   ;; through the process exit code so ASDF/Nix/CI gates cannot pass silently.

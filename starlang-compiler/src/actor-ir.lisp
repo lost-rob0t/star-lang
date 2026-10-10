@@ -204,9 +204,10 @@ deterministic string alist."
                  (lambda (types)
                    (unless (or (syntax-list-p types)
                                (and (listp types)
-                                    (not (star-syntax-p types))))
+                                    (not (star-syntax-p types))
+                                    (integerp (ignore-errors (list-length types)))))
                      (fail 'invalid-actor-error
-                           "Actor accepts/produces must be lists."))
+                           "Actor accepts/produces must be proper lists."))
                    (mapcar (lambda (type)
                              (if library-name
                                  (normalize-type-expression
