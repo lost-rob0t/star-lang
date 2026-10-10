@@ -4,7 +4,7 @@ import copy
 import json
 from pathlib import Path
 import unittest
-from jsonschema import Draft202012Validator
+from jsonschema import Draft202012Validator, ValidationError
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "specs/starintel/0.10.1"))
 from operation_semantics import validate_operation_semantics
@@ -17,6 +17,20 @@ def validate(doc):
     name = {'operation': 'Operation', 'investigation-target': 'InvestigationTarget'}[doc['dtype']]
     Draft202012Validator({**SCHEMA, '$ref': '#/$defs/' + name}).validate(doc)
     validate_operation_semantics(doc)
+
+
+def require_enum_rejection(document, expected_path):
+    try:
+        validate(document)
+    except ValidationError as error:
+        actual_path = tuple(error.absolute_path)
+        if error.validator != 'enum' or actual_path != tuple(expected_path):
+            raise AssertionError(
+                f'expected enum violation at {tuple(expected_path)!r}, '
+                f'got {error.validator!r} at {actual_path!r}'
+            ) from error
+        return
+    raise AssertionError(f'expected enum violation at {tuple(expected_path)!r}')
 
 BASE = {'id': 'operation:test', 'dataset': 'test', 'dtype': 'operation', 'schemaVersion': '0.10.1',
         'mission': 'Verify a documented question', 'status': 'planned',
@@ -39,8 +53,26 @@ class ResearchContractTests(unittest.TestCase):
                    postActions=[{'actionId': 'export', 'actionType': 'export', 'status': 'ready', 'datasetBindingIds': ['working']}])
         doc['phases'][0].update(datasetBindingIds=['working'], requiredCapabilityIds=['source'])
         validate(doc)
-        doc['assignments'][0]['status'] = 'draft'
-        with self.assertRaises(Exception): validate(doc)
+        # Keep every generated closed Operation enum in the conformance gate.
+        # Reject only the requested enum/property, not unrelated validator faults.
+        cases = (
+            (('status',), 'invalid-operation-status'),
+            (('phases', 0, 'state'), 'invalid-phase-state'),
+            (('datasets', 0, 'role'), 'invalid-dataset-role'),
+            (('datasets', 0, 'access'), 'invalid-dataset-access'),
+            (('capabilityGaps', 0, 'category'), 'invalid-category'),
+            (('capabilityGaps', 0, 'status'), 'invalid-capability-status'),
+            (('assignments', 0, 'status'), 'draft'),
+            (('postActions', 0, 'status'), 'invalid-post-action-status'),
+        )
+        for path, invalid in cases:
+            mutated = copy.deepcopy(doc)
+            item = mutated
+            for key in path[:-1]:
+                item = item[key]
+            item[path[-1]] = invalid
+            with self.subTest(path=path):
+                require_enum_rejection(mutated, path)
 
     def test_invalid_semantics(self):
         mutations = [lambda d: d.update(mission=' '), lambda d: d.update(phases=[]),
