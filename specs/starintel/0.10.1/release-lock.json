@@ -15,10 +15,10 @@
   "sources": {
     "compatibility-fixtures.json": "9e57f62022ea66bdc3a861185c7a6aea9b0f9a1094dbc3032364f6ff96e8da6f",
     "compatibility.json": "95b9af3c984912053b65d4df65b2db7b88d0d97c065dad9e211d751873ef7553",
-    "core.star": "39b15258dc63646b08522259f9dbbbc1563897b0d3dce9b5d9347ad410a7cdd5",
+    "core.star": "9c3fca96412869e13ff553de509d3c53c2d9affe4a3a6f490161416a5d3da12a",
     "legacy-workflow-oracle.json": "efa0489d7c0688330575cd463035115fd74bb562589691aaf6e93b985f9748a8",
-    "media-evidence-fixtures.json": "d0932753241144022ed315e6bdb399ac7e7da3f85a158adc6bc710f3e6340946",
-    "media_semantics.py": "5b5c79cefddc80e58459c10b2eb30ae33be3a943871a72bdef0766cf1d860889",
+    "media-evidence-fixtures.json": "6aa2fb1f7ac4dc64ed75dd533773bb33397e36b07f85348a9c0806494f363f4f",
+    "media_semantics.py": "b7c66f4efde7968c5eabc1d2457f73fd55de531c73a0e390e37b5ef49efbdcb7",
     "operation_semantics.py": "b422660d389aeeb894f0c0ec5f2007e39bd99dca33f25ee4c2b51a15f2bfb29f",
     "research-fixtures.json": "929c5058f7e8a001d9a7000c5f708d2f9f6b4b071be7e5ec5dead40a11f264b9",
     "schema-lock-manifest.json": "c0b7fc34ed0c00814793789d32d9867c45e2e63963fd3ba09a720152cb94a7b5",

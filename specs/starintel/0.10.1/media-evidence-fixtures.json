@@ -375,6 +375,218 @@
         "dtype": "source",
         "schemaVersion": "0.9.0"
       }
+    },
+    {
+      "id": "inherited-frame-one-pixel-width",
+      "valid": true,
+      "document": {
+        "id": "sl05:inherited-frame-one-pixel-width",
+        "dataset": "contract-tests",
+        "dtype": "video-frame",
+        "schemaVersion": "0.10.1",
+        "bytesHash": "aa",
+        "bytesHashAlgorithm": "sha256",
+        "width": 1,
+        "height": 240,
+        "video": {
+          "schema": "org.starintel/core@1/video",
+          "id": "sl05:video"
+        },
+        "frameIndex": 0,
+        "timestampMs": 0
+      }
+    },
+    {
+      "id": "inherited-frame-normal-height",
+      "valid": true,
+      "document": {
+        "id": "sl05:inherited-frame-normal-height",
+        "dataset": "contract-tests",
+        "dtype": "video-frame",
+        "schemaVersion": "0.10.1",
+        "bytesHash": "aa",
+        "bytesHashAlgorithm": "sha256",
+        "width": 320,
+        "height": 1080,
+        "video": {
+          "schema": "org.starintel/core@1/video",
+          "id": "sl05:video"
+        },
+        "frameIndex": 0,
+        "timestampMs": 0
+      }
+    },
+    {
+      "id": "inherited-frame-zero-width",
+      "valid": false,
+      "document": {
+        "id": "sl05:inherited-frame-zero-width",
+        "dataset": "contract-tests",
+        "dtype": "video-frame",
+        "schemaVersion": "0.10.1",
+        "bytesHash": "aa",
+        "bytesHashAlgorithm": "sha256",
+        "width": 0,
+        "height": 240,
+        "video": {
+          "schema": "org.starintel/core@1/video",
+          "id": "sl05:video"
+        },
+        "frameIndex": 0,
+        "timestampMs": 0
+      },
+      "error": "video-frame.width"
+    },
+    {
+      "id": "inherited-frame-negative-width",
+      "valid": false,
+      "document": {
+        "id": "sl05:inherited-frame-negative-width",
+        "dataset": "contract-tests",
+        "dtype": "video-frame",
+        "schemaVersion": "0.10.1",
+        "bytesHash": "aa",
+        "bytesHashAlgorithm": "sha256",
+        "width": -1,
+        "height": 240,
+        "video": {
+          "schema": "org.starintel/core@1/video",
+          "id": "sl05:video"
+        },
+        "frameIndex": 0,
+        "timestampMs": 0
+      },
+      "error": "video-frame.width"
+    },
+    {
+      "id": "inherited-frame-zero-height",
+      "valid": false,
+      "document": {
+        "id": "sl05:inherited-frame-zero-height",
+        "dataset": "contract-tests",
+        "dtype": "video-frame",
+        "schemaVersion": "0.10.1",
+        "bytesHash": "aa",
+        "bytesHashAlgorithm": "sha256",
+        "width": 320,
+        "height": 0,
+        "video": {
+          "schema": "org.starintel/core@1/video",
+          "id": "sl05:video"
+        },
+        "frameIndex": 0,
+        "timestampMs": 0
+      },
+      "error": "video-frame.height"
+    },
+    {
+      "id": "inherited-frame-negative-height",
+      "valid": false,
+      "document": {
+        "id": "sl05:inherited-frame-negative-height",
+        "dataset": "contract-tests",
+        "dtype": "video-frame",
+        "schemaVersion": "0.10.1",
+        "bytesHash": "aa",
+        "bytesHashAlgorithm": "sha256",
+        "width": 320,
+        "height": -3,
+        "video": {
+          "schema": "org.starintel/core@1/video",
+          "id": "sl05:video"
+        },
+        "frameIndex": 0,
+        "timestampMs": 0
+      },
+      "error": "video-frame.height"
+    },
+    {
+      "id": "inherited-picture-one-pixel-width",
+      "valid": true,
+      "document": {
+        "id": "sl05:inherited-picture-one-pixel-width",
+        "dataset": "contract-tests",
+        "dtype": "picture",
+        "schemaVersion": "0.10.1",
+        "bytesHash": "aa",
+        "bytesHashAlgorithm": "sha256",
+        "width": 1,
+        "height": 240
+      }
+    },
+    {
+      "id": "inherited-picture-normal-height",
+      "valid": true,
+      "document": {
+        "id": "sl05:inherited-picture-normal-height",
+        "dataset": "contract-tests",
+        "dtype": "picture",
+        "schemaVersion": "0.10.1",
+        "bytesHash": "aa",
+        "bytesHashAlgorithm": "sha256",
+        "width": 320,
+        "height": 1080
+      }
+    },
+    {
+      "id": "inherited-picture-zero-width",
+      "valid": false,
+      "document": {
+        "id": "sl05:inherited-picture-zero-width",
+        "dataset": "contract-tests",
+        "dtype": "picture",
+        "schemaVersion": "0.10.1",
+        "bytesHash": "aa",
+        "bytesHashAlgorithm": "sha256",
+        "width": 0,
+        "height": 240
+      },
+      "error": "picture.width"
+    },
+    {
+      "id": "inherited-picture-negative-width",
+      "valid": false,
+      "document": {
+        "id": "sl05:inherited-picture-negative-width",
+        "dataset": "contract-tests",
+        "dtype": "picture",
+        "schemaVersion": "0.10.1",
+        "bytesHash": "aa",
+        "bytesHashAlgorithm": "sha256",
+        "width": -1,
+        "height": 240
+      },
+      "error": "picture.width"
+    },
+    {
+      "id": "inherited-picture-zero-height",
+      "valid": false,
+      "document": {
+        "id": "sl05:inherited-picture-zero-height",
+        "dataset": "contract-tests",
+        "dtype": "picture",
+        "schemaVersion": "0.10.1",
+        "bytesHash": "aa",
+        "bytesHashAlgorithm": "sha256",
+        "width": 320,
+        "height": 0
+      },
+      "error": "picture.height"
+    },
+    {
+      "id": "inherited-picture-negative-height",
+      "valid": false,
+      "document": {
+        "id": "sl05:inherited-picture-negative-height",
+        "dataset": "contract-tests",
+        "dtype": "picture",
+        "schemaVersion": "0.10.1",
+        "bytesHash": "aa",
+        "bytesHashAlgorithm": "sha256",
+        "width": 320,
+        "height": -3
+      },
+      "error": "picture.height"
     }
   ]
 }

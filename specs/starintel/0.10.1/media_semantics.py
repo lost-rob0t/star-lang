@@ -15,7 +15,7 @@ INTERVAL_DTYPES = frozenset(
     {"audio-segment", "speech-segment", "speaker-observation", "speaker-turn"}
 )
 AFFECTED_DTYPES = INTERVAL_DTYPES | {
-    "video-frame", "transcript", "audio", "video", "image", "media",
+    "video-frame", "picture", "transcript", "audio", "video", "image", "media",
     "source", "evidence-record",
 }
 
@@ -103,6 +103,8 @@ def validate_media_evidence_semantics(document: Mapping[str, object]) -> None:
     positive_fields = {
         "media": ("width", "height"),
         "image": ("width", "height"),
+        "picture": ("width", "height"),
+        "video-frame": ("width", "height"),
         "video": ("width", "height"),
         "audio": ("sampleRateHz", "channels", "bitDepth"),
     }

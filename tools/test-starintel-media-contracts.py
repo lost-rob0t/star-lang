@@ -19,6 +19,7 @@ from media_semantics import validate_media_evidence_semantics  # noqa: E402
 SCHEMA = json.loads((RELEASE / "generated/schema.json").read_text(encoding="utf-8"))
 NAMES = {
     "video-frame": "VideoFrame",
+    "picture": "Picture",
     "audio-segment": "AudioSegment",
     "speech-segment": "SpeechSegment",
     "speaker-observation": "SpeakerObservation",
@@ -40,7 +41,7 @@ class MediaEvidenceContractTests(unittest.TestCase):
         )
         self.assertEqual(cases["fixtureVersion"], 1)
         self.assertEqual(cases["authority"], "org.starintel/core@1")
-        self.assertGreaterEqual(len(cases["cases"]), 16)
+        self.assertGreaterEqual(len(cases["cases"]), 35)
         for case in cases["cases"]:
             with self.subTest(case=case["id"]):
                 document = copy.deepcopy(case["document"])
@@ -64,6 +65,7 @@ class MediaEvidenceContractTests(unittest.TestCase):
         source = (RELEASE / "core.star").read_text(encoding="utf-8")
         self.assertIn("SL05 media timeline invariant", source)
         self.assertIn("SL05 payload integrity invariant", source)
+        self.assertIn("SL05 inherited image pixel dimensions", source)
         manifest = json.loads(
             (RELEASE / "generated/portable-manifest.json").read_text(encoding="utf-8")
         )

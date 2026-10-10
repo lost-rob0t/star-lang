@@ -59,3 +59,20 @@ events, archive-content digest verification, cross-document parent-time bounds,
 and claim/evidence/source/investigation-target graph consistency need separate
 source-owned contracts and cross-runtime fixtures. Do not invent OCR/STT
 execution semantics here (PA08/PA09 own actors).
+
+## Inherited pixel metadata conformance
+
+`picture` and `video-frame` extend `image` in the existing 0.10.1 StarLang
+source. Their optional `width` and `height` fields consequently inherit the
+existing image semantic gate requiring a positive integer **when present**.
+The earlier reference validator inadvertently omitted these two inherited
+kinds; structurally valid zero/negative dimensions passed semantic validation.
+This patch restores that established rule without adding a wire field, creating
+another document type, or asserting new evidentiary authenticity.
+
+The source-owned fixtures include two positive and four negative cases for each
+inherited kind. Structural validation must pass first. IR14 must exercise these
+fixtures through *actual* TypeScript/JavaScript, Python, Nim and Common Lisp
+consumers rather than interpreting this Python reference as runtime parity.
+Frame timestamps and pixel dimensions are source-relative observations, not a
+proof that the media source is genuine or that extracted identities are true.

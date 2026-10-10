@@ -2455,6 +2455,10 @@
     (transcript reference :optional)
     (ocrObservations (list reference) :optional))
 
+  ;; SL05 inherited image pixel dimensions (0.10.1 conformance note):
+  ;; picture and video-frame extend image, so positive optional width/height
+  ;; checks apply to all three. No new wire keys or verification assertions.
+
   (document video-frame
     (:extends image
      :persistence persistent)
