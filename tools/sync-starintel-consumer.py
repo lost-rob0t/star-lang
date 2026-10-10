@@ -224,6 +224,17 @@ def check(lock_path: Path, source: Path | None, *, offline: bool = False) -> dic
     if "bundle_format" in lock:
         require(lock["bundle_format"] == BUNDLE_FORMAT, "unsupported bundle format")
         require(lock.get("bundle_lock_path") == f"{RELEASE}/bundle-lock.json", "bundle lock path mismatch")
+        bundle_locals = [local for local, entry in lock["vendored_files"].items()
+                         if entry["source"] == lock["bundle_lock_path"]]
+        require(len(bundle_locals) == 1, "consumer must vendor the complete locked bundle")
+        suffix = "/0.10.1/bundle-lock.json"
+        require(bundle_locals[0].endswith(suffix), "bundle sibling layout mismatch")
+        destination = bundle_locals[0][:-len(suffix)]
+        safe_path(destination)
+        for local, entry in lock["vendored_files"].items():
+            require(entry["source"].startswith(BUNDLE_ROOT + "/"), "bundle source root mismatch")
+            expected_local = destination + "/" + entry["source"].removeprefix(BUNDLE_ROOT + "/")
+            require(local == expected_local, "bundle sibling layout mismatch")
         release, files = verify_bundle(lock["canonical_commit"], source, read)
     else:
         release, files = verify_release(lock["canonical_commit"], source, read)
@@ -263,6 +274,8 @@ def main() -> None:
         lock = (sync(args.lock, args.commit, args.source, destination,
                      bundle=args.bundle, release=args.release) if args.commit
                 else check(args.lock, args.source, offline=args.offline))
+        require(not args.bundle or lock.get("bundle_format") == BUNDLE_FORMAT,
+                "requested bundle mode requires a bundle lock")
     except (ValueError, KeyError, OSError, subprocess.CalledProcessError) as error:
         parser.exit(1, f"StarIntel consumer verification failed: {error}\n")
     print(f"verified StarLang StarIntel {lock['release_version']} at {lock['canonical_commit']}")

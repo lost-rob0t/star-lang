@@ -260,6 +260,49 @@ print("28 relocated paired workflows; 64 seeded archival cases passed")
                                 capture_output=True, text=True, cwd=self.root, check=True)
         self.assertIn("64 seeded archival cases passed", result.stdout)
 
+    def test_bundle_layout_and_explicit_cli_mode_fail_closed(self):
+        commit = self.bundle_source()
+        consumer.sync(self.lock, commit, self.source, "vendor/starintel", bundle=True)
+        lock = json.loads(self.lock.read_text())
+        old = "vendor/starintel/compatibility/versioned_reader.py"
+        new = "flattened-reader.py"
+        (self.lock.parent.parent / new).write_bytes((self.lock.parent.parent / old).read_bytes())
+        lock["vendored_files"][new] = lock["vendored_files"].pop(old)
+        self.lock.write_text(json.dumps(lock))
+        with self.assertRaisesRegex(ValueError, "sibling layout"):
+            consumer.check(self.lock, None, offline=True)
+        self.sync()
+        result = subprocess.run([sys.executable, str(ROOT / "tools/sync-starintel-consumer.py"),
+                                 "--lock", str(self.lock), "--offline", "--bundle"],
+                                capture_output=True, text=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("requires a bundle lock", result.stderr)
+
+    def test_malformed_upstream_bundle_rejected_before_writes(self):
+        commit = self.bundle_source()
+        _, pristine = consumer.verify_bundle(commit, self.source)
+        path = consumer.RELEASE + "/bundle-lock.json"
+        for mode in ("missing-reader", "wrong-format", "wrong-version", "tampered-reader", "unsafe-path"):
+            files = dict(pristine)
+            bundle = json.loads(files[path])
+            if mode == "missing-reader":
+                bundle["files"].pop("compatibility/versioned_reader.py")
+            elif mode == "wrong-format":
+                bundle["bundleFormat"] = "unknown"
+            elif mode == "wrong-version":
+                bundle["schemaVersion"] = "0.9.0"
+            elif mode == "tampered-reader":
+                files[consumer.BUNDLE_ROOT + "/compatibility/versioned_reader.py"] += b"\n# corruption"
+            else:
+                bundle["files"]["../outside"] = "0" * 64
+            files[path] = json.dumps(bundle).encode()
+            with self.subTest(mode=mode):
+                with patch.object(consumer, "read_source", side_effect=lambda sha, name, source: files[name]):
+                    with self.assertRaises(ValueError):
+                        consumer.sync(self.lock, commit, self.source, "vendor/starintel", bundle=True)
+                self.assertFalse(self.lock.exists())
+                self.assertFalse((self.lock.parent.parent / "vendor").exists())
+
 
 if __name__ == "__main__":
     unittest.main()
