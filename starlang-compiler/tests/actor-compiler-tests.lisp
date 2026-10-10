@@ -109,6 +109,55 @@
     (starlangcompiler:compile-actor-source
      "(actor a (:runtime native :accepts (x) :produces (x) :handler h :restart permanent :mailbox (bounded 1))) (actor b (:runtime native :accepts (x) :produces (x) :handler h :restart permanent :mailbox (bounded 1)))")))
 
+(test external-actor-blank-endpoints-are-source-aware-errors
+  "Empty and whitespace-only external endpoints cannot name a transport destination."
+  (dolist (literal '("\"\"" "\"   \""))
+    (let* ((source
+             (format nil
+                     "(actor probe
+                       (:runtime external
+                        :protocol star-message-v1
+                        :endpoint ~A
+                        :accepts ()
+                        :produces ()
+                        :restart temporary
+                        :mailbox (bounded 1)))"
+                     literal))
+           (condition
+             (handler-case
+                 (progn (starlangcompiler:compile-actor-source source) nil)
+               (star-lang.compiler.core:invalid-actor-error (error)
+                 error))))
+      (is (typep condition 'star-lang.compiler.core:invalid-actor-error))
+      (when condition
+        (is (eq :lower (star-lang.compiler.core:star-lang-core-error-phase condition)))
+        (let ((span (star-lang.compiler.core:star-lang-core-error-span condition)))
+          (is span)
+          (when span
+            (is (= (search literal source)
+                   (star-lang.compiler.core:star-source-span-start-byte span)))))))))
+
+(test external-actor-nested-endpoint-has-actor-diagnostic
+  "A list endpoint reports the actor type error rather than an unrelated atomic form error."
+  (let ((source
+          "(actor probe (:runtime external :protocol star-message-v1
+                         :endpoint (nested) :accepts () :produces ()
+                         :restart temporary :mailbox (bounded 1)))"))
+    (signals star-lang.compiler.core:invalid-actor-error
+      (starlangcompiler:compile-actor-source source))))
+
+(test external-actor-nonblank-endpoint-is-preserved
+  "Valid external endpoint data is not rewritten during validation."
+  (let* ((endpoint "rabbitmq:star.fec.ingest")
+         (source (format nil
+                         "(actor probe
+                           (:runtime external :protocol star-message-v1
+                            :endpoint ~S :accepts () :produces ()
+                            :restart temporary :mailbox (bounded 1)))"
+                         endpoint))
+         (actor (starlangcompiler:compile-actor-source source)))
+    (is (string= endpoint (getf actor :endpoint)))))
+
 (test external-actor-compiles-through-the-closed-parser
   "An external actor keeps protocol and endpoint data."
   (let ((ir (starlangcompiler:compile-actor-source

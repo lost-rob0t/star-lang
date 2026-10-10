@@ -238,21 +238,28 @@ deterministic string alist."
                                                'invalid-actor-error)))
                  (setf actor (append actor (list :handler (identifier-string handler))))))
               (:external
-               (let ((protocol (required-option options :protocol "external actor"
-                                                 'invalid-actor-error))
-                     (endpoint (required-option options :endpoint "external actor"
-                                                 'invalid-actor-error)))
-                 (unless (stringp (if (star-syntax-p endpoint)
-                                      (syntax-atom endpoint)
-                                      endpoint))
-                   (fail 'invalid-actor-error
-                         "External actor endpoint must be a string."))
+               (let* ((protocol (required-option options :protocol "external actor"
+                                                  'invalid-actor-error))
+                      (endpoint (required-option options :endpoint "external actor"
+                                                  'invalid-actor-error))
+                      (endpoint-value
+                        (if (star-syntax-p endpoint)
+                            (unless (syntax-list-p endpoint)
+                              (syntax-atom endpoint))
+                            endpoint)))
+                 (unless (and (stringp endpoint-value)
+                              (some (lambda (character)
+                                      (not (find character
+                                                 '(#\Space #\Tab #\Newline #\Return))))
+                                    endpoint-value))
+                   (let ((*star-current-phase* :lower))
+                     (with-star-source-position (endpoint)
+                       (fail 'invalid-actor-error
+                             "External actor endpoint must be a nonblank string."))))
                  (setf actor
                        (append actor
                                (list :protocol (identifier-string protocol)
-                                     :endpoint (if (star-syntax-p endpoint)
-                                                   (syntax-atom endpoint)
-                                                   endpoint)))))))
+                                     :endpoint endpoint-value))))))
             (when (plist-has-key-p options :metadata)
               (setf actor
                     (append actor
