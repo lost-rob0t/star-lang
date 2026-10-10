@@ -82,7 +82,10 @@
             (fail-policy "Row-scoped XPath fields must begin with dot."))))
     (when field
       (if (eq (getf entry :kind) :attribute)
-          (validate-selector (getf entry :attribute) "Extraction attribute")
+          (progn
+            (validate-selector (getf entry :attribute) "Extraction attribute")
+            (when (find (code-char 127) (getf entry :attribute))
+              (fail-policy "Extraction attribute cannot contain control characters.")))
           (when (getf entry :attribute)
             (fail-policy "Only attribute extractors may declare attribute.")))
       (when (and (member :transform entry) (null (getf entry :transform)))
