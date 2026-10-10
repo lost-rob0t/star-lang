@@ -23,6 +23,15 @@ it fails admission. A verified `same-as` assertion with a nonidentity
 inverse also fails. Omit `inversePredicate` when it is not independently
 known. Do not infer verification from an inverse field.
 
+## Reference-ID self-equivalence
+
+Identity-equivalence admission compares the two `StarReference.id` values,
+not the entire `{schema, id}` maps. Re-labeling one endpoint as another
+document schema cannot establish a second identity with the same document ID.
+A verified `same-as` Relation linking one ID to itself must be rejected even
+when its reference schema strings differ. Consumers must quarantine such
+historical links rather than manufacture a new ID or reviewer attestation.
+
 ## Verified links
 
 An asserted identity-equivalence `Relation` requires explicit verified

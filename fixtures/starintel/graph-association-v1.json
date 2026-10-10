@@ -501,6 +501,74 @@
         "verifiedBy": "reviewer:fixture",
         "inversePredicate": "owl:sameAs"
       }
+    },
+    {
+      "name": "verified-same-id-different-entity-schema-forbidden",
+      "valid": false,
+      "document": {
+        "id": "relation:verified-same-id-different-entity-schema-forbidden",
+        "dataset": "fixtures",
+        "dtype": "relation",
+        "schemaVersion": "0.10.1",
+        "source": {
+          "schema": "org.starintel/core@1/person",
+          "id": "person:one"
+        },
+        "destination": {
+          "schema": "org.starintel/core@1/entity",
+          "id": "person:one"
+        },
+        "predicate": "org.starintel/core@1/same-as",
+        "verificationStatus": "verified",
+        "confidence": "0.9700",
+        "confidenceBasis": "Independent corroboration plus recorded review.",
+        "evidence": [
+          {
+            "schema": "org.starintel/core@1/evidence-record",
+            "id": "evidence:corroboration"
+          }
+        ],
+        "provenance": {
+          "method": "review",
+          "reviewId": "review:approved"
+        },
+        "verifiedAt": 1760000000,
+        "verifiedBy": "reviewer:fixture"
+      }
+    },
+    {
+      "name": "verified-same-id-different-user-schema-forbidden",
+      "valid": false,
+      "document": {
+        "id": "relation:verified-same-id-different-user-schema-forbidden",
+        "dataset": "fixtures",
+        "dtype": "relation",
+        "schemaVersion": "0.10.1",
+        "source": {
+          "schema": "org.starintel/core@1/person",
+          "id": "person:one"
+        },
+        "destination": {
+          "schema": "org.starintel/core@1/user",
+          "id": "person:one"
+        },
+        "predicate": "org.starintel/core@1/same-as",
+        "verificationStatus": "verified",
+        "confidence": "0.9700",
+        "confidenceBasis": "Independent corroboration plus recorded review.",
+        "evidence": [
+          {
+            "schema": "org.starintel/core@1/evidence-record",
+            "id": "evidence:corroboration"
+          }
+        ],
+        "provenance": {
+          "method": "review",
+          "reviewId": "review:approved"
+        },
+        "verifiedAt": 1760000000,
+        "verifiedBy": "reviewer:fixture"
+      }
     }
   ]
 }

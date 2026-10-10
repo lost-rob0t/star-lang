@@ -99,7 +99,11 @@ def validate_relation_assertion(document):
     elif equivalence:
         _require_basis(document, "verified identity", "evidence")
         _require_attestation(document, "verified identity")
-        if document.get("source") == document.get("destination"):
+        source = document.get("source")
+        destination = document.get("destination")
+        if (isinstance(source, Mapping) and isinstance(destination, Mapping)
+                and source.get("id") is not None
+                and source.get("id") == destination.get("id")):
             raise ValueError("verified identity cannot be a self-equivalence")
     return document
 

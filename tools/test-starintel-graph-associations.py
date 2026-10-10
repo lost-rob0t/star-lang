@@ -45,7 +45,7 @@ class GraphAssociationTests(unittest.TestCase):
 
     def test_goldens(self):
         self.assertEqual(FIXTURES["version"], "0.10.1")
-        self.assertEqual(len(FIXTURES["cases"]), 15)
+        self.assertEqual(len(FIXTURES["cases"]), 17)
         for case in FIXTURES["cases"]:
             with self.subTest(case=case["name"]):
                 # Both positive and semantic-negative fixtures must be
@@ -195,6 +195,20 @@ class GraphAssociationTests(unittest.TestCase):
         doc["destination"] = doc["source"]
         with self.assertRaises(ValueError):
             validate_relation_assertion(doc)
+
+    def test_verified_identity_rejects_same_document_id_under_schema_aliases(self):
+        for schema in ("org.starintel/core@1/entity",
+                       "org.starintel/core@1/user",
+                       "org.starintel/core@1/person-identifier"):
+            doc = copy.deepcopy(self.verified)
+            doc["destination"] = {"schema": schema, "id": doc["source"]["id"]}
+            with self.subTest(schema=schema):
+                check_generated_schema(doc)
+                with self.assertRaisesRegex(ValueError, "self-equivalence"):
+                    validate(doc)
+        distinct = copy.deepcopy(self.verified)
+        distinct["destination"]["schema"] = "org.starintel/core@1/entity"
+        self.assertIs(validate(distinct), distinct)
 
     def test_same_as_requires_per_link_evidence_not_global_entity_attestation(self):
         with self.assertRaisesRegex(ValueError, "per-link"):
