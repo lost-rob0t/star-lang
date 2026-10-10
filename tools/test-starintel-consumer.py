@@ -225,16 +225,19 @@ spec.loader.exec_module(m)
 fixtures = json.loads((root / "compatibility/historical-reader-fixtures.json").read_text())
 expected = json.loads((root / "compatibility/canonical-migration-fixtures.json").read_text())
 matrix = json.loads((root / "compatibility/capabilities.json").read_text())
-assert len(m.LEGACY["properties"]["dtype"]["enum"]) == matrix["profiles"][0]["schemaDtypes"]
-assert len(fixtures) == matrix["profiles"][0]["pairedMigrationDtypes"] == 28
+def require(condition, message):
+    if not condition:
+        raise ValueError(message)
+require(len(m.LEGACY["properties"]["dtype"]["enum"]) == matrix["profiles"][0]["schemaDtypes"], "legacy dtype coverage mismatch")
+require(len(fixtures) == matrix["profiles"][0]["pairedMigrationDtypes"] == 28, "paired fixture coverage mismatch")
 for fixture, canonical in zip(fixtures, expected, strict=True):
     raw = fixture["sourceUtf8"].encode()
     m.read(raw)
     current, report = m.migrate(raw)
-    assert current == m.parse(json.dumps(canonical["document"]))
+    require(current == m.parse(json.dumps(canonical["document"])), "canonical migration mismatch")
     wire = m.encode(current).encode()
-    assert m.restore(wire) == raw
-    assert m.migrate(wire)[1]["status"] == "unchanged"
+    require(m.restore(wire) == raw, "lossless archival restore mismatch")
+    require(m.migrate(wire)[1]["status"] == "unchanged", "already canonical migration was not unchanged")
 rng = random.Random(204)
 for index in range(64):
     doc = json.loads(fixtures[0]["sourceUtf8"])
@@ -246,7 +249,7 @@ for index in range(64):
            .replace('"numeric-token"', token) + rng.choice(["", "\n", " "])).encode()
     m.read(raw)
     current, report = m.migrate(raw)
-    assert m.restore(m.encode(current).encode()) == raw
+    require(m.restore(m.encode(current).encode()) == raw, "seeded archival restore mismatch")
     duplicate = raw.replace(b'"schema_version": "0.9.0"',
                             b'"schema_version":"0.9.0","schema_version":"0.9.0"')
     try:
