@@ -164,6 +164,15 @@ jobs:
             --eval '(assert (null (find-package "STAR-LANG.CORE-SURFACE.PROTOTYPE")))' \
             --eval '(sb-ext:quit)'
 
+      - name: Test final StarLang compiler and geo/mission source signatures
+        shell: bash
+        run: |
+          set -euo pipefail
+          sbcl --non-interactive \
+            --eval '(require :asdf)' \
+            --eval '(asdf:test-system :starlang-compiler)' \
+            --eval '(sb-ext:quit)'
+
       - name: Test final actor protocol system independently
         shell: bash
         run: |

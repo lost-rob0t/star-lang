@@ -58,3 +58,23 @@ Derived geography must never be copied back as direct evidence.
 
 Legacy 0.9.x records are migration input only. Canonical output is 0.10.1
 lowerCamelCase.
+
+## Frozen 0.10.1 source-to-generator signature checks
+
+The Common Lisp compiler suite loads
+`starlang-compiler/tests/fixtures/geo-mission-signatures-0101.json` and
+recompiles `core.star` before checking the exact field names, required fields,
+and inheritance of geo points, locations, addresses, missions, mission targets,
+routes, geofences, encounters, map layers, and the spatial-query request.
+A second test checks generated JSON Schema references for coordinates,
+mission subjects, and route geometry. CI runs the real compiler test system.
+
+These signatures are **regression fixtures**, not a new release authority:
+the pinned 0.10.1 `core.star`, generated outputs, and release lock do not
+change. The fixture does not imply that JSON Schema validates decimal-string
+range/scale, four-element bbox cardinality, GeoPoint's geometry discriminator,
+cross-field time ordering, or a spatial-query response. SL01/SL02 must
+address those gaps through an explicitly versioned successor contract;
+IR14 coordinates any consumer repins. Android, wireless, Quasar and media
+continue to exchange canonical references/evidence. SS11/SS13 own authorized
+CouchDB JSON spatial execution and indexing, not StarLang.

@@ -1,0 +1,224 @@
+{
+  "authority": {
+    "library": "org.starintel/core@1",
+    "version": "0.10.1"
+  },
+  "contracts": [
+    {
+      "kind": "document",
+      "name": "geo-point",
+      "extends": "geo",
+      "fields": [
+        "longitude",
+        "latitude",
+        "altitudeMeters"
+      ],
+      "required": [
+        "longitude",
+        "latitude"
+      ]
+    },
+    {
+      "kind": "document",
+      "name": "location",
+      "extends": "document",
+      "fields": [
+        "name",
+        "geometry",
+        "address",
+        "locationType"
+      ],
+      "required": [
+        "geometry"
+      ]
+    },
+    {
+      "kind": "document",
+      "name": "address",
+      "extends": "document",
+      "fields": [
+        "formatted",
+        "street",
+        "street2",
+        "unit",
+        "city",
+        "county",
+        "state",
+        "postal",
+        "country",
+        "addressType",
+        "poBox",
+        "building",
+        "floor",
+        "deliveryPoint",
+        "geometry",
+        "validated",
+        "validationProvider"
+      ],
+      "required": []
+    },
+    {
+      "kind": "document",
+      "name": "mission",
+      "extends": "document",
+      "fields": [
+        "name",
+        "objective",
+        "state",
+        "scope",
+        "area",
+        "route",
+        "targets",
+        "geofences",
+        "assignedActors",
+        "parentMission",
+        "startsAt",
+        "endsAt",
+        "outputDataset",
+        "constraints",
+        "budget",
+        "statusReason"
+      ],
+      "required": [
+        "name",
+        "objective",
+        "state"
+      ]
+    },
+    {
+      "kind": "document",
+      "name": "mission-target",
+      "extends": "document",
+      "fields": [
+        "mission",
+        "subject",
+        "state",
+        "objective",
+        "location",
+        "geofence",
+        "routeStop",
+        "priority",
+        "assignedActor",
+        "requiredCapabilities",
+        "notBefore",
+        "deadline",
+        "options",
+        "resultRefs"
+      ],
+      "required": [
+        "mission",
+        "subject",
+        "state"
+      ]
+    },
+    {
+      "kind": "document",
+      "name": "route",
+      "extends": "document",
+      "fields": [
+        "name",
+        "geometry",
+        "origin",
+        "destination",
+        "waypoints",
+        "mode",
+        "distanceMeters",
+        "estimatedDurationSeconds",
+        "actualDurationSeconds",
+        "plannedAt",
+        "startedAt",
+        "endedAt",
+        "routingProvider",
+        "constraints"
+      ],
+      "required": [
+        "geometry"
+      ]
+    },
+    {
+      "kind": "document",
+      "name": "geofence",
+      "extends": "document",
+      "fields": [
+        "name",
+        "geometry",
+        "transitions",
+        "mission",
+        "subjects",
+        "activeFrom",
+        "activeUntil",
+        "dwellSeconds",
+        "enabled",
+        "policy"
+      ],
+      "required": [
+        "geometry",
+        "transitions"
+      ]
+    },
+    {
+      "kind": "document",
+      "name": "encounter",
+      "extends": "document",
+      "fields": [
+        "participants",
+        "kind",
+        "location",
+        "geometry",
+        "startedAt",
+        "endedAt",
+        "minimumDistanceMeters",
+        "observations",
+        "evidence",
+        "sourceRunIds"
+      ],
+      "required": [
+        "participants",
+        "kind",
+        "startedAt"
+      ]
+    },
+    {
+      "kind": "document",
+      "name": "map-layer",
+      "extends": "document",
+      "fields": [
+        "name",
+        "kind",
+        "sourceDataset",
+        "query",
+        "features",
+        "style",
+        "visible",
+        "minimumZoom",
+        "maximumZoom",
+        "readOnly"
+      ],
+      "required": [
+        "name",
+        "kind"
+      ]
+    },
+    {
+      "kind": "message",
+      "name": "query-spatial",
+      "fields": [
+        "dataset",
+        "mode",
+        "geometry",
+        "boundingBox",
+        "referencePoint",
+        "maximumDistanceMeters",
+        "dtype",
+        "filters",
+        "atTime",
+        "limit",
+        "cursor"
+      ],
+      "required": [
+        "dataset",
+        "mode"
+      ]
+    }
+  ]
+}

@@ -2,7 +2,7 @@
   :description "Unit tests for starlang-compiler"
   :author "lost-rob0t"
   :license "AGPL-3.0-only"
-  :depends-on ("starlang-compiler" "star-canonical-json" "star-logic-testing" "fiveam")
+  :depends-on ("starlang-compiler" "star-canonical-json" "star-logic-testing" "fiveam" "yason")
   :serial t
   :components
   ((:file "starlang-compiler-tests")

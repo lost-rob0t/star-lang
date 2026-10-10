@@ -390,6 +390,74 @@
                   (cdr (assoc :typescript outputs))))
       (is (search "data class WebCapture" (cdr (assoc :kotlin outputs)))))))
 
+
+(defun sl04-geo-mission-signatures ()
+  "Read source-owned, non-release golden signatures for immutable 0.10.1."
+  (let* ((path (asdf:system-relative-pathname
+                :starlang-compiler
+                "tests/fixtures/geo-mission-signatures-0101.json"))
+         (yason:*parse-json-arrays-as-vectors* t))
+    (yason:parse (uiop:read-file-string path))))
+
+(test starintel-0101-geo-mission-source-and-portable-signatures
+  "Compile the real source and compare exact fields, requiredness and inheritance."
+  (let* ((goldens (sl04-geo-mission-signatures))
+         (manifest (starintel-0101-manifest))
+         (authority (gethash "authority" goldens))
+         (signatures (gethash "contracts" goldens))
+         (seen (make-hash-table :test #'equal)))
+    (is (string= "org.starintel/core@1" (gethash "library" authority)))
+    (is (string= "0.10.1" (gethash "version" authority)))
+    (is (= 10 (length signatures)))
+    (map nil
+         (lambda (signature)
+           (let* ((name (gethash "name" signature))
+                  (kind (gethash "kind" signature))
+                  (message-p (string= kind "message"))
+                  (contracts (getf manifest (if message-p :messages :types)))
+                  (qualified (format nil "org.starintel/core@1/~A" name))
+                  (contract (find qualified contracts
+                                  :key (lambda (entry) (getf entry :name))
+                                  :test #'string=)))
+             (is (not (gethash qualified seen)))
+             (setf (gethash qualified seen) t)
+             (is contract)
+             (when contract
+               (is (eq (getf contract :kind)
+                       (if message-p :message :document)))
+               (is (equal (coerce (gethash "fields" signature) 'list)
+                          (mapcar (lambda (field) (getf field :name))
+                                  (getf contract :fields))))
+               (is (equal (coerce (gethash "required" signature) 'list)
+                          (loop for field in (getf contract :fields)
+                                when (getf field :required)
+                                  collect (getf field :name))))
+               (unless message-p
+                 (is (string=
+                      (format nil "org.starintel/core@1/~A"
+                              (gethash "extends" signature))
+                      (getf contract :extends)))))))
+         signatures)
+    (is (= 10 (hash-table-count seen)))))
+
+(test starintel-0101-geo-mission-schema-generator-preserves-references
+  "The generated document schema must preserve canonical geo and mission refs."
+  (let* ((manifest (starintel-0101-manifest))
+         (schema (yason:parse (starlangcompiler:generate-json-schema manifest)))
+         (defs (gethash "$defs" schema))
+         (point (gethash "GeoPoint" defs))
+         (mission-target (gethash "MissionTarget" defs))
+         (route (gethash "Route" defs)))
+    (flet ((field-ref (definition field)
+             (gethash "$ref"
+                      (gethash field
+                               (gethash "properties" definition)))))
+      (is (string= "#/$defs/Longitude" (field-ref point "longitude")))
+      (is (string= "#/$defs/Latitude" (field-ref point "latitude")))
+      (is (string= "#/$defs/StarReference" (field-ref mission-target "mission")))
+      (is (string= "#/$defs/StarReference" (field-ref mission-target "subject")))
+      (is (string= "#/$defs/StarReference" (field-ref route "geometry"))))))
+
 (test starintel-0101-generates-deterministic-json-schema
   "The portable StarLang manifest is the source for JSON Schema, with lowerCamelCase wire keys."
   (let* ((manifest (starintel-0101-manifest))
