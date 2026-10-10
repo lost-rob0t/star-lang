@@ -22,6 +22,10 @@ BUNDLE_FORMAT = "starintel-consumer-bundle/1"
 COMPATIBILITY_FILES = ("registry.json", "versioned_reader.py", "raw_json_numbers.py",
                        "README.md", "capabilities.json")
 
+# A canonical release object is currently below 1 MiB. Keep HTTP downloads
+# bounded before digest verification, rather than trusting remote lengths.
+MAX_HTTP_ARTIFACT_BYTES = 4 * 1024 * 1024
+
 
 def digest(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
@@ -90,7 +94,10 @@ def read_source(commit: str, path: str, source: Path | None) -> bytes:
         return subprocess.check_output(["git", "-C", str(source), "show", f"{commit}:{path}"])
     url = f"https://raw.githubusercontent.com/{REPOSITORY}/{commit}/{path}"
     with urllib.request.urlopen(url, timeout=30) as response:
-        return response.read()
+        data = response.read(MAX_HTTP_ARTIFACT_BYTES + 1)
+    require(len(data) <= MAX_HTTP_ARTIFACT_BYTES,
+            f"upstream artifact exceeds limit: {path}")
+    return data
 
 
 def verify_release(commit: str, source: Path | None, read=None) -> tuple[dict, dict[str, bytes]]:

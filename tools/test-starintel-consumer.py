@@ -397,5 +397,57 @@ print("28 relocated paired workflows; 64 seeded archival cases passed")
         self.assertEqual(git_diff.returncode, 1, git_diff.stderr)
 
 
+
+class BoundedRemoteArtifactTests(unittest.TestCase):
+    """A single canonical HTTP object must never trigger an unbounded read."""
+    LIMIT = 4 * 1024 * 1024
+    COMMIT = "a" * 40
+    PATH = "specs/starintel/0.10.1/generated/schema.json"
+
+    class Response:
+        def __init__(self, size):
+            self.size = size
+            self.calls = []
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def read(self, amount=-1):
+            self.calls.append(amount)
+            return b"x" * (self.size if amount < 0 else min(self.size, amount))
+
+    def fetch(self, response):
+        def urlopen(url, timeout=None):
+            self.assertEqual(
+                url,
+                f"https://raw.githubusercontent.com/{consumer.REPOSITORY}/{self.COMMIT}/{self.PATH}",
+            )
+            self.assertEqual(timeout, 30)
+            return response
+        return urlopen
+
+    def test_small_remote_artifact_preserves_bytes_and_bounded_read(self):
+        response = self.Response(19)
+        with patch.object(consumer.urllib.request, "urlopen", side_effect=self.fetch(response)):
+            self.assertEqual(consumer.read_source(self.COMMIT, self.PATH, None), b"x" * 19)
+        self.assertEqual(response.calls, [self.LIMIT + 1])
+
+    def test_remote_artifact_at_bound_is_accepted(self):
+        response = self.Response(self.LIMIT)
+        with patch.object(consumer.urllib.request, "urlopen", side_effect=self.fetch(response)):
+            result = consumer.read_source(self.COMMIT, self.PATH, None)
+        self.assertEqual(len(result), self.LIMIT)
+        self.assertEqual(response.calls, [self.LIMIT + 1])
+
+    def test_oversized_remote_artifact_rejected_before_unbounded_read(self):
+        response = self.Response(self.LIMIT + 1)
+        with patch.object(consumer.urllib.request, "urlopen", side_effect=self.fetch(response)):
+            with self.assertRaisesRegex(ValueError, "upstream artifact exceeds limit"):
+                consumer.read_source(self.COMMIT, self.PATH, None)
+        self.assertEqual(response.calls, [self.LIMIT + 1])
+
 if __name__ == "__main__":
     unittest.main()
