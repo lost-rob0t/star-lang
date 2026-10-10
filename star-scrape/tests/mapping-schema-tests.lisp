@@ -39,6 +39,8 @@
     (reject (lambda (p) (setf (getf p :max-depth) 65)) "depth above bound")
     (reject (lambda (p) (setf (getf p :max-input-bytes) 0)) "zero byte budget")
     (reject (lambda (p) (setf (getf p :scopes) nil)) "empty scopes")
+    (reject (lambda (p) (setf (getf p :relations) nil)) "explicit empty relations")
+    (reject (lambda (p) (setf (getf (first (getf (first (getf p :scopes)) :fields)) :transform) nil)) "explicit empty transforms")
     (reject (lambda (p) (push (copy-tree (first (getf p :scopes))) (getf p :scopes))) "duplicate scopes")
     (reject (lambda (p) (setf (getf (first (getf p :scopes)) :selector) "$..name")) "recursive JSONPath")
     (reject (lambda (p) (setf (getf (first (getf p :scopes)) :selector) "$.people[*]")) "wildcard JSONPath")

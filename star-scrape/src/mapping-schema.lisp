@@ -2,9 +2,10 @@
 (in-package :starscrape.schema)
 
 (defun scraper-vocabulary-version (vocabulary)
-  (let ((name (getf (getf vocabulary :library) :name)))
+  (let ((name (getf (getf vocabulary :library) :name))
+        (version (getf (getf vocabulary :library) :version)))
     (cond ((equal name "org.starscrape/scraper@1") 1)
-          ((equal name "org.starscrape/scraper@2") 2)
+          ((and (equal name "org.starscrape/scraper@2") (equal version "2.0.0")) 2)
           (t (fail-schema "Unsupported scraper vocabulary identity ~S." name)))))
 
 (defun validate-v2-value (vocabulary type value)
@@ -60,6 +61,8 @@
 (defun validate-mapping-selector (entry format &key field)
   (let ((kind (getf entry :selector-kind)) (selector (getf entry :selector)))
     (validate-selector selector "Mapping selector")
+    (when (find (code-char 127) selector)
+      (fail-policy "Mapping selector cannot contain control characters."))
     (if (eq format :json)
         (progn
           (unless (eq kind :json-path)
@@ -82,6 +85,8 @@
           (validate-selector (getf entry :attribute) "Extraction attribute")
           (when (getf entry :attribute)
             (fail-policy "Only attribute extractors may declare attribute.")))
+      (when (and (member :transform entry) (null (getf entry :transform)))
+        (fail-policy "Declared transform list must be non-empty."))
       (validate-transform-list (getf entry :transform)))))
 
 (defun canonical-mapping-vocabulary ()
@@ -117,6 +122,8 @@
   (let* ((scopes (getf plan :scopes)) (documents (getf plan :documents))
          (relations (getf plan :relations))
          (canonical (canonical-mapping-vocabulary)))
+    (when (and (member :relations plan) (null relations))
+      (fail-policy "Omit relations when there are no relation mappings."))
     (nonempty-unique-names scopes :name "row scope")
     (nonempty-unique-names documents :name "document mapping")
     (nonempty-unique-names relations :name "relation mapping" :allow-empty t)
