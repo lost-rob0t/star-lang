@@ -7,13 +7,16 @@
 (defun compile-actor-declaration-syntax (syntax)
   "Validate that a single expanded declaration is an actor declaration and
 lower it."
-  (validate-list-head syntax *program-declaration-heads*
-                      "program declaration" 'invalid-declaration-error)
-  (let ((head (syntax-head-name syntax)))
-    (unless (string= head "actor")
-      (fail 'invalid-declaration-error
-            "Expected an actor declaration, received ~S." head)))
-  (compile-actor syntax))
+  (let ((*star-current-phase* :compile))
+    (with-star-source-position (syntax)
+      (validate-list-head syntax *program-declaration-heads*
+                          "program declaration" 'invalid-declaration-error)
+      (let ((head (syntax-head-name syntax)))
+        (unless (string= head "actor")
+          (with-star-source-position ((first (syntax-elements syntax)))
+            (fail 'invalid-declaration-error
+                  "Expected an actor declaration, received ~S." head))))
+      (compile-actor syntax))))
 
 (defun compile-actor-source (source &key limits source-id pathname origin)
   "Compile one .star actor unit (UTF-8 octets or string) to actor IR."
