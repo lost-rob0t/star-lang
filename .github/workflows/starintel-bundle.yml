@@ -31,7 +31,7 @@ jobs:
           set -euo pipefail
           python3 tools/finalize-starintel-release.py --bundle
           python3 tools/finalize-starintel-release.py --check --bundle
-          git diff --exit-code -- specs/starintel/0.10.1/release-lock.json specs/starintel/0.10.1/generated
+          git diff --exit-code -- specs/starintel/0.10.1/release-lock.json specs/starintel/0.10.1/generated specs/starintel/0.10.1/bundle-lock.json
           python3 tools/test-starintel-consumer.py
           python3 tools/test-starintel-versioned-reader.py
           echo "BUNDLE_SOURCE_COMMIT=$(git rev-parse HEAD)"

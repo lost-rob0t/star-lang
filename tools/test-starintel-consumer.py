@@ -356,5 +356,46 @@ print("28 relocated paired workflows; 64 seeded archival cases passed")
             consumer.sync(self.lock, commit, self.source, "vendor/starintel", bundle=True)
 
 
+
+    def test_bundle_workflow_guards_regenerated_lock_bytes(self):
+        """A generated lock must match its committed Git blob in hosted CI."""
+        workflow = (ROOT / ".github/workflows/starintel-bundle.yml").read_text(encoding="utf-8")
+        diff_commands = [line.strip() for line in workflow.splitlines()
+                         if line.strip().startswith("git diff --exit-code --")]
+        self.assertTrue(
+            any("specs/starintel/0.10.1/bundle-lock.json" in line for line in diff_commands),
+            "CI must compare regenerated bundle-lock.json against its committed bytes",
+        )
+
+    def test_bundle_finalizer_detects_stale_committed_lock(self):
+        """Regenerating a stale committed bundle must produce a detectable diff."""
+        self.bundle_source()
+        bundle = self.source / consumer.RELEASE / "bundle-lock.json"
+        pristine = bundle.read_bytes()
+        stale = json.loads(pristine)
+        stale["files"]["compatibility/versioned_reader.py"] = "0" * 64
+        bundle.write_text(json.dumps(stale, sort_keys=True), encoding="utf-8")
+        subprocess.run(["git", "-C", str(self.source), "add",
+                        "specs/starintel/0.10.1/bundle-lock.json"], check=True)
+        subprocess.run(["git", "-C", str(self.source), "-c", "user.name=Test",
+                        "-c", "user.email=test@example.test", "commit", "--quiet",
+                        "-m", "inject stale committed bundle lock"], check=True)
+
+        finalizer = str(self.source / "tools/finalize-starintel-release.py")
+        check = subprocess.run([sys.executable, finalizer, "--check", "--bundle"],
+                               cwd=self.source, capture_output=True, text=True)
+        self.assertNotEqual(check.returncode, 0)
+        self.assertIn("stale bundle lock", check.stdout + check.stderr)
+        subprocess.run([sys.executable, finalizer, "--bundle"],
+                       cwd=self.source, capture_output=True, text=True, check=True)
+        self.assertEqual(bundle.read_bytes(), pristine)
+        git_diff = subprocess.run(
+            ["git", "-C", str(self.source), "diff", "--exit-code", "--",
+             "specs/starintel/0.10.1/bundle-lock.json"],
+            capture_output=True, text=True,
+        )
+        self.assertEqual(git_diff.returncode, 1, git_diff.stderr)
+
+
 if __name__ == "__main__":
     unittest.main()
