@@ -58,3 +58,65 @@ Derived geography must never be copied back as direct evidence.
 
 Legacy 0.9.x records are migration input only. Canonical output is 0.10.1
 lowerCamelCase.
+
+## Frozen 0.10.1 source-to-generator signature checks
+
+The Common Lisp compiler suite loads
+`starlang-compiler/tests/fixtures/geo-mission-signatures-0101.json` and
+recompiles `core.star` before checking the exact field names, required fields,
+and inheritance of geo points, locations, addresses, missions, mission targets,
+routes, geofences, encounters, map layers, and the spatial-query request.
+A second test checks generated JSON Schema references for coordinates,
+mission subjects, and route geometry. CI runs the real compiler test system.
+
+These signatures are **regression fixtures**, not a new release authority:
+the pinned 0.10.1 `core.star`, generated outputs, and release lock do not
+change. The fixture does not imply that JSON Schema validates decimal-string
+range/scale, four-element bbox cardinality, GeoPoint's geometry discriminator,
+cross-field time ordering, or a spatial-query response. SL01/SL02 must
+address those gaps through an explicitly versioned successor contract;
+IR14 coordinates any consumer repins. Android, wireless, Quasar and media
+continue to exchange canonical references/evidence. SS11/SS13 own authorized
+CouchDB JSON spatial execution and indexing, not StarLang.
+
+## Frozen scalar-boundary and generated-reference checks
+
+The compiler test suite executes 21 source-owned scalar value goldens
+(10 accepted, 11 rejected) against the actual portable wire validator.
+Longitude/latitude WGS84 bounds and eight-digit coordinate precision,
+nonnegative distance with three-digit precision, and confidence in [0,1]
+with four-digit precision are covered. Generator checks require MissionState,
+GeofenceTransition and EncounterKind typed references.
+
+The immutable 0.10.1 generated JSON Schema enforces decimal-string syntax,
+but does not enforce numeric range/scale. Consumers MUST use the canonical
+portable validator for those constraints; lexical JSON Schema validation
+alone is insufficient. SL01/SL02 own successor-release generator parity;
+IR14 coordinates downstream repins. This regression slice does not
+modify the frozen 0.10.1 release artifacts.
+
+The isolated Logic IR workflow installs Yason's transitive
+cl-trivial-gray-streams dependency so the compiler goldens run there.
+
+## Frozen source/generator boundary audit (SL04)
+
+The compiler's \`geo-generator-boundary-tests.lisp\` validates canonical
+0.10.1 source with the real portable validator using 12 scalar goldens in
+\`geo-generator-boundaries-0101.json\`. It also inspects JSON Schema emitted
+by the real compiler instead of maintaining a competing spatial schema.
+The regression snapshot records six known limitations:
+
+1. Decimal-string JSON Schema does not enforce scalar bounds/scale.
+2. \`Geo.boundingBox\` lacks four-coordinate cardinality.
+3. \`GeoPoint.geometryType\` is not fixed to \`point\`.
+4. \`Geo.accuracyMeters\` has no nonnegative constraint.
+5. \`query-spatial\` has no typed result/page response.
+6. \`mission-target.location\` lacks separate location proof/evidence fields.
+
+These tests assert the **frozen state**, not JSON Schema validation parity.
+Consumers must use the portable validator for scalar bounds and must not treat
+missing fields as implicit location evidence. SL01 owns normalized semantics;
+SL02 owns successor-release generator parity; IR14 owns immutable consumer
+repins. SS11/SS13 own CouchDB JSON storage, authorization, GeoCouch and bbox
+execution. Android, wireless, Quasar and media preserve original location and
+provenance references. No search or index runtime was added to StarLang.

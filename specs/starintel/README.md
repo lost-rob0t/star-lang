@@ -89,3 +89,38 @@ bash ci/with-nix-sbcl.sh --disable-debugger \
 python3 tools/finalize-starintel-release.py
 python3 tools/finalize-starintel-release.py --check
 ```
+
+## Consuming a release
+
+Every downstream repository must consume this generated release from an
+immutable StarLang commit. This includes language libraries, schema mirrors,
+document producers, servers, actor services, and applications. A matching
+version string alone does not establish conformance: the old nested
+`schema_version` envelope is a different contract from the flat 0.10.1
+`schemaVersion` envelope.
+
+Copy `tools/sync-starintel-consumer.py` into the consumer, then run it from that
+repository root:
+
+```sh
+python3 tools/sync-starintel-consumer.py --commit <full-StarLang-commit>
+python3 tools/sync-starintel-consumer.py
+```
+
+The first command verifies the upstream release hashes before vendoring every
+source and generated artifact and writing `schema/starintel-schema.lock.json`.
+The second is the required CI drift gate. It verifies the immutable upstream
+release and every local copy; generated outputs must never be edited downstream.
+Dependency consumers must additionally check that their library and application
+locks identify the same StarLang release.
+
+Load the generated language binding and derive runtime validation from the
+generated manifest/schema. The JSON Schema root is a definitions library:
+validation must select the concrete document definition using the manifest's
+document dtype inventory, resolve references, and enforce the manifest's decimal
+constraints. Validating only the root does not validate a document.
+
+Retain historical contracts only behind an explicit versioned compatibility
+boundary. Migrations must follow the fixtures above; changing a version constant
+or renaming keys is insufficient. No downstream schema generator, handwritten
+model, or historical repository becomes an independent specification authority.

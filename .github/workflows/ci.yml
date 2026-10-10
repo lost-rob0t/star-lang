@@ -100,6 +100,8 @@ jobs:
             case "$f" in
               ./specs/starintel/*/generated/*.py) continue ;;
               ./tools/finalize-starintel-release.py) continue ;;
+              ./tools/sync-starintel-consumer.py) continue ;;
+              ./tools/test-starintel-consumer.py) continue ;;
             esac
             forbidden="$forbidden $f"
           done < <(find . -path ./.git -prune -o -type f \( -name '*.rkt' -o -name '*.scm' -o -name '*.ss' -o -name '*.py' \) -print)
@@ -126,6 +128,7 @@ jobs:
           sbcl --disable-debugger \
             --script tools/generate-starintel-release.lisp --check
           python3 tools/finalize-starintel-release.py --check
+          python3 tools/test-starintel-consumer.py
 
       - name: Load starlang-prototype ASDF system
         shell: bash
@@ -159,6 +162,15 @@ jobs:
             --eval '(asdf:test-system :star-logic-protocol)' \
             --eval '(assert (null (find-package "STAR-LANG.PROTOTYPE")))' \
             --eval '(assert (null (find-package "STAR-LANG.CORE-SURFACE.PROTOTYPE")))' \
+            --eval '(sb-ext:quit)'
+
+      - name: Test final StarLang compiler and geo/mission source signatures
+        shell: bash
+        run: |
+          set -euo pipefail
+          sbcl --non-interactive \
+            --eval '(require :asdf)' \
+            --eval '(asdf:test-system :starlang-compiler)' \
             --eval '(sb-ext:quit)'
 
       - name: Test final actor protocol system independently

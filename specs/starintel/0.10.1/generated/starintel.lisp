@@ -4752,6 +4752,222 @@
     #:transcript-segments
     #:transcript-speakerturns
     #:transcript-wordtimings
+    #:http-transaction
+    #:MAKE-http-transaction
+    #:COPY-http-transaction
+    #:http-transaction-P
+    #:+http-transaction-WIRE-FIELDS+
+    #:http-transaction-id
+    #:http-transaction-rev
+    #:http-transaction-dataset
+    #:http-transaction-dtype
+    #:http-transaction-schemaversion
+    #:http-transaction-externalids
+    #:http-transaction-aliases
+    #:http-transaction-sources
+    #:http-transaction-sourceurls
+    #:http-transaction-sourcerecordids
+    #:http-transaction-sourcekinds
+    #:http-transaction-sourcelicense
+    #:http-transaction-sourceterms
+    #:http-transaction-sourceretrievedat
+    #:http-transaction-collectedat
+    #:http-transaction-observedat
+    #:http-transaction-firstseenat
+    #:http-transaction-lastseenat
+    #:http-transaction-createdat
+    #:http-transaction-updatedat
+    #:http-transaction-validfrom
+    #:http-transaction-validuntil
+    #:http-transaction-expiresat
+    #:http-transaction-collector
+    #:http-transaction-collectorversion
+    #:http-transaction-collectionmethod
+    #:http-transaction-collectionstatus
+    #:http-transaction-runid
+    #:http-transaction-correlationid
+    #:http-transaction-causationid
+    #:http-transaction-parentid
+    #:http-transaction-rootid
+    #:http-transaction-confidence
+    #:http-transaction-confidencebasis
+    #:http-transaction-qualityscore
+    #:http-transaction-completenessscore
+    #:http-transaction-verificationstatus
+    #:http-transaction-verifiedat
+    #:http-transaction-verifiedby
+    #:http-transaction-provenance
+    #:http-transaction-chainofcustody
+    #:http-transaction-transformhistory
+    #:http-transaction-labels
+    #:http-transaction-tags
+    #:http-transaction-topics
+    #:http-transaction-language
+    #:http-transaction-jurisdiction
+    #:http-transaction-countrycode
+    #:http-transaction-regioncode
+    #:http-transaction-timezone
+    #:http-transaction-sensitivity
+    #:http-transaction-visibility
+    #:http-transaction-owner
+    #:http-transaction-accesscontrol
+    #:http-transaction-legalbasis
+    #:http-transaction-retentionpolicy
+    #:http-transaction-contenttype
+    #:http-transaction-encoding
+    #:http-transaction-sizebytes
+    #:http-transaction-contenthash
+    #:http-transaction-hashalgorithm
+    #:http-transaction-normalizedhash
+    #:http-transaction-raw
+    #:http-transaction-rawcontent
+    #:http-transaction-notes
+    #:http-transaction-deleted
+    #:http-transaction-tombstonereason
+    #:http-transaction-extensions
+    #:http-transaction-transactionid
+    #:http-transaction-requestid
+    #:http-transaction-connectionid
+    #:http-transaction-parenttransactionid
+    #:http-transaction-method
+    #:http-transaction-url
+    #:http-transaction-scheme
+    #:http-transaction-host
+    #:http-transaction-port
+    #:http-transaction-path
+    #:http-transaction-query
+    #:http-transaction-httpversion
+    #:http-transaction-requestheaders
+    #:http-transaction-requestbodysize
+    #:http-transaction-requestbodyhash
+    #:http-transaction-requestbodyartifacturi
+    #:http-transaction-responsestatus
+    #:http-transaction-responsereason
+    #:http-transaction-responseheaders
+    #:http-transaction-responsebodysize
+    #:http-transaction-responsebodyhash
+    #:http-transaction-responsebodyartifacturi
+    #:http-transaction-startedat
+    #:http-transaction-endedat
+    #:http-transaction-durationms
+    #:http-transaction-remoteip
+    #:http-transaction-remoteport
+    #:http-transaction-tlsversion
+    #:http-transaction-tlscipher
+    #:http-transaction-tlsservername
+    #:http-transaction-certificatesha256
+    #:http-transaction-redirectfromid
+    #:http-transaction-redirecttoid
+    #:http-transaction-captureactoruri
+    #:http-transaction-challengestatus
+    #:http-transaction-captchadetectionid
+    #:http-transaction-captchacapability
+    #:http-transaction-browsersessionref
+    #:http-transaction-networkcontextref
+    #:http-transaction-proxyactoruri
+    #:http-transaction-redactedheaders
+    #:http-transaction-bodycapturepolicy
+    #:http-transaction-requesttruncated
+    #:http-transaction-responsetruncated
+    #:web-capture
+    #:MAKE-web-capture
+    #:COPY-web-capture
+    #:web-capture-P
+    #:+web-capture-WIRE-FIELDS+
+    #:web-capture-id
+    #:web-capture-rev
+    #:web-capture-dataset
+    #:web-capture-dtype
+    #:web-capture-schemaversion
+    #:web-capture-externalids
+    #:web-capture-aliases
+    #:web-capture-sources
+    #:web-capture-sourceurls
+    #:web-capture-sourcerecordids
+    #:web-capture-sourcekinds
+    #:web-capture-sourcelicense
+    #:web-capture-sourceterms
+    #:web-capture-sourceretrievedat
+    #:web-capture-collectedat
+    #:web-capture-observedat
+    #:web-capture-firstseenat
+    #:web-capture-lastseenat
+    #:web-capture-createdat
+    #:web-capture-updatedat
+    #:web-capture-validfrom
+    #:web-capture-validuntil
+    #:web-capture-expiresat
+    #:web-capture-collector
+    #:web-capture-collectorversion
+    #:web-capture-collectionmethod
+    #:web-capture-collectionstatus
+    #:web-capture-runid
+    #:web-capture-correlationid
+    #:web-capture-causationid
+    #:web-capture-parentid
+    #:web-capture-rootid
+    #:web-capture-confidence
+    #:web-capture-confidencebasis
+    #:web-capture-qualityscore
+    #:web-capture-completenessscore
+    #:web-capture-verificationstatus
+    #:web-capture-verifiedat
+    #:web-capture-verifiedby
+    #:web-capture-provenance
+    #:web-capture-chainofcustody
+    #:web-capture-transformhistory
+    #:web-capture-labels
+    #:web-capture-tags
+    #:web-capture-topics
+    #:web-capture-language
+    #:web-capture-jurisdiction
+    #:web-capture-countrycode
+    #:web-capture-regioncode
+    #:web-capture-timezone
+    #:web-capture-sensitivity
+    #:web-capture-visibility
+    #:web-capture-owner
+    #:web-capture-accesscontrol
+    #:web-capture-legalbasis
+    #:web-capture-retentionpolicy
+    #:web-capture-contenttype
+    #:web-capture-encoding
+    #:web-capture-sizebytes
+    #:web-capture-contenthash
+    #:web-capture-hashalgorithm
+    #:web-capture-normalizedhash
+    #:web-capture-raw
+    #:web-capture-rawcontent
+    #:web-capture-notes
+    #:web-capture-deleted
+    #:web-capture-tombstonereason
+    #:web-capture-extensions
+    #:web-capture-captureid
+    #:web-capture-url
+    #:web-capture-finalurl
+    #:web-capture-title
+    #:web-capture-statuscode
+    #:web-capture-browser
+    #:web-capture-browserversion
+    #:web-capture-viewportwidth
+    #:web-capture-viewportheight
+    #:web-capture-devicescalefactor
+    #:web-capture-screenshoturi
+    #:web-capture-screenshothash
+    #:web-capture-screenshotmediatype
+    #:web-capture-screenshotsizebytes
+    #:web-capture-domartifacturi
+    #:web-capture-domartifacthash
+    #:web-capture-domartifactsizebytes
+    #:web-capture-capturedat
+    #:web-capture-httptransactionids
+    #:web-capture-captureactoruri
+    #:web-capture-challengestatus
+    #:web-capture-captchadetectionid
+    #:web-capture-captchacapability
+    #:web-capture-browsersessionref
+    #:web-capture-networkcontextref
+    #:web-capture-proxyactoruri
     #:pcap-capture
     #:MAKE-pcap-capture
     #:COPY-pcap-capture
@@ -14555,6 +14771,430 @@
     ("segments" . segments)
     ("speakerTurns" . speakerturns)
     ("wordTimings" . wordtimings)
+  ))
+
+(defstruct http-transaction
+  (id nil)
+  (rev nil)
+  (dataset nil)
+  (dtype nil)
+  (schemaversion nil)
+  (externalids nil)
+  (aliases nil)
+  (sources nil)
+  (sourceurls nil)
+  (sourcerecordids nil)
+  (sourcekinds nil)
+  (sourcelicense nil)
+  (sourceterms nil)
+  (sourceretrievedat nil)
+  (collectedat nil)
+  (observedat nil)
+  (firstseenat nil)
+  (lastseenat nil)
+  (createdat nil)
+  (updatedat nil)
+  (validfrom nil)
+  (validuntil nil)
+  (expiresat nil)
+  (collector nil)
+  (collectorversion nil)
+  (collectionmethod nil)
+  (collectionstatus nil)
+  (runid nil)
+  (correlationid nil)
+  (causationid nil)
+  (parentid nil)
+  (rootid nil)
+  (confidence nil)
+  (confidencebasis nil)
+  (qualityscore nil)
+  (completenessscore nil)
+  (verificationstatus nil)
+  (verifiedat nil)
+  (verifiedby nil)
+  (provenance nil)
+  (chainofcustody nil)
+  (transformhistory nil)
+  (labels nil)
+  (tags nil)
+  (topics nil)
+  (language nil)
+  (jurisdiction nil)
+  (countrycode nil)
+  (regioncode nil)
+  (timezone nil)
+  (sensitivity nil)
+  (visibility nil)
+  (owner nil)
+  (accesscontrol nil)
+  (legalbasis nil)
+  (retentionpolicy nil)
+  (contenttype nil)
+  (encoding nil)
+  (sizebytes nil)
+  (contenthash nil)
+  (hashalgorithm nil)
+  (normalizedhash nil)
+  (raw nil)
+  (rawcontent nil)
+  (notes nil)
+  (deleted nil)
+  (tombstonereason nil)
+  (extensions nil)
+  (transactionid nil)
+  (requestid nil)
+  (connectionid nil)
+  (parenttransactionid nil)
+  (method nil)
+  (url nil)
+  (scheme nil)
+  (host nil)
+  (port nil)
+  (path nil)
+  (query nil)
+  (httpversion nil)
+  (requestheaders nil)
+  (requestbodysize nil)
+  (requestbodyhash nil)
+  (requestbodyartifacturi nil)
+  (responsestatus nil)
+  (responsereason nil)
+  (responseheaders nil)
+  (responsebodysize nil)
+  (responsebodyhash nil)
+  (responsebodyartifacturi nil)
+  (startedat nil)
+  (endedat nil)
+  (durationms nil)
+  (remoteip nil)
+  (remoteport nil)
+  (tlsversion nil)
+  (tlscipher nil)
+  (tlsservername nil)
+  (certificatesha256 nil)
+  (redirectfromid nil)
+  (redirecttoid nil)
+  (captureactoruri nil)
+  (challengestatus nil)
+  (captchadetectionid nil)
+  (captchacapability nil)
+  (browsersessionref nil)
+  (networkcontextref nil)
+  (proxyactoruri nil)
+  (redactedheaders nil)
+  (bodycapturepolicy nil)
+  (requesttruncated nil)
+  (responsetruncated nil)
+)
+(defparameter +http-transaction-wire-fields+
+  '(
+    ("id" . id)
+    ("rev" . rev)
+    ("dataset" . dataset)
+    ("dtype" . dtype)
+    ("schemaVersion" . schemaversion)
+    ("externalIds" . externalids)
+    ("aliases" . aliases)
+    ("sources" . sources)
+    ("sourceUrls" . sourceurls)
+    ("sourceRecordIds" . sourcerecordids)
+    ("sourceKinds" . sourcekinds)
+    ("sourceLicense" . sourcelicense)
+    ("sourceTerms" . sourceterms)
+    ("sourceRetrievedAt" . sourceretrievedat)
+    ("collectedAt" . collectedat)
+    ("observedAt" . observedat)
+    ("firstSeenAt" . firstseenat)
+    ("lastSeenAt" . lastseenat)
+    ("createdAt" . createdat)
+    ("updatedAt" . updatedat)
+    ("validFrom" . validfrom)
+    ("validUntil" . validuntil)
+    ("expiresAt" . expiresat)
+    ("collector" . collector)
+    ("collectorVersion" . collectorversion)
+    ("collectionMethod" . collectionmethod)
+    ("collectionStatus" . collectionstatus)
+    ("runId" . runid)
+    ("correlationId" . correlationid)
+    ("causationId" . causationid)
+    ("parentId" . parentid)
+    ("rootId" . rootid)
+    ("confidence" . confidence)
+    ("confidenceBasis" . confidencebasis)
+    ("qualityScore" . qualityscore)
+    ("completenessScore" . completenessscore)
+    ("verificationStatus" . verificationstatus)
+    ("verifiedAt" . verifiedat)
+    ("verifiedBy" . verifiedby)
+    ("provenance" . provenance)
+    ("chainOfCustody" . chainofcustody)
+    ("transformHistory" . transformhistory)
+    ("labels" . labels)
+    ("tags" . tags)
+    ("topics" . topics)
+    ("language" . language)
+    ("jurisdiction" . jurisdiction)
+    ("countryCode" . countrycode)
+    ("regionCode" . regioncode)
+    ("timezone" . timezone)
+    ("sensitivity" . sensitivity)
+    ("visibility" . visibility)
+    ("owner" . owner)
+    ("accessControl" . accesscontrol)
+    ("legalBasis" . legalbasis)
+    ("retentionPolicy" . retentionpolicy)
+    ("contentType" . contenttype)
+    ("encoding" . encoding)
+    ("sizeBytes" . sizebytes)
+    ("contentHash" . contenthash)
+    ("hashAlgorithm" . hashalgorithm)
+    ("normalizedHash" . normalizedhash)
+    ("raw" . raw)
+    ("rawContent" . rawcontent)
+    ("notes" . notes)
+    ("deleted" . deleted)
+    ("tombstoneReason" . tombstonereason)
+    ("extensions" . extensions)
+    ("transactionId" . transactionid)
+    ("requestId" . requestid)
+    ("connectionId" . connectionid)
+    ("parentTransactionId" . parenttransactionid)
+    ("method" . method)
+    ("url" . url)
+    ("scheme" . scheme)
+    ("host" . host)
+    ("port" . port)
+    ("path" . path)
+    ("query" . query)
+    ("httpVersion" . httpversion)
+    ("requestHeaders" . requestheaders)
+    ("requestBodySize" . requestbodysize)
+    ("requestBodyHash" . requestbodyhash)
+    ("requestBodyArtifactUri" . requestbodyartifacturi)
+    ("responseStatus" . responsestatus)
+    ("responseReason" . responsereason)
+    ("responseHeaders" . responseheaders)
+    ("responseBodySize" . responsebodysize)
+    ("responseBodyHash" . responsebodyhash)
+    ("responseBodyArtifactUri" . responsebodyartifacturi)
+    ("startedAt" . startedat)
+    ("endedAt" . endedat)
+    ("durationMs" . durationms)
+    ("remoteIp" . remoteip)
+    ("remotePort" . remoteport)
+    ("tlsVersion" . tlsversion)
+    ("tlsCipher" . tlscipher)
+    ("tlsServerName" . tlsservername)
+    ("certificateSha256" . certificatesha256)
+    ("redirectFromId" . redirectfromid)
+    ("redirectToId" . redirecttoid)
+    ("captureActorUri" . captureactoruri)
+    ("challengeStatus" . challengestatus)
+    ("captchaDetectionId" . captchadetectionid)
+    ("captchaCapability" . captchacapability)
+    ("browserSessionRef" . browsersessionref)
+    ("networkContextRef" . networkcontextref)
+    ("proxyActorUri" . proxyactoruri)
+    ("redactedHeaders" . redactedheaders)
+    ("bodyCapturePolicy" . bodycapturepolicy)
+    ("requestTruncated" . requesttruncated)
+    ("responseTruncated" . responsetruncated)
+  ))
+
+(defstruct web-capture
+  (id nil)
+  (rev nil)
+  (dataset nil)
+  (dtype nil)
+  (schemaversion nil)
+  (externalids nil)
+  (aliases nil)
+  (sources nil)
+  (sourceurls nil)
+  (sourcerecordids nil)
+  (sourcekinds nil)
+  (sourcelicense nil)
+  (sourceterms nil)
+  (sourceretrievedat nil)
+  (collectedat nil)
+  (observedat nil)
+  (firstseenat nil)
+  (lastseenat nil)
+  (createdat nil)
+  (updatedat nil)
+  (validfrom nil)
+  (validuntil nil)
+  (expiresat nil)
+  (collector nil)
+  (collectorversion nil)
+  (collectionmethod nil)
+  (collectionstatus nil)
+  (runid nil)
+  (correlationid nil)
+  (causationid nil)
+  (parentid nil)
+  (rootid nil)
+  (confidence nil)
+  (confidencebasis nil)
+  (qualityscore nil)
+  (completenessscore nil)
+  (verificationstatus nil)
+  (verifiedat nil)
+  (verifiedby nil)
+  (provenance nil)
+  (chainofcustody nil)
+  (transformhistory nil)
+  (labels nil)
+  (tags nil)
+  (topics nil)
+  (language nil)
+  (jurisdiction nil)
+  (countrycode nil)
+  (regioncode nil)
+  (timezone nil)
+  (sensitivity nil)
+  (visibility nil)
+  (owner nil)
+  (accesscontrol nil)
+  (legalbasis nil)
+  (retentionpolicy nil)
+  (contenttype nil)
+  (encoding nil)
+  (sizebytes nil)
+  (contenthash nil)
+  (hashalgorithm nil)
+  (normalizedhash nil)
+  (raw nil)
+  (rawcontent nil)
+  (notes nil)
+  (deleted nil)
+  (tombstonereason nil)
+  (extensions nil)
+  (captureid nil)
+  (url nil)
+  (finalurl nil)
+  (title nil)
+  (statuscode nil)
+  (browser nil)
+  (browserversion nil)
+  (viewportwidth nil)
+  (viewportheight nil)
+  (devicescalefactor nil)
+  (screenshoturi nil)
+  (screenshothash nil)
+  (screenshotmediatype nil)
+  (screenshotsizebytes nil)
+  (domartifacturi nil)
+  (domartifacthash nil)
+  (domartifactsizebytes nil)
+  (capturedat nil)
+  (httptransactionids nil)
+  (captureactoruri nil)
+  (challengestatus nil)
+  (captchadetectionid nil)
+  (captchacapability nil)
+  (browsersessionref nil)
+  (networkcontextref nil)
+  (proxyactoruri nil)
+)
+(defparameter +web-capture-wire-fields+
+  '(
+    ("id" . id)
+    ("rev" . rev)
+    ("dataset" . dataset)
+    ("dtype" . dtype)
+    ("schemaVersion" . schemaversion)
+    ("externalIds" . externalids)
+    ("aliases" . aliases)
+    ("sources" . sources)
+    ("sourceUrls" . sourceurls)
+    ("sourceRecordIds" . sourcerecordids)
+    ("sourceKinds" . sourcekinds)
+    ("sourceLicense" . sourcelicense)
+    ("sourceTerms" . sourceterms)
+    ("sourceRetrievedAt" . sourceretrievedat)
+    ("collectedAt" . collectedat)
+    ("observedAt" . observedat)
+    ("firstSeenAt" . firstseenat)
+    ("lastSeenAt" . lastseenat)
+    ("createdAt" . createdat)
+    ("updatedAt" . updatedat)
+    ("validFrom" . validfrom)
+    ("validUntil" . validuntil)
+    ("expiresAt" . expiresat)
+    ("collector" . collector)
+    ("collectorVersion" . collectorversion)
+    ("collectionMethod" . collectionmethod)
+    ("collectionStatus" . collectionstatus)
+    ("runId" . runid)
+    ("correlationId" . correlationid)
+    ("causationId" . causationid)
+    ("parentId" . parentid)
+    ("rootId" . rootid)
+    ("confidence" . confidence)
+    ("confidenceBasis" . confidencebasis)
+    ("qualityScore" . qualityscore)
+    ("completenessScore" . completenessscore)
+    ("verificationStatus" . verificationstatus)
+    ("verifiedAt" . verifiedat)
+    ("verifiedBy" . verifiedby)
+    ("provenance" . provenance)
+    ("chainOfCustody" . chainofcustody)
+    ("transformHistory" . transformhistory)
+    ("labels" . labels)
+    ("tags" . tags)
+    ("topics" . topics)
+    ("language" . language)
+    ("jurisdiction" . jurisdiction)
+    ("countryCode" . countrycode)
+    ("regionCode" . regioncode)
+    ("timezone" . timezone)
+    ("sensitivity" . sensitivity)
+    ("visibility" . visibility)
+    ("owner" . owner)
+    ("accessControl" . accesscontrol)
+    ("legalBasis" . legalbasis)
+    ("retentionPolicy" . retentionpolicy)
+    ("contentType" . contenttype)
+    ("encoding" . encoding)
+    ("sizeBytes" . sizebytes)
+    ("contentHash" . contenthash)
+    ("hashAlgorithm" . hashalgorithm)
+    ("normalizedHash" . normalizedhash)
+    ("raw" . raw)
+    ("rawContent" . rawcontent)
+    ("notes" . notes)
+    ("deleted" . deleted)
+    ("tombstoneReason" . tombstonereason)
+    ("extensions" . extensions)
+    ("captureId" . captureid)
+    ("url" . url)
+    ("finalUrl" . finalurl)
+    ("title" . title)
+    ("statusCode" . statuscode)
+    ("browser" . browser)
+    ("browserVersion" . browserversion)
+    ("viewportWidth" . viewportwidth)
+    ("viewportHeight" . viewportheight)
+    ("deviceScaleFactor" . devicescalefactor)
+    ("screenshotUri" . screenshoturi)
+    ("screenshotHash" . screenshothash)
+    ("screenshotMediaType" . screenshotmediatype)
+    ("screenshotSizeBytes" . screenshotsizebytes)
+    ("domArtifactUri" . domartifacturi)
+    ("domArtifactHash" . domartifacthash)
+    ("domArtifactSizeBytes" . domartifactsizebytes)
+    ("capturedAt" . capturedat)
+    ("httpTransactionIds" . httptransactionids)
+    ("captureActorUri" . captureactoruri)
+    ("challengeStatus" . challengestatus)
+    ("captchaDetectionId" . captchadetectionid)
+    ("captchaCapability" . captchacapability)
+    ("browserSessionRef" . browsersessionref)
+    ("networkContextRef" . networkcontextref)
+    ("proxyActorUri" . proxyactoruri)
   ))
 
 (defstruct pcap-capture
