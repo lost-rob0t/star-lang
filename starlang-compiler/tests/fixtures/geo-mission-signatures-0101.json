@@ -220,5 +220,112 @@
         "mode"
       ]
     }
+  ],
+  "scalarCases": [
+    {
+      "type": "longitude",
+      "value": "-180.00000000",
+      "outcome": "accept"
+    },
+    {
+      "type": "longitude",
+      "value": "180.00000000",
+      "outcome": "accept"
+    },
+    {
+      "type": "longitude",
+      "value": "0",
+      "outcome": "accept"
+    },
+    {
+      "type": "latitude",
+      "value": "-90.00000000",
+      "outcome": "accept"
+    },
+    {
+      "type": "latitude",
+      "value": "90.00000000",
+      "outcome": "accept"
+    },
+    {
+      "type": "latitude",
+      "value": "0",
+      "outcome": "accept"
+    },
+    {
+      "type": "distance-meters",
+      "value": "0.000",
+      "outcome": "accept"
+    },
+    {
+      "type": "distance-meters",
+      "value": "12.345",
+      "outcome": "accept"
+    },
+    {
+      "type": "confidence-score",
+      "value": "0.0000",
+      "outcome": "accept"
+    },
+    {
+      "type": "confidence-score",
+      "value": "1.0000",
+      "outcome": "accept"
+    },
+    {
+      "type": "longitude",
+      "value": "-180.00000001",
+      "outcome": "reject"
+    },
+    {
+      "type": "longitude",
+      "value": "180.00000001",
+      "outcome": "reject"
+    },
+    {
+      "type": "longitude",
+      "value": "12.123456789",
+      "outcome": "reject"
+    },
+    {
+      "type": "latitude",
+      "value": "-90.00000001",
+      "outcome": "reject"
+    },
+    {
+      "type": "latitude",
+      "value": "90.00000001",
+      "outcome": "reject"
+    },
+    {
+      "type": "latitude",
+      "value": "39.123456789",
+      "outcome": "reject"
+    },
+    {
+      "type": "distance-meters",
+      "value": "-0.001",
+      "outcome": "reject"
+    },
+    {
+      "type": "distance-meters",
+      "value": "1.2345",
+      "outcome": "reject"
+    },
+    {
+      "type": "confidence-score",
+      "value": "-0.0001",
+      "outcome": "reject"
+    },
+    {
+      "type": "confidence-score",
+      "value": "1.0001",
+      "outcome": "reject"
+    },
+    {
+      "type": "confidence-score",
+      "value": "0.12345",
+      "outcome": "reject"
+    }
   ]
 }

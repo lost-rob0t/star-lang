@@ -447,7 +447,10 @@
          (defs (gethash "$defs" schema))
          (point (gethash "GeoPoint" defs))
          (mission-target (gethash "MissionTarget" defs))
-         (route (gethash "Route" defs)))
+         (route (gethash "Route" defs))
+         (mission (gethash "Mission" defs))
+         (geofence (gethash "Geofence" defs))
+         (encounter (gethash "Encounter" defs)))
     (flet ((field-ref (definition field)
              (gethash "$ref"
                       (gethash field
@@ -456,7 +459,44 @@
       (is (string= "#/$defs/Latitude" (field-ref point "latitude")))
       (is (string= "#/$defs/StarReference" (field-ref mission-target "mission")))
       (is (string= "#/$defs/StarReference" (field-ref mission-target "subject")))
-      (is (string= "#/$defs/StarReference" (field-ref route "geometry"))))))
+      (is (string= "#/$defs/StarReference" (field-ref route "geometry")))
+      (is (string= "#/$defs/MissionState" (field-ref mission "state")))
+      (is (string= "#/$defs/StarReference" (field-ref geofence "geometry")))
+      (is (string= "#/$defs/GeofenceTransition"
+                   (gethash "$ref"
+                            (gethash "items"
+                                     (gethash "transitions"
+                                              (gethash "properties" geofence))))))
+      (is (string= "#/$defs/EncounterKind" (field-ref encounter "kind"))))))
+
+(test starintel-0101-geo-mission-scalar-boundary-goldens
+  "Frozen canonical scalar values exercise real portable bounds and precision."
+  (let* ((goldens (sl04-geo-mission-signatures))
+         (manifest (starintel-0101-manifest))
+         (samples (gethash "scalarCases" goldens))
+         (accepted 0)
+         (rejected 0))
+    (is (= 21 (length samples)))
+    (map nil
+         (lambda (sample)
+           (let ((type (gethash "type" sample))
+                 (value (gethash "value" sample))
+                 (outcome (gethash "outcome" sample)))
+             (let ((qualified (format nil "org.starintel/core@1/~A" type)))
+               (cond
+                 ((string= outcome "accept")
+                  (incf accepted)
+                  (is (staractorprotocol:validate-portable-wire-value
+                       manifest qualified value)))
+                 ((string= outcome "reject")
+                  (incf rejected)
+                  (signals staractorprotocol:invalid-wire-envelope-error
+                    (staractorprotocol:validate-portable-wire-value
+                     manifest qualified value)))
+                 (t (error "Unknown geo golden outcome: ~S" outcome))))))
+         samples)
+    (is (= 10 accepted))
+    (is (= 11 rejected))))
 
 (test starintel-0101-generates-deterministic-json-schema
   "The portable StarLang manifest is the source for JSON Schema, with lowerCamelCase wire keys."

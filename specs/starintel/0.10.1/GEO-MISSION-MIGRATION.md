@@ -78,3 +78,22 @@ address those gaps through an explicitly versioned successor contract;
 IR14 coordinates any consumer repins. Android, wireless, Quasar and media
 continue to exchange canonical references/evidence. SS11/SS13 own authorized
 CouchDB JSON spatial execution and indexing, not StarLang.
+
+## Frozen scalar-boundary and generated-reference checks
+
+The compiler test suite executes 21 source-owned scalar value goldens
+(10 accepted, 11 rejected) against the actual portable wire validator.
+Longitude/latitude WGS84 bounds and eight-digit coordinate precision,
+nonnegative distance with three-digit precision, and confidence in [0,1]
+with four-digit precision are covered. Generator checks require MissionState,
+GeofenceTransition and EncounterKind typed references.
+
+The immutable 0.10.1 generated JSON Schema enforces decimal-string syntax,
+but does not enforce numeric range/scale. Consumers MUST use the canonical
+portable validator for those constraints; lexical JSON Schema validation
+alone is insufficient. SL01/SL02 own successor-release generator parity;
+IR14 coordinates downstream repins. This regression slice does not
+modify the frozen 0.10.1 release artifacts.
+
+The isolated Logic IR workflow installs Yason's transitive
+cl-trivial-gray-streams dependency so the compiler goldens run there.
