@@ -74,6 +74,52 @@ class ConsumerTests(unittest.TestCase):
             consumer.sync(self.lock, commit, self.source, "schemas/starintel-0.10.1")
         self.assertFalse(self.lock.exists())
 
+    def test_noncanonical_paths_rejected(self):
+        for path in ("", ".", "./schema.json", "schema//file.json", "schema/./file.json",
+                     "/schema.json", "../schema.json", "schema/../file.json",
+                     "schema\\file.json", "schema\u0000.json", "schema\nfile.json"):
+            with self.subTest(path=path):
+                with self.assertRaisesRegex(ValueError, "unsafe"):
+                    consumer.safe_path(path)
+
+    def test_sync_rejects_symlink_destination_before_writes(self):
+        root = self.lock.parent.parent
+        root.mkdir(parents=True)
+        outside = self.root / "outside"
+        outside.mkdir()
+        (root / "escape").symlink_to(outside, target_is_directory=True)
+        with self.assertRaisesRegex(ValueError, "unsafe"):
+            consumer.sync(self.lock, self.commit, self.source, "escape/release")
+        self.assertEqual(list(outside.iterdir()), [])
+        self.assertFalse(self.lock.exists())
+
+    def test_check_rejects_duplicate_sources_online_and_offline(self):
+        self.sync()
+        lock = json.loads(self.lock.read_text())
+        local, entry = next(iter(lock["vendored_files"].items()))
+        duplicate = self.lock.parent.parent / "duplicate.json"
+        duplicate.write_bytes((self.lock.parent.parent / local).read_bytes())
+        lock["vendored_files"]["duplicate.json"] = entry
+        self.lock.write_text(json.dumps(lock))
+        for offline in (False, True):
+            with self.subTest(offline=offline):
+                with self.assertRaisesRegex(ValueError, "duplicate canonical source"):
+                    consumer.check(self.lock, None if offline else self.source, offline=offline)
+
+    def test_check_rejects_symlinked_vendored_file(self):
+        self.sync()
+        lock = json.loads(self.lock.read_text())
+        local = next(iter(lock["vendored_files"]))
+        target = self.lock.parent.parent / local
+        outside = self.root / "outside.json"
+        outside.write_bytes(target.read_bytes())
+        target.unlink()
+        target.symlink_to(outside)
+        for offline in (False, True):
+            with self.subTest(offline=offline):
+                with self.assertRaisesRegex(ValueError, "unsafe"):
+                    consumer.check(self.lock, None if offline else self.source, offline=offline)
+
 
 if __name__ == "__main__":
     unittest.main()

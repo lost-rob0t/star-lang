@@ -29,9 +29,36 @@ def require(condition: bool, message: str) -> None:
 
 
 def safe_path(path: str) -> str:
+    require(isinstance(path, str) and bool(path), f"unsafe path: {path!r}")
     value = PurePosixPath(path)
-    require(not value.is_absolute() and ".." not in value.parts, f"unsafe path: {path}")
-    return str(value)
+    require(
+        not value.is_absolute() and str(value) == path
+        and all(part not in ("", ".", "..") for part in path.split("/"))
+        and "\\" not in path and ":" not in path
+        and not any(ord(char) < 32 or ord(char) == 127 for char in path),
+        f"unsafe path: {path!r}",
+    )
+    return path
+
+
+def safe_target(root: Path, relative: str) -> Path:
+    """Reject symlinks and escapes before touching consumer-owned files."""
+    relative = safe_path(relative)
+    target = root / relative
+    require(target.resolve().is_relative_to(root.resolve()), f"unsafe target: {relative}")
+    current = root
+    for part in PurePosixPath(relative).parts:
+        current = current / part
+        require(not current.is_symlink(), f"unsafe symlink target: {relative}")
+    return target
+
+
+def consumer_root(lock_path: Path) -> tuple[Path, Path]:
+    # Do not resolve the lock first: that would let a lock symlink choose a
+    # different repository root and erase the evidence of the symlink.
+    absolute = lock_path.absolute()
+    root = absolute.parent.parent
+    return root, safe_target(root, absolute.relative_to(root).as_posix())
 
 
 def read_source(commit: str, path: str, source: Path | None) -> bytes:
@@ -70,7 +97,7 @@ def verify_release(commit: str, source: Path | None, read=None) -> tuple[dict, d
 def sync(lock_path: Path, commit: str, source: Path | None, destination: str) -> dict:
     release, files = verify_release(commit, source)
     # The repo root is the parent of schema/, the standard consumer lock location.
-    root = lock_path.resolve().parent.parent
+    root, lock_path = consumer_root(lock_path)
     destination = safe_path(destination)
     paths = {path: f"{destination}/{path.removeprefix(RELEASE + '/')}" for path in files}
     lock = {
@@ -88,8 +115,11 @@ def sync(lock_path: Path, commit: str, source: Path | None, destination: str) ->
             for path, data in sorted(files.items())
         },
     }
+    targets = {path: safe_target(root, local) for path, local in paths.items()}
+    require(len(set(targets.values())) == len(files), "duplicate consumer target")
+    require(lock_path not in targets.values(), "consumer artifact cannot overwrite its lock")
     for path, data in files.items():
-        target = root / paths[path]
+        target = targets[path]
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(data)
     lock_path.parent.mkdir(parents=True, exist_ok=True)
@@ -98,9 +128,16 @@ def sync(lock_path: Path, commit: str, source: Path | None, destination: str) ->
 
 
 def check(lock_path: Path, source: Path | None, *, offline: bool = False) -> dict:
+    root, lock_path = consumer_root(lock_path)
     lock = json.loads(lock_path.read_text(encoding="utf-8"))
     require(lock["canonical_repository"] == REPOSITORY, "StarLang must own the canonical spec")
-    root = lock_path.resolve().parent.parent
+    local_paths = {}
+    seen_sources = set()
+    for local, entry in lock["vendored_files"].items():
+        canonical = safe_path(entry["source"])
+        require(canonical not in seen_sources, "duplicate canonical source")
+        seen_sources.add(canonical)
+        local_paths[local] = safe_target(root, local)
     read = None
     if offline:
         # Package builds verify their complete local release closure. CI must
@@ -108,7 +145,7 @@ def check(lock_path: Path, source: Path | None, *, offline: bool = False) -> dic
         local_sources = {}
         for local, entry in lock["vendored_files"].items():
             require(entry["source"] not in local_sources, "duplicate canonical source")
-            data = (root / safe_path(local)).read_bytes()
+            data = local_paths[local].read_bytes()
             require(digest(data) == entry["sha256"], f"consumer hash mismatch: {local}")
             local_sources[entry["source"]] = data
         def read(path):
@@ -122,13 +159,12 @@ def check(lock_path: Path, source: Path | None, *, offline: bool = False) -> dic
                            ("schema_path", f"{RELEASE}/generated/schema.json"),
                            ("manifest_path", f"{RELEASE}/generated/portable-manifest.json")):
         require(lock[name] == expected, f"consumer {name} mismatch")
-    root = lock_path.resolve().parent.parent
     seen = set()
     for local, entry in lock["vendored_files"].items():
         require(entry["source"] in files, f"unlocked upstream artifact: {local}")
         canonical = files[entry["source"]]
         require(entry["sha256"] == digest(canonical), f"consumer hash mismatch: {local}")
-        require((root / safe_path(local)).read_bytes() == canonical, f"vendored artifact drift: {local}")
+        require(local_paths[local].read_bytes() == canonical, f"vendored artifact drift: {local}")
         seen.add(entry["source"])
     require(seen == set(files), "consumer must vendor the complete locked release")
     return lock
