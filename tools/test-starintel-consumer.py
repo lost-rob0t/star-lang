@@ -3,6 +3,7 @@ import importlib.util
 import json
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -119,6 +120,96 @@ class ConsumerTests(unittest.TestCase):
             with self.subTest(offline=offline):
                 with self.assertRaisesRegex(ValueError, "unsafe"):
                     consumer.check(self.lock, None if offline else self.source, offline=offline)
+
+    def bundle_source(self):
+        before = (self.source / consumer.RELEASE / "release-lock.json").read_bytes()
+        subprocess.run([sys.executable, str(self.source / "tools/finalize-starintel-release.py"),
+                        "--bundle"], check=True, cwd=self.source)
+        self.assertEqual(before, (self.source / consumer.RELEASE / "release-lock.json").read_bytes())
+        subprocess.run(["git", "-C", str(self.source), "add", "."], check=True)
+        subprocess.run(["git", "-C", str(self.source), "-c", "user.name=Test",
+                        "-c", "user.email=test@example.test", "commit", "--quiet",
+                        "--allow-empty", "-m", "generate test bundle"], check=True)
+        return subprocess.check_output(["git", "-C", str(self.source), "rev-parse", "HEAD"],
+                                       text=True).strip()
+
+    def test_complete_bundle_relocates_real_reader_offline(self):
+        commit = self.bundle_source()
+        consumer.sync(self.lock, commit, self.source, "vendor/starintel", bundle=True, release="0.10.1")
+        with patch.object(consumer, "read_source", side_effect=AssertionError("offline network")):
+            lock = consumer.check(self.lock, None, offline=True)
+        root = self.lock.parent.parent / "vendor/starintel"
+        reader = root / "compatibility/versioned_reader.py"
+        old = b' \n{"_id":"fixture:alert","dataset":"test","dtype":"alert","schema_version":"0.9.0","version":1,"date_added":"2026-10-04T00:00:00Z","date_updated":"2026-10-04T00:00:00Z","sources":[],"evidence":[],"data":{},"extensions":{"flag":false,"n":1e3}}\n'
+        def run(*args, raw=old):
+            return subprocess.run([sys.executable, "-I", str(reader), *args], input=raw,
+                                  capture_output=True, cwd=self.root, check=True).stdout
+        self.assertEqual(run("read"), old)
+        report = json.loads(run("migrate", "--dry-run"))
+        self.assertIn("status", report)
+        current = run("migrate")
+        self.assertEqual(run("read", raw=current), current)
+        self.assertEqual(run("restore", raw=current), old)
+        self.assertEqual(json.loads(run("migrate", raw=current)), json.loads(current))
+        self.assertEqual(lock["bundle_format"], "starintel-consumer-bundle/1")
+        self.assertIn("vendor/starintel/compatibility/registry.json", lock["vendored_files"])
+        self.assertIn("vendor/starintel/0.10.1/release-lock.json", lock["vendored_files"])
+
+    def test_bundle_missing_tampered_and_duplicate_mapping_fail_closed(self):
+        commit = self.bundle_source()
+        consumer.sync(self.lock, commit, self.source, "vendor/starintel", bundle=True)
+        original = self.lock.read_bytes()
+        lock = json.loads(original)
+        local = "vendor/starintel/compatibility/versioned_reader.py"
+        target = self.lock.parent.parent / local
+        data = target.read_bytes()
+        target.write_bytes(data + b"\n# tampered\n")
+        with self.assertRaisesRegex(ValueError, "hash mismatch"):
+            consumer.check(self.lock, None, offline=True)
+        target.write_bytes(data)
+        del lock["vendored_files"][local]
+        self.lock.write_text(json.dumps(lock))
+        with self.assertRaisesRegex(ValueError, "complete locked"):
+            consumer.check(self.lock, None, offline=True)
+        self.lock.write_bytes(original)
+        lock = json.loads(original)
+        lock["vendored_files"]["duplicate.py"] = lock["vendored_files"][local]
+        self.lock.write_text(json.dumps(lock))
+        with self.assertRaisesRegex(ValueError, "duplicate canonical source"):
+            consumer.check(self.lock, self.source)
+
+    def test_bundle_rejects_wrong_release_format_and_floating_ref(self):
+        commit = self.bundle_source()
+        with self.assertRaisesRegex(ValueError, "unsupported release"):
+            consumer.sync(self.lock, commit, self.source, "vendor/starintel", bundle=True, release="0.9.0")
+        with self.assertRaisesRegex(ValueError, "immutable"):
+            consumer.sync(self.lock, "main", self.source, "vendor/starintel", bundle=True)
+        consumer.sync(self.lock, commit, self.source, "vendor/starintel", bundle=True)
+        lock = json.loads(self.lock.read_text())
+        lock["bundle_format"] = "unknown"
+        self.lock.write_text(json.dumps(lock))
+        with self.assertRaisesRegex(ValueError, "bundle format"):
+            consumer.check(self.lock, None, offline=True)
+
+    def test_bundle_interruption_keeps_lock_and_fails_verification(self):
+        commit = self.bundle_source()
+        consumer.sync(self.lock, commit, self.source, "vendor/starintel", bundle=True)
+        original = self.lock.read_bytes()
+        real_write = Path.write_bytes
+        count = 0
+        def interrupted(path, data):
+            nonlocal count
+            count += 1
+            if count == 2:
+                real_write(path, b"interrupted")
+                raise OSError("injected write interruption")
+            return real_write(path, data)
+        with patch.object(Path, "write_bytes", interrupted):
+            with self.assertRaisesRegex(OSError, "interruption"):
+                consumer.sync(self.lock, commit, self.source, "vendor/starintel", bundle=True)
+        self.assertEqual(self.lock.read_bytes(), original)
+        with self.assertRaisesRegex(ValueError, "hash mismatch"):
+            consumer.check(self.lock, None, offline=True)
 
 
 if __name__ == "__main__":
