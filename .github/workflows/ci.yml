@@ -107,6 +107,7 @@ jobs:
               ./tools/test-starintel-research-contracts.py) continue ;;
               ./tools/test-supported-workflow-contracts.py) continue ;;
               ./tools/test-starintel-versioned-reader.py) continue ;;
+              ./tools/test-starintel-raw-json.py) continue ;;
               ./specs/starintel/compatibility/versioned_reader.py) continue ;;
               ./specs/starintel/compatibility/raw_json_numbers.py) continue ;;
               ./specs/starintel/0.10.1/workflow_semantics.py) continue ;;
@@ -137,7 +138,7 @@ jobs:
           set -euo pipefail
           sbcl --disable-debugger \
             --script tools/generate-starintel-release.lisp --check
-          python3 tools/finalize-starintel-release.py --check
+          python3 tools/finalize-starintel-release.py --check --bundle
           python3 tools/test-starintel-consumer.py
           python3 tools/test-starintel-research-contracts.py
           python3 tools/test-supported-workflow-contracts.py

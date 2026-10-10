@@ -1,0 +1,1 @@
+{"actor":"nim.echo","attempt":1,"causationId":"req","correlationId":"correlation/req","dataset":"fixture","kind":"reply","messageId":"reply","messageType":"star.zmq/echo@1","payload":{"text":"result"},"starVersion":1}

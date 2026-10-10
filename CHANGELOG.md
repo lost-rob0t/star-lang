@@ -171,3 +171,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Visibility: public.
 - ASDF naming: `star-<name>` and `starlang-<name>`, lowercase, hyphen-separated.
 - Primary implementation: SBCL.
+
+### Local domain/service protocol integration candidate
+
+- Reuse the issue159 Actor2Actor projection over existing lifecycle envelopes.
+- Treat outcome-unknown as a reconcilable observation, not a terminal task state.
+- Add strict local domain/service definitions, enrollment/admission policy guards,
+  correlated outcome and incarnation/attempt completion checks.
+- Document Rabbit/ZeroMQ parity requirements without claiming live transport proof.
+- Extract existing lifecycle JSON codec into socket-free `star-actor-wire`; preserve
+  ZMQ actor API, add Rabbit/ZMQ byte-equivalence and header-correlation checks,
+  explicit legacy-peer rejection, and six authority-generated lifecycle fixtures.
+- Preserve exact document JSON inside lifecycle payloads using protocol-owned
+  numeric lexemes and explicit JSON value distinctions; add command-only admission
+  and actual-codec exact-document conformance without a downstream SDK dependency.
+- Preserve integer-form negative zero and distinguish optional typed boolean false
+  from null/absence, with nested and Actor2Actor-frame codec regressions.
