@@ -521,11 +521,19 @@ validated separately and is never silently rewritten."
       (decode-star-utf-8 parser)
     (when character
       (setf (star-source-parser-index parser) next-index)
-      (if (char= character #\Newline)
-          (progn
-            (incf (star-source-parser-line parser))
-            (setf (star-source-parser-column parser) 1))
-          (incf (star-source-parser-column parser))))
+      (cond
+        ((char= character #\Return)
+         (incf (star-source-parser-line parser))
+         (setf (star-source-parser-column parser) 1))
+        ((char= character #\Newline)
+         ;; CRLF is one physical line break, but both bytes belong to spans.
+         (unless (and (> next-index 1)
+                      (= (aref (star-source-parser-octets parser)
+                               (- next-index 2)) #x0D))
+           (incf (star-source-parser-line parser)))
+         (setf (star-source-parser-column parser) 1))
+        (t
+         (incf (star-source-parser-column parser))))
     character))
 
 (defun parser-span (parser start-byte start-line start-column)
@@ -569,7 +577,8 @@ validated separately and is never silently rewritten."
        (advance-star-source parser))
       ((eql (star-source-character parser) #\;)
        (loop for character = (star-source-character parser)
-             while (and character (not (char= character #\Newline)))
+             while (and character
+                        (not (find character '(#\Newline #\Return))))
              do (advance-star-source parser)))
       (t
        (return parser)))))

@@ -9,6 +9,43 @@
 
 (in-suite starlangcompiler-tests)
 
+(test closed-parser-normalizes-lf-cr-and-crlf-source-spans
+  "Comments end on LF or CR; CRLF counts as one logical line."
+  (dolist (newline (list (string #\Newline)
+                         (string #\Return)
+                         (format nil "~C~C" #\Return #\Newline)))
+    (let* ((source
+             (format nil
+                     "; header~A(spec-library \"test/newlines@1\"~A  (:version \"1\")~A  (message ping (:fields ())))"
+                     newline newline newline))
+           (syntax (starlangcompiler:read-star-syntax
+                    source :source-id "newline-regression.star"))
+           (children (star-lang.compiler.core:star-syntax-children syntax))
+           (root (star-lang.compiler.core:star-syntax-span syntax))
+           (message (fourth children))
+           (span (star-lang.compiler.core:star-syntax-span message)))
+      (is (= 2 (star-lang.compiler.core:star-source-span-start-line root)))
+      (is (= 1 (star-lang.compiler.core:star-source-span-start-column root)))
+      (is (= (length (format nil "; header~A" newline))
+             (star-lang.compiler.core:star-source-span-start-byte root)))
+      (is (= 4 (star-lang.compiler.core:star-source-span-start-line span)))
+      (is (= 3 (star-lang.compiler.core:star-source-span-start-column span))))))
+
+(test closed-parser-reports-cr-only-diagnostic-line
+  "After a CR-only source, invalid trailing input has the physical line."
+  (let* ((source
+           (format nil "; header~C(spec-library \"test/line@1\"~C  (:version \"1\"))~C extra"
+                   #\Return #\Return #\Return))
+         (condition
+           (handler-case
+               (progn (starlangcompiler:read-star-syntax source) nil)
+             (star-lang.compiler.core:star-lang-source-error (caught)
+               caught))))
+    (is (typep condition 'star-lang.compiler.core:star-lang-source-error))
+    (is (eq :multiple-top-level-forms
+            (star-lang.compiler.core:star-lang-core-error-code condition)))
+    (is (= 4 (star-lang.compiler.core:star-lang-core-error-line condition)))))
+
 (defun plist-key-present-p (plist key)
   (loop for tail on plist by #'cddr
         thereis (eq (first tail) key)))
