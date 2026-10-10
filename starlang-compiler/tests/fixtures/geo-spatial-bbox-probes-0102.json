@@ -158,6 +158,81 @@
         "atTime": 1791648000,
         "identityClaim": "unverified"
       }
+    },
+    {
+      "name": "limit-min",
+      "result": "accept",
+      "payload": {
+        "dataset": "public",
+        "bounds": {
+          "west": "-84.25",
+          "south": "39.95",
+          "east": "-82.75",
+          "north": "40.75"
+        },
+        "atTime": 1791648000,
+        "limit": 1
+      }
+    },
+    {
+      "name": "limit-max",
+      "result": "accept",
+      "payload": {
+        "dataset": "public",
+        "bounds": {
+          "west": "-84.25",
+          "south": "39.95",
+          "east": "-82.75",
+          "north": "40.75"
+        },
+        "atTime": 1791648000,
+        "limit": 1000
+      }
+    },
+    {
+      "name": "limit-zero",
+      "result": "reject",
+      "payload": {
+        "dataset": "public",
+        "bounds": {
+          "west": "-84.25",
+          "south": "39.95",
+          "east": "-82.75",
+          "north": "40.75"
+        },
+        "atTime": 1791648000,
+        "limit": 0
+      }
+    },
+    {
+      "name": "limit-negative",
+      "result": "reject",
+      "payload": {
+        "dataset": "public",
+        "bounds": {
+          "west": "-84.25",
+          "south": "39.95",
+          "east": "-82.75",
+          "north": "40.75"
+        },
+        "atTime": 1791648000,
+        "limit": -1
+      }
+    },
+    {
+      "name": "limit-exceeds-maximum",
+      "result": "reject",
+      "payload": {
+        "dataset": "public",
+        "bounds": {
+          "west": "-84.25",
+          "south": "39.95",
+          "east": "-82.75",
+          "north": "40.75"
+        },
+        "atTime": 1791648000,
+        "limit": 1001
+      }
     }
   ]
 }

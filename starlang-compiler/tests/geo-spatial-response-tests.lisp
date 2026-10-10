@@ -158,6 +158,20 @@
                    (gethash "$ref" (gethash (first pair) bounds-properties))))
       (is (member (first pair) (coerce (gethash "required" bounds) 'list)
                   :test #'string=)))
+    ;; A page-size scalar must be present in the generated candidate contract.
+    (let ((page-size (gethash "SpatialQueryPageSize" defs))
+          (limit-field (find "limit" (getf message :fields)
+                             :key (lambda (item) (getf item :name))
+                             :test #'string=)))
+      (is (hash-table-p page-size))
+      (is (consp limit-field))
+      (when limit-field
+        (is (string= (format nil "~A/spatial-query-page-size" +authority+)
+                     (getf limit-field :type))))
+      (when (hash-table-p page-size)
+        (is (string= "integer" (gethash "type" page-size)))
+        (is (= 1 (gethash "minimum" page-size)))
+        (is (= 1000 (gethash "maximum" page-size)))))
     (is (search "export interface SpatialBounds"
                 (cdr (assoc :typescript bindings))))
     (is (search "SpatialBounds = TypedDict"
@@ -171,7 +185,7 @@
          (cases (gethash "cases" goldens))
          (message (format nil "~A/query-spatial-bbox" +authority+))
          (accepts 0) (rejects 0))
-    (is (= 12 (length cases)))
+    (is (= 17 (length cases)))
     (loop for example across cases do
       (let ((payload (sl04-wire (gethash "payload" example))))
         (cond
@@ -185,8 +199,8 @@
              (staractorprotocol:validate-portable-message-payload
               manifest message payload)))
           (t (error "Unknown bbox golden outcome.")))))
-    (is (= 2 accepts))
-    (is (= 10 rejects))))
+    (is (= 4 accepts))
+    (is (= 13 rejects))))
 
 (defun run-tests ()
   (unless (run! 'starlang-geo-spatial-response-tests)
