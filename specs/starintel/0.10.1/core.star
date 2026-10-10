@@ -729,6 +729,170 @@
     (editedAt unix-time :optional)
     (sensitive boolean :optional))
 
+  ;; Research operations are executable planning state, distinct from real-world
+  ;; intelligence evidence, missions, and actor scheduler targets. Transient
+  ;; operation components are embedded records, never standalone corpus dtypes.
+  ;; Operation invariants: nonempty mission and phases; unique component IDs;
+  ;; acyclic phase dependencies; all local cross-references resolve; operation
+  ;; outOfScope overrides phase inScope; completed phases require evidence;
+  ;; completed operations contain only completed or skipped phases.
+  (enum operation-role
+    (collection working derived publication reference archive))
+
+  (enum operation-access
+    (read append write read-write))
+
+  (enum operation-category
+    (actor software hardware device source dataset schema protocol infrastructure research))
+
+  (enum operation-capability-status
+    (required missing planned in-progress available resolved waived))
+
+  (enum operation-status
+    (draft planned active blocked suspended completed aborted archived))
+
+  (enum operation-assignment-status
+    (planned assigned active completed blocked released))
+
+  (enum operation-post-action-status
+    (planned ready running completed failed skipped))
+
+  (enum operation-state
+    (planned ready active blocked awaiting-review completed skipped failed aborted))
+
+  (document operation-condition
+    (:persistence transient)
+    (conditionId string :optional)
+    (kind string :required)
+    (predicate string :optional)
+    (subject string :optional)
+    (object string :optional)
+    (expression string :optional)
+    (required boolean :optional)
+    (metadata map :optional))
+
+  (document operation-target-policy
+    (:persistence transient)
+    (allowedDtypes (list string) :optional)
+    (allowedTargetTypes (list string) :optional)
+    (allowedRoles (list string) :optional)
+    (selectors (list map) :optional))
+
+  (document operation-target-bindings
+    (:persistence transient)
+    (primary (list string) :optional)
+    (supporting (list string) :optional)
+    (derived (list string) :optional)
+    (excluded (list string) :optional))
+
+  (document operation-dataset-binding
+    (:persistence transient)
+    (bindingId string :required)
+    (dataset string :required)
+    (role operation-role :required)
+    (access operation-access :required)
+    (phases (list string) :optional)
+    (purpose string :optional))
+
+  (document operation-capability-gap
+    (:persistence transient)
+    (capabilityId string :required)
+    (category operation-category :required)
+    (description string :required)
+    (requiredBy (list string) :optional)
+    (blocking boolean :required)
+    (status operation-capability-status :required)
+    (capabilityRef string :optional)
+    (resolutionRef string :optional)
+    (owner string :optional)
+    (metadata map :optional))
+
+  (document operation-assignment
+    (:persistence transient)
+    (assignmentId string :required)
+    (agentId string :optional)
+    (actorId string :optional)
+    (phaseIds (list string) :required)
+    (role string :optional)
+    (status operation-assignment-status :required)
+    (metadata map :optional))
+
+  (document operation-post-action
+    (:persistence transient)
+    (actionId string :required)
+    (actionType string :required)
+    (condition operation-condition :optional)
+    (targetIds (list string) :optional)
+    (datasetBindingIds (list string) :optional)
+    (status operation-post-action-status :required)
+    (config map :optional))
+
+  (document operation-phase
+    (:persistence transient)
+    (phaseId string :required)
+    (title string :optional)
+    (objective string :required)
+    (state operation-state :required)
+    (dependsOn (list string) :optional)
+    (entryConditions (list operation-condition) :optional)
+    (exitConditions (list operation-condition) :optional)
+    (inScope (list string) :optional)
+    (outOfScope (list string) :optional)
+    (targetPolicy operation-target-policy :optional)
+    (targetIds (list string) :optional)
+    (datasetBindingIds (list string) :optional)
+    (requiredCapabilityIds (list string) :optional)
+    (deliverableIds (list string) :optional)
+    (completionEvidence (list string) :optional))
+
+  (document operation
+    (:extends document
+     :persistence persistent)
+    (mission string :required)
+    (objectives (list string) :optional)
+    (status operation-status :required)
+    (inScope (list string) :optional)
+    (outOfScope (list string) :optional)
+    (targetPolicy operation-target-policy :optional)
+    (targets operation-target-bindings :optional)
+    (phases (list operation-phase) :required)
+    (datasets (list operation-dataset-binding) :optional)
+    (capabilityGaps (list operation-capability-gap) :optional)
+    (assignments (list operation-assignment) :optional)
+    (postActions (list operation-post-action) :optional))
+
+  (document investigation-target
+    (:extends document
+     :persistence persistent)
+    (actor string :optional)
+    (target string :required)
+    (targetId string :optional)
+    (targetType string :optional)
+    (query string :optional)
+    (researchQuestion string :optional)
+    (hypotheses (list string) :optional)
+    (objectives (list string) :optional)
+    (inScope (list string) :optional)
+    (outOfScope (list string) :optional)
+    (scopeType string :optional)
+    (seedIds (list string) :optional)
+    (sourceIds (list string) :optional)
+    (requiredDtypes (list string) :optional)
+    (preferredSources (list string) :optional)
+    (excludedSources (list string) :optional)
+    (delay integer :optional)
+    (recurring boolean :optional)
+    (recurrence string :optional)
+    (options (list any) :optional)
+    (depth integer :optional)
+    (maxDepth integer :optional)
+    (breadth integer :optional)
+    (priority decimal :optional)
+    (score decimal :optional)
+    (selectionReason (list string) :optional)
+    (status string :optional)
+    (nextRunAt (optional string) :optional))
+
   (document target
     (:extends document
      :persistence persistent)

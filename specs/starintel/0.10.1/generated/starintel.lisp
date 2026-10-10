@@ -36,6 +36,14 @@
     #:spatial-query-mode
     #:map-layer-kind
     #:geo-geometry-type
+    #:operation-role
+    #:operation-access
+    #:operation-category
+    #:operation-capability-status
+    #:operation-status
+    #:operation-assignment-status
+    #:operation-post-action-status
+    #:operation-state
     #:pcap-format
     #:network-layer
     #:wireless-security
@@ -3046,6 +3054,290 @@
     #:socialmpost-publishedat
     #:socialmpost-editedat
     #:socialmpost-sensitive
+    #:operation-condition
+    #:MAKE-operation-condition
+    #:COPY-operation-condition
+    #:operation-condition-P
+    #:+operation-condition-WIRE-FIELDS+
+    #:operation-condition-conditionid
+    #:operation-condition-kind
+    #:operation-condition-predicate
+    #:operation-condition-subject
+    #:operation-condition-object
+    #:operation-condition-expression
+    #:operation-condition-required
+    #:operation-condition-metadata
+    #:operation-target-policy
+    #:MAKE-operation-target-policy
+    #:COPY-operation-target-policy
+    #:operation-target-policy-P
+    #:+operation-target-policy-WIRE-FIELDS+
+    #:operation-target-policy-alloweddtypes
+    #:operation-target-policy-allowedtargettypes
+    #:operation-target-policy-allowedroles
+    #:operation-target-policy-selectors
+    #:operation-target-bindings
+    #:MAKE-operation-target-bindings
+    #:COPY-operation-target-bindings
+    #:operation-target-bindings-P
+    #:+operation-target-bindings-WIRE-FIELDS+
+    #:operation-target-bindings-primary
+    #:operation-target-bindings-supporting
+    #:operation-target-bindings-derived
+    #:operation-target-bindings-excluded
+    #:operation-dataset-binding
+    #:MAKE-operation-dataset-binding
+    #:COPY-operation-dataset-binding
+    #:operation-dataset-binding-P
+    #:+operation-dataset-binding-WIRE-FIELDS+
+    #:operation-dataset-binding-bindingid
+    #:operation-dataset-binding-dataset
+    #:operation-dataset-binding-role
+    #:operation-dataset-binding-access
+    #:operation-dataset-binding-phases
+    #:operation-dataset-binding-purpose
+    #:operation-capability-gap
+    #:MAKE-operation-capability-gap
+    #:COPY-operation-capability-gap
+    #:operation-capability-gap-P
+    #:+operation-capability-gap-WIRE-FIELDS+
+    #:operation-capability-gap-capabilityid
+    #:operation-capability-gap-category
+    #:operation-capability-gap-description
+    #:operation-capability-gap-requiredby
+    #:operation-capability-gap-blocking
+    #:operation-capability-gap-status
+    #:operation-capability-gap-capabilityref
+    #:operation-capability-gap-resolutionref
+    #:operation-capability-gap-owner
+    #:operation-capability-gap-metadata
+    #:operation-assignment
+    #:MAKE-operation-assignment
+    #:COPY-operation-assignment
+    #:operation-assignment-P
+    #:+operation-assignment-WIRE-FIELDS+
+    #:operation-assignment-assignmentid
+    #:operation-assignment-agentid
+    #:operation-assignment-actorid
+    #:operation-assignment-phaseids
+    #:operation-assignment-role
+    #:operation-assignment-metadata
+    #:operation-post-action
+    #:MAKE-operation-post-action
+    #:COPY-operation-post-action
+    #:operation-post-action-P
+    #:+operation-post-action-WIRE-FIELDS+
+    #:operation-post-action-actionid
+    #:operation-post-action-actiontype
+    #:operation-post-action-condition
+    #:operation-post-action-targetids
+    #:operation-post-action-datasetbindingids
+    #:operation-post-action-config
+    #:operation-phase
+    #:MAKE-operation-phase
+    #:COPY-operation-phase
+    #:operation-phase-P
+    #:+operation-phase-WIRE-FIELDS+
+    #:operation-phase-phaseid
+    #:operation-phase-title
+    #:operation-phase-objective
+    #:operation-phase-state
+    #:operation-phase-dependson
+    #:operation-phase-entryconditions
+    #:operation-phase-exitconditions
+    #:operation-phase-inscope
+    #:operation-phase-outofscope
+    #:operation-phase-targetpolicy
+    #:operation-phase-targetids
+    #:operation-phase-datasetbindingids
+    #:operation-phase-requiredcapabilityids
+    #:operation-phase-deliverableids
+    #:operation-phase-completionevidence
+    #:operation
+    #:MAKE-operation
+    #:COPY-operation
+    #:operation-P
+    #:+operation-WIRE-FIELDS+
+    #:operation-id
+    #:operation-rev
+    #:operation-dataset
+    #:operation-dtype
+    #:operation-schemaversion
+    #:operation-externalids
+    #:operation-aliases
+    #:operation-sources
+    #:operation-sourceurls
+    #:operation-sourcerecordids
+    #:operation-sourcekinds
+    #:operation-sourcelicense
+    #:operation-sourceterms
+    #:operation-sourceretrievedat
+    #:operation-collectedat
+    #:operation-observedat
+    #:operation-firstseenat
+    #:operation-lastseenat
+    #:operation-createdat
+    #:operation-updatedat
+    #:operation-validfrom
+    #:operation-validuntil
+    #:operation-expiresat
+    #:operation-collector
+    #:operation-collectorversion
+    #:operation-collectionmethod
+    #:operation-collectionstatus
+    #:operation-runid
+    #:operation-correlationid
+    #:operation-causationid
+    #:operation-parentid
+    #:operation-rootid
+    #:operation-confidence
+    #:operation-confidencebasis
+    #:operation-qualityscore
+    #:operation-completenessscore
+    #:operation-verificationstatus
+    #:operation-verifiedat
+    #:operation-verifiedby
+    #:operation-provenance
+    #:operation-chainofcustody
+    #:operation-transformhistory
+    #:operation-labels
+    #:operation-tags
+    #:operation-topics
+    #:operation-language
+    #:operation-jurisdiction
+    #:operation-countrycode
+    #:operation-regioncode
+    #:operation-timezone
+    #:operation-sensitivity
+    #:operation-visibility
+    #:operation-owner
+    #:operation-accesscontrol
+    #:operation-legalbasis
+    #:operation-retentionpolicy
+    #:operation-contenttype
+    #:operation-encoding
+    #:operation-sizebytes
+    #:operation-contenthash
+    #:operation-hashalgorithm
+    #:operation-normalizedhash
+    #:operation-raw
+    #:operation-rawcontent
+    #:operation-notes
+    #:operation-deleted
+    #:operation-tombstonereason
+    #:operation-extensions
+    #:operation-mission
+    #:operation-objectives
+    #:operation-inscope
+    #:operation-outofscope
+    #:operation-targetpolicy
+    #:operation-targets
+    #:operation-phases
+    #:operation-datasets
+    #:operation-capabilitygaps
+    #:operation-assignments
+    #:operation-postactions
+    #:investigation-target
+    #:MAKE-investigation-target
+    #:COPY-investigation-target
+    #:investigation-target-P
+    #:+investigation-target-WIRE-FIELDS+
+    #:investigation-target-id
+    #:investigation-target-rev
+    #:investigation-target-dataset
+    #:investigation-target-dtype
+    #:investigation-target-schemaversion
+    #:investigation-target-externalids
+    #:investigation-target-aliases
+    #:investigation-target-sources
+    #:investigation-target-sourceurls
+    #:investigation-target-sourcerecordids
+    #:investigation-target-sourcekinds
+    #:investigation-target-sourcelicense
+    #:investigation-target-sourceterms
+    #:investigation-target-sourceretrievedat
+    #:investigation-target-collectedat
+    #:investigation-target-observedat
+    #:investigation-target-firstseenat
+    #:investigation-target-lastseenat
+    #:investigation-target-createdat
+    #:investigation-target-updatedat
+    #:investigation-target-validfrom
+    #:investigation-target-validuntil
+    #:investigation-target-expiresat
+    #:investigation-target-collector
+    #:investigation-target-collectorversion
+    #:investigation-target-collectionmethod
+    #:investigation-target-collectionstatus
+    #:investigation-target-runid
+    #:investigation-target-correlationid
+    #:investigation-target-causationid
+    #:investigation-target-parentid
+    #:investigation-target-rootid
+    #:investigation-target-confidence
+    #:investigation-target-confidencebasis
+    #:investigation-target-qualityscore
+    #:investigation-target-completenessscore
+    #:investigation-target-verificationstatus
+    #:investigation-target-verifiedat
+    #:investigation-target-verifiedby
+    #:investigation-target-provenance
+    #:investigation-target-chainofcustody
+    #:investigation-target-transformhistory
+    #:investigation-target-labels
+    #:investigation-target-tags
+    #:investigation-target-topics
+    #:investigation-target-language
+    #:investigation-target-jurisdiction
+    #:investigation-target-countrycode
+    #:investigation-target-regioncode
+    #:investigation-target-timezone
+    #:investigation-target-sensitivity
+    #:investigation-target-visibility
+    #:investigation-target-owner
+    #:investigation-target-accesscontrol
+    #:investigation-target-legalbasis
+    #:investigation-target-retentionpolicy
+    #:investigation-target-contenttype
+    #:investigation-target-encoding
+    #:investigation-target-sizebytes
+    #:investigation-target-contenthash
+    #:investigation-target-hashalgorithm
+    #:investigation-target-normalizedhash
+    #:investigation-target-raw
+    #:investigation-target-rawcontent
+    #:investigation-target-notes
+    #:investigation-target-deleted
+    #:investigation-target-tombstonereason
+    #:investigation-target-extensions
+    #:investigation-target-actor
+    #:investigation-target-target
+    #:investigation-target-targetid
+    #:investigation-target-targettype
+    #:investigation-target-query
+    #:investigation-target-researchquestion
+    #:investigation-target-hypotheses
+    #:investigation-target-objectives
+    #:investigation-target-inscope
+    #:investigation-target-outofscope
+    #:investigation-target-scopetype
+    #:investigation-target-seedids
+    #:investigation-target-sourceids
+    #:investigation-target-requireddtypes
+    #:investigation-target-preferredsources
+    #:investigation-target-excludedsources
+    #:investigation-target-delay
+    #:investigation-target-recurring
+    #:investigation-target-recurrence
+    #:investigation-target-options
+    #:investigation-target-depth
+    #:investigation-target-maxdepth
+    #:investigation-target-breadth
+    #:investigation-target-priority
+    #:investigation-target-score
+    #:investigation-target-selectionreason
+    #:investigation-target-status
+    #:investigation-target-nextrunat
     #:target
     #:MAKE-target
     #:COPY-target
@@ -5528,6 +5820,22 @@
 (deftype map-layer-kind () '(member "documents" "heatmap" "route" "geofence" "encounters" "custom" "unknown"))
 
 (deftype geo-geometry-type () '(member "point" "line-string" "polygon" "multi-point" "multi-line-string" "multi-polygon" "geometry-collection"))
+
+(deftype operation-role () '(member "collection" "working" "derived" "publication" "reference" "archive"))
+
+(deftype operation-access () '(member "read" "append" "write" "read-write"))
+
+(deftype operation-category () '(member "actor" "software" "hardware" "device" "source" "dataset" "schema" "protocol" "infrastructure" "research"))
+
+(deftype operation-capability-status () '(member "required" "missing" "planned" "in-progress" "available" "resolved" "waived"))
+
+(deftype operation-status () '(member "draft" "planned" "active" "blocked" "suspended" "completed" "aborted" "archived"))
+
+(deftype operation-assignment-status () '(member "planned" "assigned" "active" "completed" "blocked" "released"))
+
+(deftype operation-post-action-status () '(member "planned" "ready" "running" "completed" "failed" "skipped"))
+
+(deftype operation-state () '(member "planned" "ready" "active" "blocked" "awaiting-review" "completed" "skipped" "failed" "aborted"))
 
 (deftype pcap-format () '(member "pcap" "pcapng" "unknown"))
 
@@ -11429,6 +11737,540 @@
     ("publishedAt" . publishedat)
     ("editedAt" . editedat)
     ("sensitive" . sensitive)
+  ))
+
+(defstruct operation-condition
+  (conditionid nil)
+  (kind nil)
+  (predicate nil)
+  (subject nil)
+  (object nil)
+  (expression nil)
+  (required nil)
+  (metadata nil)
+)
+(defparameter +operation-condition-wire-fields+
+  '(
+    ("conditionId" . conditionid)
+    ("kind" . kind)
+    ("predicate" . predicate)
+    ("subject" . subject)
+    ("object" . object)
+    ("expression" . expression)
+    ("required" . required)
+    ("metadata" . metadata)
+  ))
+
+(defstruct operation-target-policy
+  (alloweddtypes nil)
+  (allowedtargettypes nil)
+  (allowedroles nil)
+  (selectors nil)
+)
+(defparameter +operation-target-policy-wire-fields+
+  '(
+    ("allowedDtypes" . alloweddtypes)
+    ("allowedTargetTypes" . allowedtargettypes)
+    ("allowedRoles" . allowedroles)
+    ("selectors" . selectors)
+  ))
+
+(defstruct operation-target-bindings
+  (primary nil)
+  (supporting nil)
+  (derived nil)
+  (excluded nil)
+)
+(defparameter +operation-target-bindings-wire-fields+
+  '(
+    ("primary" . primary)
+    ("supporting" . supporting)
+    ("derived" . derived)
+    ("excluded" . excluded)
+  ))
+
+(defstruct operation-dataset-binding
+  (bindingid nil)
+  (dataset nil)
+  (role nil)
+  (access nil)
+  (phases nil)
+  (purpose nil)
+)
+(defparameter +operation-dataset-binding-wire-fields+
+  '(
+    ("bindingId" . bindingid)
+    ("dataset" . dataset)
+    ("role" . role)
+    ("access" . access)
+    ("phases" . phases)
+    ("purpose" . purpose)
+  ))
+
+(defstruct operation-capability-gap
+  (capabilityid nil)
+  (category nil)
+  (description nil)
+  (requiredby nil)
+  (blocking nil)
+  (status nil)
+  (capabilityref nil)
+  (resolutionref nil)
+  (owner nil)
+  (metadata nil)
+)
+(defparameter +operation-capability-gap-wire-fields+
+  '(
+    ("capabilityId" . capabilityid)
+    ("category" . category)
+    ("description" . description)
+    ("requiredBy" . requiredby)
+    ("blocking" . blocking)
+    ("status" . status)
+    ("capabilityRef" . capabilityref)
+    ("resolutionRef" . resolutionref)
+    ("owner" . owner)
+    ("metadata" . metadata)
+  ))
+
+(defstruct operation-assignment
+  (assignmentid nil)
+  (agentid nil)
+  (actorid nil)
+  (phaseids nil)
+  (role nil)
+  (status nil)
+  (metadata nil)
+)
+(defparameter +operation-assignment-wire-fields+
+  '(
+    ("assignmentId" . assignmentid)
+    ("agentId" . agentid)
+    ("actorId" . actorid)
+    ("phaseIds" . phaseids)
+    ("role" . role)
+    ("status" . status)
+    ("metadata" . metadata)
+  ))
+
+(defstruct operation-post-action
+  (actionid nil)
+  (actiontype nil)
+  (condition nil)
+  (targetids nil)
+  (datasetbindingids nil)
+  (status nil)
+  (config nil)
+)
+(defparameter +operation-post-action-wire-fields+
+  '(
+    ("actionId" . actionid)
+    ("actionType" . actiontype)
+    ("condition" . condition)
+    ("targetIds" . targetids)
+    ("datasetBindingIds" . datasetbindingids)
+    ("status" . status)
+    ("config" . config)
+  ))
+
+(defstruct operation-phase
+  (phaseid nil)
+  (title nil)
+  (objective nil)
+  (state nil)
+  (dependson nil)
+  (entryconditions nil)
+  (exitconditions nil)
+  (inscope nil)
+  (outofscope nil)
+  (targetpolicy nil)
+  (targetids nil)
+  (datasetbindingids nil)
+  (requiredcapabilityids nil)
+  (deliverableids nil)
+  (completionevidence nil)
+)
+(defparameter +operation-phase-wire-fields+
+  '(
+    ("phaseId" . phaseid)
+    ("title" . title)
+    ("objective" . objective)
+    ("state" . state)
+    ("dependsOn" . dependson)
+    ("entryConditions" . entryconditions)
+    ("exitConditions" . exitconditions)
+    ("inScope" . inscope)
+    ("outOfScope" . outofscope)
+    ("targetPolicy" . targetpolicy)
+    ("targetIds" . targetids)
+    ("datasetBindingIds" . datasetbindingids)
+    ("requiredCapabilityIds" . requiredcapabilityids)
+    ("deliverableIds" . deliverableids)
+    ("completionEvidence" . completionevidence)
+  ))
+
+(defstruct operation
+  (id nil)
+  (rev nil)
+  (dataset nil)
+  (dtype nil)
+  (schemaversion nil)
+  (externalids nil)
+  (aliases nil)
+  (sources nil)
+  (sourceurls nil)
+  (sourcerecordids nil)
+  (sourcekinds nil)
+  (sourcelicense nil)
+  (sourceterms nil)
+  (sourceretrievedat nil)
+  (collectedat nil)
+  (observedat nil)
+  (firstseenat nil)
+  (lastseenat nil)
+  (createdat nil)
+  (updatedat nil)
+  (validfrom nil)
+  (validuntil nil)
+  (expiresat nil)
+  (collector nil)
+  (collectorversion nil)
+  (collectionmethod nil)
+  (collectionstatus nil)
+  (runid nil)
+  (correlationid nil)
+  (causationid nil)
+  (parentid nil)
+  (rootid nil)
+  (confidence nil)
+  (confidencebasis nil)
+  (qualityscore nil)
+  (completenessscore nil)
+  (verificationstatus nil)
+  (verifiedat nil)
+  (verifiedby nil)
+  (provenance nil)
+  (chainofcustody nil)
+  (transformhistory nil)
+  (labels nil)
+  (tags nil)
+  (topics nil)
+  (language nil)
+  (jurisdiction nil)
+  (countrycode nil)
+  (regioncode nil)
+  (timezone nil)
+  (sensitivity nil)
+  (visibility nil)
+  (owner nil)
+  (accesscontrol nil)
+  (legalbasis nil)
+  (retentionpolicy nil)
+  (contenttype nil)
+  (encoding nil)
+  (sizebytes nil)
+  (contenthash nil)
+  (hashalgorithm nil)
+  (normalizedhash nil)
+  (raw nil)
+  (rawcontent nil)
+  (notes nil)
+  (deleted nil)
+  (tombstonereason nil)
+  (extensions nil)
+  (mission nil)
+  (objectives nil)
+  (status nil)
+  (inscope nil)
+  (outofscope nil)
+  (targetpolicy nil)
+  (targets nil)
+  (phases nil)
+  (datasets nil)
+  (capabilitygaps nil)
+  (assignments nil)
+  (postactions nil)
+)
+(defparameter +operation-wire-fields+
+  '(
+    ("id" . id)
+    ("rev" . rev)
+    ("dataset" . dataset)
+    ("dtype" . dtype)
+    ("schemaVersion" . schemaversion)
+    ("externalIds" . externalids)
+    ("aliases" . aliases)
+    ("sources" . sources)
+    ("sourceUrls" . sourceurls)
+    ("sourceRecordIds" . sourcerecordids)
+    ("sourceKinds" . sourcekinds)
+    ("sourceLicense" . sourcelicense)
+    ("sourceTerms" . sourceterms)
+    ("sourceRetrievedAt" . sourceretrievedat)
+    ("collectedAt" . collectedat)
+    ("observedAt" . observedat)
+    ("firstSeenAt" . firstseenat)
+    ("lastSeenAt" . lastseenat)
+    ("createdAt" . createdat)
+    ("updatedAt" . updatedat)
+    ("validFrom" . validfrom)
+    ("validUntil" . validuntil)
+    ("expiresAt" . expiresat)
+    ("collector" . collector)
+    ("collectorVersion" . collectorversion)
+    ("collectionMethod" . collectionmethod)
+    ("collectionStatus" . collectionstatus)
+    ("runId" . runid)
+    ("correlationId" . correlationid)
+    ("causationId" . causationid)
+    ("parentId" . parentid)
+    ("rootId" . rootid)
+    ("confidence" . confidence)
+    ("confidenceBasis" . confidencebasis)
+    ("qualityScore" . qualityscore)
+    ("completenessScore" . completenessscore)
+    ("verificationStatus" . verificationstatus)
+    ("verifiedAt" . verifiedat)
+    ("verifiedBy" . verifiedby)
+    ("provenance" . provenance)
+    ("chainOfCustody" . chainofcustody)
+    ("transformHistory" . transformhistory)
+    ("labels" . labels)
+    ("tags" . tags)
+    ("topics" . topics)
+    ("language" . language)
+    ("jurisdiction" . jurisdiction)
+    ("countryCode" . countrycode)
+    ("regionCode" . regioncode)
+    ("timezone" . timezone)
+    ("sensitivity" . sensitivity)
+    ("visibility" . visibility)
+    ("owner" . owner)
+    ("accessControl" . accesscontrol)
+    ("legalBasis" . legalbasis)
+    ("retentionPolicy" . retentionpolicy)
+    ("contentType" . contenttype)
+    ("encoding" . encoding)
+    ("sizeBytes" . sizebytes)
+    ("contentHash" . contenthash)
+    ("hashAlgorithm" . hashalgorithm)
+    ("normalizedHash" . normalizedhash)
+    ("raw" . raw)
+    ("rawContent" . rawcontent)
+    ("notes" . notes)
+    ("deleted" . deleted)
+    ("tombstoneReason" . tombstonereason)
+    ("extensions" . extensions)
+    ("mission" . mission)
+    ("objectives" . objectives)
+    ("status" . status)
+    ("inScope" . inscope)
+    ("outOfScope" . outofscope)
+    ("targetPolicy" . targetpolicy)
+    ("targets" . targets)
+    ("phases" . phases)
+    ("datasets" . datasets)
+    ("capabilityGaps" . capabilitygaps)
+    ("assignments" . assignments)
+    ("postActions" . postactions)
+  ))
+
+(defstruct investigation-target
+  (id nil)
+  (rev nil)
+  (dataset nil)
+  (dtype nil)
+  (schemaversion nil)
+  (externalids nil)
+  (aliases nil)
+  (sources nil)
+  (sourceurls nil)
+  (sourcerecordids nil)
+  (sourcekinds nil)
+  (sourcelicense nil)
+  (sourceterms nil)
+  (sourceretrievedat nil)
+  (collectedat nil)
+  (observedat nil)
+  (firstseenat nil)
+  (lastseenat nil)
+  (createdat nil)
+  (updatedat nil)
+  (validfrom nil)
+  (validuntil nil)
+  (expiresat nil)
+  (collector nil)
+  (collectorversion nil)
+  (collectionmethod nil)
+  (collectionstatus nil)
+  (runid nil)
+  (correlationid nil)
+  (causationid nil)
+  (parentid nil)
+  (rootid nil)
+  (confidence nil)
+  (confidencebasis nil)
+  (qualityscore nil)
+  (completenessscore nil)
+  (verificationstatus nil)
+  (verifiedat nil)
+  (verifiedby nil)
+  (provenance nil)
+  (chainofcustody nil)
+  (transformhistory nil)
+  (labels nil)
+  (tags nil)
+  (topics nil)
+  (language nil)
+  (jurisdiction nil)
+  (countrycode nil)
+  (regioncode nil)
+  (timezone nil)
+  (sensitivity nil)
+  (visibility nil)
+  (owner nil)
+  (accesscontrol nil)
+  (legalbasis nil)
+  (retentionpolicy nil)
+  (contenttype nil)
+  (encoding nil)
+  (sizebytes nil)
+  (contenthash nil)
+  (hashalgorithm nil)
+  (normalizedhash nil)
+  (raw nil)
+  (rawcontent nil)
+  (notes nil)
+  (deleted nil)
+  (tombstonereason nil)
+  (extensions nil)
+  (actor nil)
+  (target nil)
+  (targetid nil)
+  (targettype nil)
+  (query nil)
+  (researchquestion nil)
+  (hypotheses nil)
+  (objectives nil)
+  (inscope nil)
+  (outofscope nil)
+  (scopetype nil)
+  (seedids nil)
+  (sourceids nil)
+  (requireddtypes nil)
+  (preferredsources nil)
+  (excludedsources nil)
+  (delay nil)
+  (recurring nil)
+  (recurrence nil)
+  (options nil)
+  (depth nil)
+  (maxdepth nil)
+  (breadth nil)
+  (priority nil)
+  (score nil)
+  (selectionreason nil)
+  (status nil)
+  (nextrunat nil)
+)
+(defparameter +investigation-target-wire-fields+
+  '(
+    ("id" . id)
+    ("rev" . rev)
+    ("dataset" . dataset)
+    ("dtype" . dtype)
+    ("schemaVersion" . schemaversion)
+    ("externalIds" . externalids)
+    ("aliases" . aliases)
+    ("sources" . sources)
+    ("sourceUrls" . sourceurls)
+    ("sourceRecordIds" . sourcerecordids)
+    ("sourceKinds" . sourcekinds)
+    ("sourceLicense" . sourcelicense)
+    ("sourceTerms" . sourceterms)
+    ("sourceRetrievedAt" . sourceretrievedat)
+    ("collectedAt" . collectedat)
+    ("observedAt" . observedat)
+    ("firstSeenAt" . firstseenat)
+    ("lastSeenAt" . lastseenat)
+    ("createdAt" . createdat)
+    ("updatedAt" . updatedat)
+    ("validFrom" . validfrom)
+    ("validUntil" . validuntil)
+    ("expiresAt" . expiresat)
+    ("collector" . collector)
+    ("collectorVersion" . collectorversion)
+    ("collectionMethod" . collectionmethod)
+    ("collectionStatus" . collectionstatus)
+    ("runId" . runid)
+    ("correlationId" . correlationid)
+    ("causationId" . causationid)
+    ("parentId" . parentid)
+    ("rootId" . rootid)
+    ("confidence" . confidence)
+    ("confidenceBasis" . confidencebasis)
+    ("qualityScore" . qualityscore)
+    ("completenessScore" . completenessscore)
+    ("verificationStatus" . verificationstatus)
+    ("verifiedAt" . verifiedat)
+    ("verifiedBy" . verifiedby)
+    ("provenance" . provenance)
+    ("chainOfCustody" . chainofcustody)
+    ("transformHistory" . transformhistory)
+    ("labels" . labels)
+    ("tags" . tags)
+    ("topics" . topics)
+    ("language" . language)
+    ("jurisdiction" . jurisdiction)
+    ("countryCode" . countrycode)
+    ("regionCode" . regioncode)
+    ("timezone" . timezone)
+    ("sensitivity" . sensitivity)
+    ("visibility" . visibility)
+    ("owner" . owner)
+    ("accessControl" . accesscontrol)
+    ("legalBasis" . legalbasis)
+    ("retentionPolicy" . retentionpolicy)
+    ("contentType" . contenttype)
+    ("encoding" . encoding)
+    ("sizeBytes" . sizebytes)
+    ("contentHash" . contenthash)
+    ("hashAlgorithm" . hashalgorithm)
+    ("normalizedHash" . normalizedhash)
+    ("raw" . raw)
+    ("rawContent" . rawcontent)
+    ("notes" . notes)
+    ("deleted" . deleted)
+    ("tombstoneReason" . tombstonereason)
+    ("extensions" . extensions)
+    ("actor" . actor)
+    ("target" . target)
+    ("targetId" . targetid)
+    ("targetType" . targettype)
+    ("query" . query)
+    ("researchQuestion" . researchquestion)
+    ("hypotheses" . hypotheses)
+    ("objectives" . objectives)
+    ("inScope" . inscope)
+    ("outOfScope" . outofscope)
+    ("scopeType" . scopetype)
+    ("seedIds" . seedids)
+    ("sourceIds" . sourceids)
+    ("requiredDtypes" . requireddtypes)
+    ("preferredSources" . preferredsources)
+    ("excludedSources" . excludedsources)
+    ("delay" . delay)
+    ("recurring" . recurring)
+    ("recurrence" . recurrence)
+    ("options" . options)
+    ("depth" . depth)
+    ("maxDepth" . maxdepth)
+    ("breadth" . breadth)
+    ("priority" . priority)
+    ("score" . score)
+    ("selectionReason" . selectionreason)
+    ("status" . status)
+    ("nextRunAt" . nextrunat)
   ))
 
 (defstruct target
