@@ -11,6 +11,7 @@ Canonical source:
 - `specs/starintel/0.10.1/core.star`
 - `specs/starintel/0.10.1/GEO-MISSION-MIGRATION.md` — geo/mission consumer boundary
 - `specs/starintel/0.10.1/NETWORK-CAPTURE-MIGRATION.md` — HTTP/browser capture compatibility boundary
+- `specs/starintel/0.10.1/MEDIA-EVIDENCE-CONTRACTS.md` — SL05 temporal and payload-integrity gate
 
 The 0.10.1 core includes the generic `file` contract and first-class media,
 audio, transcript, typed person-identifier, first-class geometry, HTTP/browser

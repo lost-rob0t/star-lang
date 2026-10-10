@@ -1,0 +1,380 @@
+{
+  "fixtureVersion": 1,
+  "authority": "org.starintel/core@1",
+  "cases": [
+    {
+      "id": "frame-origin",
+      "valid": true,
+      "document": {
+        "id": "sl05:frame-origin",
+        "dataset": "contract-tests",
+        "dtype": "video-frame",
+        "schemaVersion": "0.10.1",
+        "bytesHash": "aa",
+        "bytesHashAlgorithm": "sha256",
+        "video": {
+          "schema": "org.starintel/core@1/video",
+          "id": "sl05:video"
+        },
+        "frameIndex": 0,
+        "timestampMs": 0
+      }
+    },
+    {
+      "id": "frame-negative-offset",
+      "valid": false,
+      "error": "timestampMs",
+      "document": {
+        "id": "sl05:frame-negative-offset",
+        "dataset": "contract-tests",
+        "dtype": "video-frame",
+        "schemaVersion": "0.10.1",
+        "bytesHash": "aa",
+        "bytesHashAlgorithm": "sha256",
+        "video": {
+          "schema": "org.starintel/core@1/video",
+          "id": "sl05:video"
+        },
+        "frameIndex": 0,
+        "timestampMs": -1
+      }
+    },
+    {
+      "id": "frame-negative-index",
+      "valid": false,
+      "error": "frameIndex",
+      "document": {
+        "id": "sl05:frame-negative-index",
+        "dataset": "contract-tests",
+        "dtype": "video-frame",
+        "schemaVersion": "0.10.1",
+        "bytesHash": "aa",
+        "bytesHashAlgorithm": "sha256",
+        "video": {
+          "schema": "org.starintel/core@1/video",
+          "id": "sl05:video"
+        },
+        "frameIndex": -2,
+        "timestampMs": 0
+      }
+    },
+    {
+      "id": "audio-half-open-window",
+      "valid": true,
+      "document": {
+        "id": "sl05:audio-half-open-window",
+        "dataset": "contract-tests",
+        "dtype": "audio-segment",
+        "schemaVersion": "0.10.1",
+        "recording": {
+          "schema": "org.starintel/core@1/audio",
+          "id": "sl05:audio"
+        },
+        "startMs": 0,
+        "endMs": 100
+      }
+    },
+    {
+      "id": "audio-reversed-window",
+      "valid": false,
+      "error": "endMs",
+      "document": {
+        "id": "sl05:audio-reversed-window",
+        "dataset": "contract-tests",
+        "dtype": "audio-segment",
+        "schemaVersion": "0.10.1",
+        "recording": {
+          "schema": "org.starintel/core@1/audio",
+          "id": "sl05:audio"
+        },
+        "startMs": 200,
+        "endMs": 100
+      }
+    },
+    {
+      "id": "audio-zero-window",
+      "valid": false,
+      "error": "endMs",
+      "document": {
+        "id": "sl05:audio-zero-window",
+        "dataset": "contract-tests",
+        "dtype": "audio-segment",
+        "schemaVersion": "0.10.1",
+        "recording": {
+          "schema": "org.starintel/core@1/audio",
+          "id": "sl05:audio"
+        },
+        "startMs": 100,
+        "endMs": 100
+      }
+    },
+    {
+      "id": "speech-negative-offset",
+      "valid": false,
+      "error": "startMs",
+      "document": {
+        "id": "sl05:speech-negative-offset",
+        "dataset": "contract-tests",
+        "dtype": "speech-segment",
+        "schemaVersion": "0.10.1",
+        "recording": {
+          "schema": "org.starintel/core@1/audio",
+          "id": "sl05:audio"
+        },
+        "startMs": -1,
+        "endMs": 100
+      }
+    },
+    {
+      "id": "speaker-observation-window",
+      "valid": true,
+      "document": {
+        "id": "sl05:speaker-observation-window",
+        "dataset": "contract-tests",
+        "dtype": "speaker-observation",
+        "schemaVersion": "0.10.1",
+        "recording": {
+          "schema": "org.starintel/core@1/audio",
+          "id": "sl05:audio"
+        },
+        "startMs": 0,
+        "endMs": 100
+      }
+    },
+    {
+      "id": "speaker-turn-negative-index",
+      "valid": false,
+      "error": "turnIndex",
+      "document": {
+        "id": "sl05:speaker-turn-negative-index",
+        "dataset": "contract-tests",
+        "dtype": "speaker-turn",
+        "schemaVersion": "0.10.1",
+        "recording": {
+          "schema": "org.starintel/core@1/audio",
+          "id": "sl05:audio"
+        },
+        "segment": {
+          "schema": "org.starintel/core@1/audio-segment",
+          "id": "sl05:segment"
+        },
+        "turnIndex": -1,
+        "startMs": 0,
+        "endMs": 100
+      }
+    },
+    {
+      "id": "transcript-word-window",
+      "valid": true,
+      "document": {
+        "id": "sl05:transcript-word-window",
+        "dataset": "contract-tests",
+        "dtype": "transcript",
+        "schemaVersion": "0.10.1",
+        "sourceMedia": {
+          "schema": "org.starintel/core@1/audio",
+          "id": "sl05:audio"
+        },
+        "wordTimings": [
+          {
+            "startMs": 0,
+            "endMs": 45,
+            "word": "hello"
+          }
+        ]
+      }
+    },
+    {
+      "id": "transcript-opaque-provider-shape",
+      "valid": true,
+      "document": {
+        "id": "sl05:transcript-opaque-provider-shape",
+        "dataset": "contract-tests",
+        "dtype": "transcript",
+        "schemaVersion": "0.10.1",
+        "sourceMedia": {
+          "schema": "org.starintel/core@1/audio",
+          "id": "sl05:audio"
+        },
+        "wordTimings": [
+          {
+            "offset_ms": 4,
+            "duration_ms": 20
+          }
+        ]
+      }
+    },
+    {
+      "id": "transcript-partial-window",
+      "valid": false,
+      "error": "endMs",
+      "document": {
+        "id": "sl05:transcript-partial-window",
+        "dataset": "contract-tests",
+        "dtype": "transcript",
+        "schemaVersion": "0.10.1",
+        "sourceMedia": {
+          "schema": "org.starintel/core@1/audio",
+          "id": "sl05:audio"
+        },
+        "wordTimings": [
+          {
+            "startMs": 5,
+            "word": "no-end"
+          }
+        ]
+      }
+    },
+    {
+      "id": "transcript-reversed-job-clock",
+      "valid": false,
+      "error": "completedAt",
+      "document": {
+        "id": "sl05:transcript-reversed-job-clock",
+        "dataset": "contract-tests",
+        "dtype": "transcript",
+        "schemaVersion": "0.10.1",
+        "sourceMedia": {
+          "schema": "org.starintel/core@1/audio",
+          "id": "sl05:audio"
+        },
+        "startedAt": 10,
+        "completedAt": 9
+      }
+    },
+    {
+      "id": "audio-positive-metadata",
+      "valid": true,
+      "document": {
+        "id": "sl05:audio-positive-metadata",
+        "dataset": "contract-tests",
+        "dtype": "audio",
+        "schemaVersion": "0.10.1",
+        "bytesHash": "aa",
+        "bytesHashAlgorithm": "sha256",
+        "sampleRateHz": 48000,
+        "channels": 2,
+        "bitDepth": 16,
+        "durationSeconds": "1.5"
+      }
+    },
+    {
+      "id": "audio-zero-sample-rate",
+      "valid": false,
+      "error": "sampleRateHz",
+      "document": {
+        "id": "sl05:audio-zero-sample-rate",
+        "dataset": "contract-tests",
+        "dtype": "audio",
+        "schemaVersion": "0.10.1",
+        "bytesHash": "aa",
+        "bytesHashAlgorithm": "sha256",
+        "sampleRateHz": 0
+      }
+    },
+    {
+      "id": "video-negative-duration",
+      "valid": false,
+      "error": "durationSeconds",
+      "document": {
+        "id": "sl05:video-negative-duration",
+        "dataset": "contract-tests",
+        "dtype": "video",
+        "schemaVersion": "0.10.1",
+        "bytesHash": "aa",
+        "bytesHashAlgorithm": "sha256",
+        "durationSeconds": "-1"
+      }
+    },
+    {
+      "id": "video-zero-framerate",
+      "valid": false,
+      "error": "frameRate",
+      "document": {
+        "id": "sl05:video-zero-framerate",
+        "dataset": "contract-tests",
+        "dtype": "video",
+        "schemaVersion": "0.10.1",
+        "bytesHash": "aa",
+        "bytesHashAlgorithm": "sha256",
+        "frameRate": "0"
+      }
+    },
+    {
+      "id": "media-archive-positive",
+      "valid": true,
+      "document": {
+        "id": "sl05:media-archive-positive",
+        "dataset": "contract-tests",
+        "dtype": "media",
+        "schemaVersion": "0.10.1",
+        "sourceFile": {
+          "schema": "org.starintel/core@1/file",
+          "id": "sl05:original"
+        },
+        "durationSeconds": "0.0"
+      }
+    },
+    {
+      "id": "source-hash-paired",
+      "valid": true,
+      "document": {
+        "id": "sl05:source-hash-paired",
+        "dataset": "contract-tests",
+        "dtype": "source",
+        "schemaVersion": "0.10.1",
+        "payloadContentHash": "abc",
+        "payloadHashAlgorithm": "sha256",
+        "credibility": "0.25"
+      }
+    },
+    {
+      "id": "source-hash-unpaired",
+      "valid": false,
+      "error": "payloadContentHash",
+      "document": {
+        "id": "sl05:source-hash-unpaired",
+        "dataset": "contract-tests",
+        "dtype": "source",
+        "schemaVersion": "0.10.1",
+        "payloadContentHash": "abc"
+      }
+    },
+    {
+      "id": "evidence-hash-paired",
+      "valid": true,
+      "document": {
+        "id": "sl05:evidence-hash-paired",
+        "dataset": "contract-tests",
+        "dtype": "evidence-record",
+        "schemaVersion": "0.10.1",
+        "payloadContentHash": "abc",
+        "payloadHashAlgorithm": "sha256",
+        "payloadConfidence": "0.5"
+      }
+    },
+    {
+      "id": "evidence-algorithm-unpaired",
+      "valid": false,
+      "error": "payloadContentHash",
+      "document": {
+        "id": "sl05:evidence-algorithm-unpaired",
+        "dataset": "contract-tests",
+        "dtype": "evidence-record",
+        "schemaVersion": "0.10.1",
+        "payloadHashAlgorithm": "sha256"
+      }
+    },
+    {
+      "id": "version-not-legacy-profile",
+      "valid": false,
+      "error": "0.10.1",
+      "document": {
+        "id": "sl05:version-not-legacy-profile",
+        "dataset": "contract-tests",
+        "dtype": "source",
+        "schemaVersion": "0.9.0"
+      }
+    }
+  ]
+}

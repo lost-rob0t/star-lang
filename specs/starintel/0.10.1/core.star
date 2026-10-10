@@ -2152,6 +2152,12 @@
     (title string :optional)
     (quotePostId string :optional))
 
+  ;; SL05 payload integrity invariant (0.10.1): current source and
+  ;; evidence-record payloadContentHash and payloadHashAlgorithm are paired.
+  ;; A digest declaration is not proof of captured bytes, authenticity, source
+  ;; independence or chain of custody. Preserve archival IDs and original
+  ;; evidence; do not promote extracted inferences to verified facts.
+
   (document source
     (:extends document
      :persistence persistent)
@@ -2383,6 +2389,14 @@
     (derivedFiles (list reference) :optional)
     (captureAction reference :optional)
     (extractedMetadata map :optional))
+
+  ;; SL05 media timeline invariant (0.10.1): media offsets are zero-based
+  ;; millisecond positions in the referenced original audio/video, not UTC.
+  ;; video-frame indexes/offsets must be nonnegative; intervals in audio-
+  ;; segment, speech-segment, speaker-observation and speaker-turn must be
+  ;; half-open [startMs, endMs) with nonnegative startMs and endMs > startMs.
+  ;; The generated schema handles structure; locked media_semantics.py handles
+  ;; cross-field ordering, paired transcript word timing and media metadata.
 
   (document media
     (:extends document

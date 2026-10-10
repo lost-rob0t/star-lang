@@ -138,6 +138,8 @@ def release_lock() -> dict[str, object]:
             "workflow_semantics.py": sha256(RELEASE / "workflow_semantics.py"),
 
             "operation_semantics.py": sha256(RELEASE / "operation_semantics.py"),
+            "media-evidence-fixtures.json": sha256(RELEASE / "media-evidence-fixtures.json"),
+            "media_semantics.py": sha256(RELEASE / "media_semantics.py"),
             "research-fixtures.json": sha256(RELEASE / "research-fixtures.json"),
             "compatibility.json": sha256(compatibility_path),
             "compatibility-fixtures.json": sha256(fixtures_path),

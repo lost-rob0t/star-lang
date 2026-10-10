@@ -103,6 +103,7 @@ jobs:
               ./tools/sync-starintel-consumer.py) continue ;;
               ./tools/test-starintel-consumer.py) continue ;;
               ./tools/test-starintel-research-contracts.py) continue ;;
+              ./tools/test-starintel-media-contracts.py) continue ;;
               ./tools/test-supported-workflow-contracts.py) continue ;;
               ./tools/test-starintel-versioned-reader.py) continue ;;
               ./tools/test-starintel-raw-json.py) continue ;;
@@ -110,6 +111,7 @@ jobs:
               ./specs/starintel/compatibility/raw_json_numbers.py) continue ;;
               ./specs/starintel/0.10.1/workflow_semantics.py) continue ;;
               ./specs/starintel/0.10.1/operation_semantics.py) continue ;;
+              ./specs/starintel/0.10.1/media_semantics.py) continue ;;
             esac
             forbidden="$forbidden $f"
           done < <(find . -path ./.git -prune -o -type f \( -name '*.rkt' -o -name '*.scm' -o -name '*.ss' -o -name '*.py' \) -print)
@@ -139,6 +141,7 @@ jobs:
           python3 tools/finalize-starintel-release.py --check
           python3 tools/test-starintel-consumer.py
           python3 tools/test-starintel-research-contracts.py
+          python3 tools/test-starintel-media-contracts.py
           python3 tools/test-supported-workflow-contracts.py
           python3 tools/test-starintel-versioned-reader.py
 
