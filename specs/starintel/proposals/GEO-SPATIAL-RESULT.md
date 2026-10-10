@@ -44,8 +44,9 @@ object with west/east Longitude and south/north Latitude fields. This
 is a new message, not an alteration of frozen 0.10.1 messages or
 generated release artifacts. Two accepted and ten rejected golden wire
 cases check field presence, scalar ranges, types and unsupported claims.
-The real compiler emits candidate manifest, JSON Schema and
-Python/TypeScript/Rust bindings in memory during executable tests.
+The real compiler emits the candidate message in the portable manifest,
+SpatialBounds in JSON Schema, and Python/TypeScript/Rust bindings in memory
+during executable tests. JSON Schema does not emit message definitions.
 
 Antimeridian-crossing boxes (west greater than east) remain representable.
 The wire type cannot enforce south <= north, logical cursor consistency,
