@@ -230,6 +230,10 @@ def verify_bundle_layout(lock: dict) -> str:
     """Return the dedicated destination after checking canonical sibling paths."""
     require(lock["bundle_format"] == BUNDLE_FORMAT, "unsupported bundle format")
     require(lock.get("bundle_lock_path") == f"{RELEASE}/bundle-lock.json", "bundle lock path mismatch")
+    for local, entry in lock["vendored_files"].items():
+        safe_path(local)
+        require(isinstance(entry, dict) and isinstance(entry.get("source"), str),
+                f"invalid bundle mapping: {local}")
     bundle_locals = [local for local, entry in lock["vendored_files"].items()
                      if entry["source"] == lock["bundle_lock_path"]]
     require(len(bundle_locals) == 1, "consumer must vendor the complete locked bundle")
