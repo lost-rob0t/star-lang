@@ -211,6 +211,55 @@ class ConsumerTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "hash mismatch"):
             consumer.check(self.lock, None, offline=True)
 
+    def test_relocated_bundle_matrix_and_seeded_archival_properties(self):
+        commit = self.bundle_source()
+        consumer.sync(self.lock, commit, self.source, "vendor/starintel", bundle=True)
+        root = self.lock.parent.parent / "vendor/starintel"
+        script = r"""
+import importlib.util, json, pathlib, random, sys
+root = pathlib.Path(sys.argv[1])
+spec = importlib.util.spec_from_file_location("isolated_reader", root / "compatibility/versioned_reader.py")
+m = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(m)
+fixtures = json.loads((root / "compatibility/historical-reader-fixtures.json").read_text())
+expected = json.loads((root / "compatibility/canonical-migration-fixtures.json").read_text())
+matrix = json.loads((root / "compatibility/capabilities.json").read_text())
+assert len(m.LEGACY["properties"]["dtype"]["enum"]) == matrix["profiles"][0]["schemaDtypes"]
+assert len(fixtures) == matrix["profiles"][0]["pairedMigrationDtypes"] == 28
+for fixture, canonical in zip(fixtures, expected, strict=True):
+    raw = fixture["sourceUtf8"].encode()
+    m.read(raw)
+    current, report = m.migrate(raw)
+    assert current == m.parse(json.dumps(canonical["document"]))
+    wire = m.encode(current).encode()
+    assert m.restore(wire) == raw
+    assert m.migrate(wire)[1]["status"] == "unchanged"
+rng = random.Random(204)
+for index in range(64):
+    doc = json.loads(fixtures[0]["sourceUtf8"])
+    token = rng.choice(["-0", "1e3", "1.000", "1e999999999999999999999",
+                        "1e-999999999999999999999", "9007199254740993"])
+    doc["extensions"] = {"flag": bool(rng.randrange(2)), "nil": None,
+                         "opaque_" + str(index): "numeric-token"}
+    raw = (rng.choice(["", " ", "\n\t"]) + json.dumps(doc, sort_keys=bool(index % 2))
+           .replace('"numeric-token"', token) + rng.choice(["", "\n", " "])).encode()
+    m.read(raw)
+    current, report = m.migrate(raw)
+    assert m.restore(m.encode(current).encode()) == raw
+    duplicate = raw.replace(b'"schema_version": "0.9.0"',
+                            b'"schema_version":"0.9.0","schema_version":"0.9.0"')
+    try:
+        m.read(duplicate)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("duplicate-key mutation accepted")
+print("28 relocated paired workflows; 64 seeded archival cases passed")
+"""
+        result = subprocess.run([sys.executable, "-I", "-c", script, str(root)],
+                                capture_output=True, text=True, cwd=self.root, check=True)
+        self.assertIn("64 seeded archival cases passed", result.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()

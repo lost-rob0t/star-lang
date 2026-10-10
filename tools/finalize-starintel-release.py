@@ -151,17 +151,76 @@ def encoded_lock(value: dict[str, object]) -> str:
     return json.dumps(value, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
 
 
+
+BUNDLE = RELEASE / "bundle-lock.json"
+BUNDLE_FORMAT = "starintel-consumer-bundle/1"
+
+
+def bundle_lock() -> dict[str, object]:
+    """Lock the portable sibling layout without modifying release semantics."""
+    root = RELEASE.parent.resolve()
+    release = release_lock()
+    require(LOCK.read_text(encoding="utf-8") == encoded_lock(release),
+            "release lock must be finalized before bundle generation")
+    paths = {LOCK}
+    paths.update(RELEASE / name for name in release["sources"])
+    paths.update(GENERATED / name for name in release["artifacts"])
+    compatibility = root / "compatibility"
+    registry_path = compatibility / "registry.json"
+    registry = load_json(registry_path)
+    require(registry.get("contract") == "starintel-migration/1", "unsupported reader contract")
+    paths.update(compatibility / name for name in
+                 ("registry.json", "versioned_reader.py", "raw_json_numbers.py",
+                  "README.md", "capabilities.json"))
+    for relative, expected in registry["sha256"].items():
+        path = compatibility / relative
+        require(path.resolve().is_relative_to(root), f"unsafe registry path: {relative}")
+        require(path.is_file() and sha256(path) == expected,
+                f"pinned compatibility artifact mismatch: {relative}")
+        paths.add(path)
+    files = {}
+    for path in sorted(paths):
+        resolved = path.resolve()
+        require(resolved.is_relative_to(root), f"unsafe bundle path: {path}")
+        relative = resolved.relative_to(root).as_posix()
+        require(resolved != BUNDLE.resolve(), "bundle cannot hash itself")
+        current = root
+        for part in path.absolute().relative_to(root).parts:
+            current = current / part
+            require(not current.is_symlink(), f"symlink bundle input: {relative}")
+        require(path.is_file(), f"missing bundle input: {relative}")
+        files[relative] = sha256(path)
+    return {
+        "bundleFormat": BUNDLE_FORMAT,
+        "authorityLibrary": release["authorityLibrary"],
+        "releaseVersion": release["releaseVersion"],
+        "schemaVersion": release["schemaVersion"],
+        "hashAlgorithm": "sha256",
+        "releaseLock": "0.10.1/release-lock.json",
+        "readerRegistry": "compatibility/registry.json",
+        "files": files,
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
+    parser.add_argument("--bundle", action="store_true", help="also generate/check the complete 0.10.1 reader bundle")
     args = parser.parse_args()
     expected = encoded_lock(release_lock())
     if args.check:
         require(LOCK.is_file(), f"missing release lock: {LOCK}")
         require(LOCK.read_text(encoding="utf-8") == expected, f"stale release lock: {LOCK}")
+        if args.bundle:
+            require(BUNDLE.is_file(), f"missing bundle lock: {BUNDLE}")
+            require(BUNDLE.read_text(encoding="utf-8") == encoded_lock(bundle_lock()),
+                    f"stale bundle lock: {BUNDLE}")
         print("StarIntel 0.10.1 release lock verified")
         return 0
     LOCK.write_text(expected, encoding="utf-8")
+    if args.bundle:
+        BUNDLE.write_text(encoded_lock(bundle_lock()), encoding="utf-8")
+        print(f"wrote {BUNDLE}")
     print(f"wrote {LOCK}")
     return 0
 

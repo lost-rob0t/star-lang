@@ -1,0 +1,48 @@
+name: StarIntel bundle generation
+
+on:
+  pull_request:
+    paths:
+      - "specs/starintel/**"
+      - "tools/*starintel*"
+      - ".github/workflows/starintel-bundle.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    name: Generate and verify compatibility bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Install reader test dependency
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes python3-jsonschema
+      - name: Generate from the authority finalizer
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/finalize-starintel-release.py --bundle
+          python3 tools/finalize-starintel-release.py --check --bundle
+          git diff --exit-code -- specs/starintel/0.10.1/release-lock.json specs/starintel/0.10.1/generated
+          python3 tools/test-starintel-consumer.py
+          python3 tools/test-starintel-versioned-reader.py
+          echo "BUNDLE_SOURCE_COMMIT=$(git rev-parse HEAD)"
+          echo "BUNDLE_GIT_BLOB=$(git hash-object specs/starintel/0.10.1/bundle-lock.json)"
+          sha256sum specs/starintel/0.10.1/bundle-lock.json
+          echo BEGIN_STARINTEL_GENERATED_BUNDLE
+          cat specs/starintel/0.10.1/bundle-lock.json
+          echo END_STARINTEL_GENERATED_BUNDLE
+      - name: Upload generated lock for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: starintel-0101-generated-bundle
+          path: specs/starintel/0.10.1/bundle-lock.json
+          if-no-files-found: error

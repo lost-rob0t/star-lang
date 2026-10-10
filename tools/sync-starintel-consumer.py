@@ -17,6 +17,10 @@ import urllib.request
 
 REPOSITORY = "lost-rob0t/star-lang"
 RELEASE = "specs/starintel/0.10.1"
+BUNDLE_ROOT = "specs/starintel"
+BUNDLE_FORMAT = "starintel-consumer-bundle/1"
+COMPATIBILITY_FILES = ("registry.json", "versioned_reader.py", "raw_json_numbers.py",
+                       "README.md", "capabilities.json")
 
 
 def digest(data: bytes) -> str:
@@ -94,12 +98,75 @@ def verify_release(commit: str, source: Path | None, read=None) -> tuple[dict, d
     return release, files
 
 
-def sync(lock_path: Path, commit: str, source: Path | None, destination: str) -> dict:
-    release, files = verify_release(commit, source)
+def supported_release(release: str) -> None:
+    # The authority reader and generator currently target this release only.
+    require(release == "0.10.1", f"unsupported release: {release}")
+
+
+def registry_target(relative: str) -> str:
+    """Normalize authority registry references while forbidding root escape."""
+    require(isinstance(relative, str) and relative and not relative.startswith("/")
+            and "\\" not in relative and ":" not in relative
+            and not any(ord(c) < 32 or ord(c) == 127 for c in relative),
+            f"unsafe registry path: {relative!r}")
+    parts = ["compatibility"]
+    for part in relative.split("/"):
+        require(part not in ("", "."), f"unsafe registry path: {relative}")
+        if part == "..":
+            require(bool(parts), f"unsafe registry escape: {relative}")
+            parts.pop()
+        else:
+            parts.append(part)
+    return safe_path("/".join(parts))
+
+
+def verify_bundle(commit: str, source: Path | None, read=None, *, release="0.10.1"):
+    supported_release(release)
+    require(re.fullmatch(r"[0-9a-f]{40}", commit) is not None, "pin a full immutable commit SHA")
+    if read is None:
+        read = lambda path: read_source(commit, path, source)
+    bundle_path = f"{RELEASE}/bundle-lock.json"
+    files = {bundle_path: read(bundle_path)}
+    bundle = json.loads(files[bundle_path])
+    require(bundle["bundleFormat"] == BUNDLE_FORMAT, "unsupported bundle format")
+    require(bundle["authorityLibrary"] == "org.starintel/core@1", "unexpected bundle authority")
+    require(bundle["releaseVersion"] == bundle["schemaVersion"] == release, "bundle release mismatch")
+    require(bundle["hashAlgorithm"] == "sha256", "unsupported bundle hash algorithm")
+    require(bundle["releaseLock"] == "0.10.1/release-lock.json", "bundle release lock mismatch")
+    require(bundle["readerRegistry"] == "compatibility/registry.json", "bundle registry mismatch")
+    for relative, expected in bundle["files"].items():
+        path = f"{BUNDLE_ROOT}/{safe_path(relative)}"
+        require(path != bundle_path, "bundle cannot hash itself")
+        data = read(path)
+        require(digest(data) == expected, f"upstream bundle hash mismatch: {path}")
+        files[path] = data
+
+    def bundled(path):
+        require(path in files, f"consumer must vendor the complete locked bundle: {path}")
+        return files[path]
+
+    authority, release_files = verify_release(commit, source, bundled)
+    registry = json.loads(bundled(f"{BUNDLE_ROOT}/compatibility/registry.json"))
+    require(registry["contract"] == "starintel-migration/1", "unsupported reader contract")
+    expected_paths = set(release_files)
+    expected_paths.update(f"{BUNDLE_ROOT}/compatibility/{name}" for name in COMPATIBILITY_FILES)
+    for relative, expected in registry["sha256"].items():
+        path = f"{BUNDLE_ROOT}/{registry_target(relative)}"
+        require(digest(bundled(path)) == expected, f"registry hash mismatch: {path}")
+        expected_paths.add(path)
+    require(set(files) - {bundle_path} == expected_paths, "bundle must contain the complete locked reader closure")
+    return authority, files
+
+
+def sync(lock_path: Path, commit: str, source: Path | None, destination: str,
+         *, bundle: bool = False, release: str = "0.10.1") -> dict:
+    supported_release(release)
+    release, files = (verify_bundle(commit, source) if bundle else verify_release(commit, source))
     # The repo root is the parent of schema/, the standard consumer lock location.
     root, lock_path = consumer_root(lock_path)
     destination = safe_path(destination)
-    paths = {path: f"{destination}/{path.removeprefix(RELEASE + '/')}" for path in files}
+    prefix = BUNDLE_ROOT if bundle else RELEASE
+    paths = {path: f"{destination}/{path.removeprefix(prefix + '/')}" for path in files}
     lock = {
         "canonical_repository": REPOSITORY,
         "canonical_commit": commit,
@@ -115,6 +182,9 @@ def sync(lock_path: Path, commit: str, source: Path | None, destination: str) ->
             for path, data in sorted(files.items())
         },
     }
+    if bundle:
+        lock["bundle_format"] = BUNDLE_FORMAT
+        lock["bundle_lock_path"] = f"{RELEASE}/bundle-lock.json"
     targets = {path: safe_target(root, local) for path, local in paths.items()}
     require(len(set(targets.values())) == len(files), "duplicate consumer target")
     require(lock_path not in targets.values(), "consumer artifact cannot overwrite its lock")
@@ -151,7 +221,12 @@ def check(lock_path: Path, source: Path | None, *, offline: bool = False) -> dic
         def read(path):
             require(path in local_sources, f"consumer must vendor the complete locked release: {path}")
             return local_sources[path]
-    release, files = verify_release(lock["canonical_commit"], source, read)
+    if "bundle_format" in lock:
+        require(lock["bundle_format"] == BUNDLE_FORMAT, "unsupported bundle format")
+        require(lock.get("bundle_lock_path") == f"{RELEASE}/bundle-lock.json", "bundle lock path mismatch")
+        release, files = verify_bundle(lock["canonical_commit"], source, read)
+    else:
+        release, files = verify_release(lock["canonical_commit"], source, read)
     for local, canonical in (("release_version", "releaseVersion"), ("schema_version", "schemaVersion"),
                              ("authority_library", "authorityLibrary"), ("canonical_key_style", "canonicalKeyStyle")):
         require(lock[local] == release[canonical], f"consumer {local} mismatch")
@@ -175,13 +250,18 @@ def main() -> None:
     parser.add_argument("--lock", type=Path, default=Path("schema/starintel-schema.lock.json"))
     parser.add_argument("--source", type=Path, help="local StarLang git checkout (otherwise fetch immutable URLs)")
     parser.add_argument("--commit", help="sync to this full SHA; omit to check without writes")
-    parser.add_argument("--destination", default="schemas/starintel-0.10.1")
+    parser.add_argument("--destination", help="vendor root; bundle mode preserves release/compatibility siblings")
+    parser.add_argument("--release", default="0.10.1", help="explicit authority release (currently only 0.10.1)")
+    parser.add_argument("--bundle", action="store_true", help="sync the complete reader bundle; checks detect mode from the lock")
     parser.add_argument("--offline", action="store_true", help="verify local package closure; CI must also check exact upstream bytes")
     args = parser.parse_args()
     if args.offline and (args.commit or args.source):
         parser.error("--offline is a local check only; cannot combine with --commit or --source")
     try:
-        lock = (sync(args.lock, args.commit, args.source, args.destination) if args.commit
+        supported_release(args.release)
+        destination = args.destination or ("schemas/starintel" if args.bundle else "schemas/starintel-0.10.1")
+        lock = (sync(args.lock, args.commit, args.source, destination,
+                     bundle=args.bundle, release=args.release) if args.commit
                 else check(args.lock, args.source, offline=args.offline))
     except (ValueError, KeyError, OSError, subprocess.CalledProcessError) as error:
         parser.exit(1, f"StarIntel consumer verification failed: {error}\n")
