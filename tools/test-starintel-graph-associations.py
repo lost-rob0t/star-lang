@@ -45,7 +45,7 @@ class GraphAssociationTests(unittest.TestCase):
 
     def test_goldens(self):
         self.assertEqual(FIXTURES["version"], "0.10.1")
-        self.assertEqual(len(FIXTURES["cases"]), 10)
+        self.assertEqual(len(FIXTURES["cases"]), 15)
         for case in FIXTURES["cases"]:
             with self.subTest(case=case["name"]):
                 # Both positive and semantic-negative fixtures must be
@@ -86,6 +86,30 @@ class GraphAssociationTests(unittest.TestCase):
             doc["confidence"] = "1.0000"
             with self.subTest(predicate=predicate), self.assertRaises(ValueError):
                 validate(doc)
+
+    def test_inverse_predicate_cannot_promote_candidate_identity(self):
+        cases = (
+            (self.candidate, "owl:sameAs"),
+            (self.verified, "org.starintel/core@1/related-to"),
+        )
+        for source, inverse in cases:
+            doc = copy.deepcopy(source)
+            doc["inversePredicate"] = inverse
+            with self.subTest(inverse=inverse), self.assertRaisesRegex(ValueError, "consistent"):
+                validate(doc)
+        doc = copy.deepcopy(self.verified)
+        doc["predicate"] = "org.starintel/core@1/related-to"
+        doc["inversePredicate"] = "owl:sameAs"
+        with self.assertRaisesRegex(ValueError, "consistent"):
+            validate(doc)
+        for inverse in (" owl:sameAs", "owl:sameAs ", "  "):
+            doc = copy.deepcopy(self.candidate)
+            doc["inversePredicate"] = inverse
+            with self.subTest(inverse=inverse), self.assertRaisesRegex(ValueError, "normalized"):
+                validate(doc)
+        doc = copy.deepcopy(self.verified)
+        doc["inversePredicate"] = "owl:sameAs"
+        self.assertIs(validate(doc), doc)
 
     def test_verified_identity_needs_explicit_attestation(self):
         for field in ("verifiedAt", "verifiedBy", "confidence", "confidenceBasis", "evidence", "provenance"):

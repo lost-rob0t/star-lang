@@ -330,6 +330,177 @@
         "verifiedAt": 1760000000,
         "verifiedBy": "reviewer:fixture"
       }
+    },
+    {
+      "name": "candidate-inverse-identity-forbidden",
+      "valid": false,
+      "document": {
+        "id": "relation:candidate-inverse-identity-forbidden",
+        "dataset": "fixtures",
+        "dtype": "relation",
+        "schemaVersion": "0.10.1",
+        "source": {
+          "schema": "org.starintel/core@1/person",
+          "id": "person:one"
+        },
+        "destination": {
+          "schema": "org.starintel/core@1/person",
+          "id": "person:two"
+        },
+        "predicate": "org.starintel/core@1/related-to",
+        "verificationStatus": "candidate",
+        "confidence": "0.4200",
+        "confidenceBasis": "Two public profiles share a handle; identity is not corroborated.",
+        "evidence": [
+          {
+            "schema": "org.starintel/core@1/evidence-record",
+            "id": "evidence:shared-handle"
+          }
+        ],
+        "provenance": {
+          "method": "profile-comparison",
+          "observationId": "observation:handle"
+        },
+        "inversePredicate": "owl:sameAs"
+      }
+    },
+    {
+      "name": "verified-mismatched-inverse-forbidden",
+      "valid": false,
+      "document": {
+        "id": "relation:verified-mismatched-inverse-forbidden",
+        "dataset": "fixtures",
+        "dtype": "relation",
+        "schemaVersion": "0.10.1",
+        "source": {
+          "schema": "org.starintel/core@1/person",
+          "id": "person:one"
+        },
+        "destination": {
+          "schema": "org.starintel/core@1/person",
+          "id": "person:two"
+        },
+        "predicate": "org.starintel/core@1/same-as",
+        "verificationStatus": "verified",
+        "confidence": "0.9700",
+        "confidenceBasis": "Independent corroboration plus recorded review.",
+        "evidence": [
+          {
+            "schema": "org.starintel/core@1/evidence-record",
+            "id": "evidence:corroboration"
+          }
+        ],
+        "provenance": {
+          "method": "review",
+          "reviewId": "review:approved"
+        },
+        "verifiedAt": 1760000000,
+        "verifiedBy": "reviewer:fixture",
+        "inversePredicate": "org.starintel/core@1/related-to"
+      }
+    },
+    {
+      "name": "verified-inverse-only-identity-forbidden",
+      "valid": false,
+      "document": {
+        "id": "relation:verified-inverse-only-identity-forbidden",
+        "dataset": "fixtures",
+        "dtype": "relation",
+        "schemaVersion": "0.10.1",
+        "source": {
+          "schema": "org.starintel/core@1/person",
+          "id": "person:one"
+        },
+        "destination": {
+          "schema": "org.starintel/core@1/person",
+          "id": "person:two"
+        },
+        "predicate": "org.starintel/core@1/related-to",
+        "verificationStatus": "verified",
+        "confidence": "0.9700",
+        "confidenceBasis": "Independent corroboration plus recorded review.",
+        "evidence": [
+          {
+            "schema": "org.starintel/core@1/evidence-record",
+            "id": "evidence:corroboration"
+          }
+        ],
+        "provenance": {
+          "method": "review",
+          "reviewId": "review:approved"
+        },
+        "verifiedAt": 1760000000,
+        "verifiedBy": "reviewer:fixture",
+        "inversePredicate": "owl:sameAs"
+      }
+    },
+    {
+      "name": "candidate-nonnormalized-inverse-forbidden",
+      "valid": false,
+      "document": {
+        "id": "relation:candidate-nonnormalized-inverse-forbidden",
+        "dataset": "fixtures",
+        "dtype": "relation",
+        "schemaVersion": "0.10.1",
+        "source": {
+          "schema": "org.starintel/core@1/person",
+          "id": "person:one"
+        },
+        "destination": {
+          "schema": "org.starintel/core@1/person",
+          "id": "person:two"
+        },
+        "predicate": "org.starintel/core@1/related-to",
+        "verificationStatus": "candidate",
+        "confidence": "0.4200",
+        "confidenceBasis": "Two public profiles share a handle; identity is not corroborated.",
+        "evidence": [
+          {
+            "schema": "org.starintel/core@1/evidence-record",
+            "id": "evidence:shared-handle"
+          }
+        ],
+        "provenance": {
+          "method": "profile-comparison",
+          "observationId": "observation:handle"
+        },
+        "inversePredicate": " owl:sameAs "
+      }
+    },
+    {
+      "name": "verified-consistent-symmetric-inverse",
+      "valid": true,
+      "document": {
+        "id": "relation:verified-consistent-symmetric-inverse",
+        "dataset": "fixtures",
+        "dtype": "relation",
+        "schemaVersion": "0.10.1",
+        "source": {
+          "schema": "org.starintel/core@1/person",
+          "id": "person:one"
+        },
+        "destination": {
+          "schema": "org.starintel/core@1/person",
+          "id": "person:two"
+        },
+        "predicate": "org.starintel/core@1/same-as",
+        "verificationStatus": "verified",
+        "confidence": "0.9700",
+        "confidenceBasis": "Independent corroboration plus recorded review.",
+        "evidence": [
+          {
+            "schema": "org.starintel/core@1/evidence-record",
+            "id": "evidence:corroboration"
+          }
+        ],
+        "provenance": {
+          "method": "review",
+          "reviewId": "review:approved"
+        },
+        "verifiedAt": 1760000000,
+        "verifiedBy": "reviewer:fixture",
+        "inversePredicate": "owl:sameAs"
+      }
     }
   ]
 }

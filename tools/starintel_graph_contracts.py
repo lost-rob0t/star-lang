@@ -82,7 +82,15 @@ def validate_relation_assertion(document):
     predicate = document.get("predicate")
     if not _nonblank(predicate) or predicate != predicate.strip():
         raise ValueError("relation predicate must be a nonblank normalized string")
+    inverse_predicate = document.get("inversePredicate")
+    if inverse_predicate is not None and (
+            not _nonblank(inverse_predicate)
+            or inverse_predicate != inverse_predicate.strip()):
+        raise ValueError("relation inversePredicate must be a nonblank normalized string")
     equivalence = predicate in IDENTITY_EQUIVALENCE_PREDICATES
+    inverse_equivalence = inverse_predicate in IDENTITY_EQUIVALENCE_PREDICATES
+    if inverse_predicate is not None and equivalence != inverse_equivalence:
+        raise ValueError("identity equivalence requires consistent predicate and inversePredicate")
     _reject_false_attestation(document)
     if equivalence and status != "verified":
         raise ValueError("identity equivalence requires explicit verified status")

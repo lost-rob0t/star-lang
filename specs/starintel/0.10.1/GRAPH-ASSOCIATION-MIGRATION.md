@@ -12,6 +12,17 @@ a human-readable confidence basis, evidence references and provenance.
 A score of `1.0000` is not verification. Do not emit `owl:sameAs`, merge
 Person records, or promote `duplicateCandidateIds` into `sameAsIds`.
 
+## Inverse predicate admission
+
+When `Relation.inversePredicate` is present, it must be nonblank and
+lexically normalized. Identity-equivalence predicates are symmetric:
+`inversePredicate` and `predicate` must either both express identity
+equivalence or neither may. A candidate `related-to` assertion with
+`inversePredicate: owl:sameAs` is not an innocuous nonidentity link;
+it fails admission. A verified `same-as` assertion with a nonidentity
+inverse also fails. Omit `inversePredicate` when it is not independently
+known. Do not infer verification from an inverse field.
+
 ## Verified links
 
 An asserted identity-equivalence `Relation` requires explicit verified
