@@ -103,6 +103,8 @@ jobs:
               ./tools/sync-starintel-consumer.py) continue ;;
               ./tools/test-starintel-consumer.py) continue ;;
               ./tools/test-starintel-research-contracts.py) continue ;;
+              ./tools/starintel_graph_contracts.py) continue ;;
+              ./tools/test-starintel-graph-associations.py) continue ;;
               ./tools/test-supported-workflow-contracts.py) continue ;;
               ./tools/test-starintel-versioned-reader.py) continue ;;
               ./tools/test-starintel-raw-json.py) continue ;;
@@ -139,6 +141,7 @@ jobs:
           python3 tools/finalize-starintel-release.py --check
           python3 tools/test-starintel-consumer.py
           python3 tools/test-starintel-research-contracts.py
+          python3 tools/test-starintel-graph-associations.py
           python3 tools/test-supported-workflow-contracts.py
           python3 tools/test-starintel-versioned-reader.py
 

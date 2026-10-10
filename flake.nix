@@ -122,6 +122,7 @@
               --script "$source_root/tools/generate-starintel-release.lisp" --check
             python3 "$source_root/tools/finalize-starintel-release.py" --check
             python3 "$source_root/tools/test-starintel-research-contracts.py"
+            python3 "$source_root/tools/test-starintel-graph-associations.py"
             python3 "$source_root/tools/test-supported-workflow-contracts.py"
             python3 "$source_root/tools/test-starintel-versioned-reader.py"
             python3 "$source_root/tools/test-starintel-raw-json.py"
