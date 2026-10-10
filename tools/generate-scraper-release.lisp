@@ -7,6 +7,7 @@
 (asdf:load-asd (merge-pathnames "star-scrape/star-scrape.asd" *root*))
 (asdf:load-system :star-scrape)
 (asdf:load-system :ironclad)
+(asdf:load-system :babel)
 
 (defun digest-text (text)
   (ironclad:byte-array-to-hex-string

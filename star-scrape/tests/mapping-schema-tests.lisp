@@ -6,7 +6,7 @@
 (defun example-mapping-plan ()
   '(:input-format :json :max-input-bytes 1048576 :max-rows 100 :max-depth 16
     :scopes ((:name "people" :selector-kind :json-path :selector "$.people"
-              :fields ((:name "personName" :selector-kind :json-path :selector "$.name" :kind :value :required t)
+              :fields ((:name "personName" :selector-kind :json-path :selector "$.name" :kind :value :required t :many nil :transform (:trim))
                        (:name "orgName" :selector-kind :json-path :selector "$.company" :kind :value :required t))))
     :documents ((:name "person" :scope "people" :document-type "person" :natural-key ("personName")
                  :fields ((:source "personName" :target "fullName")))
@@ -34,7 +34,7 @@
                (funcall mutate plan)
                (check (signals-p 'error (lambda () (compile-test-mapping plan)))
                       "V2 accepted ~A." description))))
-    (reject (lambda (p) (setf (getf p :request) '(:password "literal"))) "acquisition in pure mapping")
+    (reject (lambda (p) (nconc p '(:request (:password "literal")))) "acquisition in pure mapping")
     (reject (lambda (p) (setf (getf p :max-rows) 10001)) "row budget above bound")
     (reject (lambda (p) (setf (getf p :max-depth) 65)) "depth above bound")
     (reject (lambda (p) (setf (getf p :max-input-bytes) 0)) "zero byte budget")
