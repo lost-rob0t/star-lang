@@ -323,6 +323,22 @@ print("28 relocated paired workflows; 64 seeded archival cases passed")
             shadow.unlink()
         consumer.check(self.lock, None, offline=True)
 
+    def test_bundle_rejects_lock_inside_destination_and_hardlinked_target(self):
+        commit = self.bundle_source()
+        with self.assertRaisesRegex(ValueError, "lock must stay outside"):
+            consumer.sync(self.lock, commit, self.source, "schema", bundle=True)
+        self.assertFalse(self.lock.exists())
+        consumer.sync(self.lock, commit, self.source, "vendor/starintel", bundle=True)
+        target = self.lock.parent.parent / "vendor/starintel/compatibility/raw_json_numbers.py"
+        outside = self.root / "outside-helper.py"
+        outside.write_bytes(target.read_bytes())
+        original = outside.read_bytes()
+        target.unlink()
+        target.hardlink_to(outside)
+        with self.assertRaisesRegex(ValueError, "hardlinked"):
+            consumer.sync(self.lock, commit, self.source, "vendor/starintel", bundle=True)
+        self.assertEqual(outside.read_bytes(), original)
+
 
 if __name__ == "__main__":
     unittest.main()

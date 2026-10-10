@@ -66,8 +66,10 @@ def verify_closed_destination(root: Path, destination: str, allowed: set[Path]) 
     for path in directory.rglob("*"):
         require(not path.is_symlink(), f"unsafe bundle symlink: {path}")
         if path.is_dir():
+            require(path not in allowed, f"bundle file is a directory: {path}")
             continue
         require(path.is_file() and path in allowed, f"unlisted bundle file: {path}")
+        require(path.stat().st_nlink == 1, f"unsafe hardlinked bundle file: {path}")
 
 
 def consumer_root(lock_path: Path) -> tuple[Path, Path]:
@@ -202,6 +204,8 @@ def sync(lock_path: Path, commit: str, source: Path | None, destination: str,
     require(len(set(targets.values())) == len(files), "duplicate consumer target")
     require(lock_path not in targets.values(), "consumer artifact cannot overwrite its lock")
     if bundle:
+        require(not lock_path.is_relative_to(root / destination),
+                "consumer lock must stay outside the dedicated bundle destination")
         verify_closed_destination(root, destination, set(targets.values()))
     for path, data in files.items():
         target = targets[path]
