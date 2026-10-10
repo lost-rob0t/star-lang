@@ -569,6 +569,109 @@
         "verifiedAt": 1760000000,
         "verifiedBy": "reviewer:fixture"
       }
+    },
+    {
+      "name": "tentative-relation-reversed-common-window",
+      "valid": false,
+      "document": {
+        "id": "fixture:tentative-relation-reversed-common-window",
+        "dataset": "fixtures",
+        "dtype": "relation",
+        "schemaVersion": "0.10.1",
+        "source": {
+          "schema": "org.starintel/core@1/person",
+          "id": "person:one"
+        },
+        "destination": {
+          "schema": "org.starintel/core@1/person",
+          "id": "person:two"
+        },
+        "predicate": "org.starintel/core@1/related-to",
+        "verificationStatus": "candidate",
+        "confidence": "0.4200",
+        "confidenceBasis": "Two public profiles share a handle; identity is not corroborated.",
+        "evidence": [
+          {
+            "schema": "org.starintel/core@1/evidence-record",
+            "id": "evidence:shared-handle"
+          }
+        ],
+        "provenance": {
+          "method": "profile-comparison",
+          "observationId": "observation:handle"
+        },
+        "validFrom": 1760000200,
+        "validUntil": 1760000100
+      }
+    },
+    {
+      "name": "candidate-entity-reversed-common-window",
+      "valid": false,
+      "document": {
+        "id": "fixture:candidate-entity-reversed-common-window",
+        "dataset": "fixtures",
+        "dtype": "entity",
+        "schemaVersion": "0.10.1",
+        "verificationStatus": "candidate",
+        "duplicateCandidateIds": [
+          "entity:two",
+          "entity:three"
+        ],
+        "identityConfidence": "1.0000",
+        "validFrom": 1760000200,
+        "validUntil": 1760000100
+      }
+    },
+    {
+      "name": "tentative-relation-equal-common-window",
+      "valid": true,
+      "document": {
+        "id": "fixture:tentative-relation-equal-common-window",
+        "dataset": "fixtures",
+        "dtype": "relation",
+        "schemaVersion": "0.10.1",
+        "source": {
+          "schema": "org.starintel/core@1/person",
+          "id": "person:one"
+        },
+        "destination": {
+          "schema": "org.starintel/core@1/person",
+          "id": "person:two"
+        },
+        "predicate": "org.starintel/core@1/related-to",
+        "verificationStatus": "candidate",
+        "confidence": "0.4200",
+        "confidenceBasis": "Two public profiles share a handle; identity is not corroborated.",
+        "evidence": [
+          {
+            "schema": "org.starintel/core@1/evidence-record",
+            "id": "evidence:shared-handle"
+          }
+        ],
+        "provenance": {
+          "method": "profile-comparison",
+          "observationId": "observation:handle"
+        },
+        "validFrom": 1760000100,
+        "validUntil": 1760000100
+      }
+    },
+    {
+      "name": "candidate-entity-open-common-window",
+      "valid": true,
+      "document": {
+        "id": "fixture:candidate-entity-open-common-window",
+        "dataset": "fixtures",
+        "dtype": "entity",
+        "schemaVersion": "0.10.1",
+        "verificationStatus": "candidate",
+        "duplicateCandidateIds": [
+          "entity:two",
+          "entity:three"
+        ],
+        "identityConfidence": "1.0000",
+        "validFrom": 1760000100
+      }
     }
   ]
 }

@@ -69,6 +69,25 @@ def _id_set(document, name):
     return set(values)
 
 
+def _validate_common_validity_window(document):
+    """Validate inherited Document validity endpoints, inclusive and ordered.
+
+    Star Language generates independent UnixTime scalars; cross-field ordering
+    is intentionally a semantic admission rule after generated-schema checks.
+    This does not advance candidate identity resolution or manufacture proof.
+    """
+    start_present = "validFrom" in document
+    end_present = "validUntil" in document
+    for field in ("validFrom", "validUntil"):
+        if field not in document:
+            continue
+        value = document[field]
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            raise ValueError(f"{field} requires nonnegative UnixTime integer")
+    if start_present and end_present and document["validFrom"] > document["validUntil"]:
+        raise ValueError("validFrom must not be later than validUntil")
+
+
 def validate_relation_assertion(document):
     """Validate a Relation's resolution semantics, without modifying it."""
     if not isinstance(document, Mapping):
@@ -77,6 +96,7 @@ def validate_relation_assertion(document):
         return document
     if document.get("schemaVersion") != "0.10.1":
         raise ValueError("relation semantics require schemaVersion 0.10.1")
+    _validate_common_validity_window(document)
 
     status = document.get("verificationStatus")
     predicate = document.get("predicate")
@@ -155,6 +175,7 @@ def validate_entity_association(document, verified_relations=()):
         return document
     if document.get("schemaVersion") != "0.10.1":
         raise ValueError("entity semantics require schemaVersion 0.10.1")
+    _validate_common_validity_window(document)
     _reject_false_attestation(document)
 
     same_as = _id_set(document, "sameAsIds")
@@ -178,4 +199,8 @@ def validate_graph_association(document, verified_relations=()):
         return validate_relation_assertion(document)
     if document.get("dtype") == "entity":
         return validate_entity_association(document, verified_relations=verified_relations)
+    # Every 0.10.1 graph document inherits the same Document validity fields,
+    # including Person, Org, NetworkDevice, Address and Observation.
+    if document.get("schemaVersion") == "0.10.1":
+        _validate_common_validity_window(document)
     return document

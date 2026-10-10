@@ -45,7 +45,7 @@ class GraphAssociationTests(unittest.TestCase):
 
     def test_goldens(self):
         self.assertEqual(FIXTURES["version"], "0.10.1")
-        self.assertEqual(len(FIXTURES["cases"]), 17)
+        self.assertEqual(len(FIXTURES["cases"]), 21)
         for case in FIXTURES["cases"]:
             with self.subTest(case=case["name"]):
                 # Both positive and semantic-negative fixtures must be
@@ -242,6 +242,63 @@ class GraphAssociationTests(unittest.TestCase):
             doc["predicate"] = predicate
             with self.subTest(predicate=predicate), self.assertRaises(ValueError):
                 validate_relation_assertion(doc)
+
+    def test_reversed_common_validity_window_rejected_direct_and_dispatch(self):
+        # Relation and Entity share inherited Document fields, irrespective of
+        # candidate/verified resolution status.
+        examples = (
+            self.candidate, self.verified, self.entity_candidate, self.entity_verified,
+        )
+        for source in examples:
+            doc = copy.deepcopy(source)
+            doc["validFrom"] = 1760000200
+            doc["validUntil"] = 1760000100
+            links = [self.entity_proof] if doc["dtype"] == "entity" and "sameAsIds" in doc else ()
+            with self.subTest(dtype=doc["dtype"], status=doc.get("verificationStatus")):
+                check_generated_schema(doc)
+                with self.assertRaisesRegex(ValueError, "validFrom.*validUntil"):
+                    validate_graph_association(doc, links)
+                direct = validate_relation_assertion if doc["dtype"] == "relation" else validate_entity_association
+                with self.assertRaisesRegex(ValueError, "validFrom.*validUntil"):
+                    direct(doc)
+
+    def test_common_validity_window_on_other_graph_document_types(self):
+        for dtype in ("person", "org", "network-device", "address", "observation"):
+            doc = {"id": f"{dtype}:validity-fixture", "dataset": "fixtures",
+                   "dtype": dtype, "schemaVersion": "0.10.1",
+                   "validFrom": 200, "validUntil": 199}
+            with self.subTest(dtype=dtype), self.assertRaisesRegex(ValueError, "validFrom.*validUntil"):
+                validate_graph_association(doc)
+            doc["validUntil"] = 200
+            self.assertIs(validate_graph_association(doc), doc)
+            del doc["validUntil"]
+            self.assertIs(validate_graph_association(doc), doc)
+
+    def test_common_validity_window_equal_and_open_endpoints_accepted(self):
+        for source in (self.candidate, self.entity_candidate):
+            for fields in ({"validFrom": 0, "validUntil": 0},
+                           {"validFrom": 123}, {"validUntil": 123}, {}):
+                doc = copy.deepcopy(source)
+                doc.update(fields)
+                with self.subTest(dtype=doc["dtype"], fields=fields):
+                    check_generated_schema(doc)
+                    self.assertIs(validate_graph_association(doc), doc)
+
+    def test_common_validity_window_requires_unix_times(self):
+        # Generated schema rejects malformed scalar wire values first. This
+        # direct semantic-path assertion prevents bypassing validation when a
+        # consumer accidentally calls admission without the schema check.
+        for field in ("validFrom", "validUntil"):
+            for malformed in (True, -1, "1760000100", None, 1.5):
+                doc = copy.deepcopy(self.candidate)
+                doc[field] = malformed
+                with self.subTest(field=field, value=malformed), self.assertRaisesRegex(ValueError, field):
+                    validate_relation_assertion(doc)
+
+    def test_old_versions_not_promoted_by_generic_validity_rule(self):
+        doc = {"dtype": "person", "schemaVersion": "0.9.0",
+               "validFrom": 200, "validUntil": 100}
+        self.assertIs(validate_graph_association(doc), doc)
 
     def test_does_not_mutate_input(self):
         for doc in (self.candidate, self.verified, self.entity_candidate, self.entity_verified):

@@ -32,6 +32,27 @@ A verified `same-as` Relation linking one ID to itself must be rejected even
 when its reference schema strings differ. Consumers must quarantine such
 historical links rather than manufacture a new ID or reviewer attestation.
 
+## Inherited Document validity windows
+
+`Document.validFrom` and `Document.validUntil` are inherited UnixTime
+fields in all 0.10.1 graph types (Person, Org, NetworkDevice, Address,
+Observation, Entity and Relation). The generated JSON Schema independently
+validates their nonnegative integer wire types; semantic admission rejects
+both endpoints when `validFrom > validUntil`. Equal endpoints are accepted,
+and omitting either endpoint retains an open interval. Do not reinterpret
+`observedAt`, `validAt`, `endedAt`, or collection timestamps as a substitute
+for these document-level fields.
+
+During migration, quarantine old records with reversed common validity
+windows and retain the original source timestamps, evidence, provenance,
+and verification state for operator review. Do not silently swap endpoints,
+fill absent endpoints from inferred observations, or promote tentative links.
+IR14/StarIntel Server and Pro Actors should run the common-window admission
+after generated-schema validation and before persistence, for every 0.10.1
+document type; 0.9.x records remain historical input only. This is a
+semantic-only change: the canonical `core.star` fields and source-generated
+JSON Schema, language bindings, and release locks remain byte-identical.
+
 ## Verified links
 
 An asserted identity-equivalence `Relation` requires explicit verified
