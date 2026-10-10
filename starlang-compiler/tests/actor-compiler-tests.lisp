@@ -171,6 +171,37 @@ never sees the prototype packages."
               :ignore-error-status nil))))
     (is (search "ACTOR-COMPILER-PROOF-OK" output))))
 
+(defun trusted-actor-service-uri-fixture (&optional (uri nil supplied-p))
+  "Build a trusted-host actor, preserving omission versus explicit NIL."
+  (list 'actor 'uri-worker
+        (append '(:runtime native
+                  :handler handle-uri-worker
+                  :accepts ()
+                  :produces ()
+                  :restart temporary
+                  :mailbox (bounded 1))
+                (when supplied-p
+                  (list :service-uri uri)))))
+
+(test trusted-actor-explicit-null-service-uri-is-invalid
+  "Explicit NIL must not bypass the URI validation applied to other values."
+  (signals star-lang.compiler.core:invalid-star-service-uri-error
+    (star-lang.compiler.core:compile-actor
+     (trusted-actor-service-uri-fixture nil))))
+
+(test trusted-actor-omitted-service-uri-remains-valid
+  "Omitting the optional URI retains the existing NIL projection."
+  (let ((ir (star-lang.compiler.core:compile-actor
+             (trusted-actor-service-uri-fixture))))
+    (is (null (getf ir :service-uri)))))
+
+(test trusted-actor-valid-service-uri-is-preserved
+  "A supplied valid URI is still canonicalized without modification."
+  (let* ((uri "star://starintel:localhost:uri-worker")
+         (ir (star-lang.compiler.core:compile-actor
+              (trusted-actor-service-uri-fixture uri))))
+    (is (string= uri (getf ir :service-uri)))))
+
 (defun run-tests ()
   ;; fiveam's run! returns T only when every check passed; surface failures
   ;; through the process exit code so ASDF/Nix/CI gates cannot pass silently.

@@ -188,11 +188,12 @@ deterministic string alist."
                                         'invalid-actor-error)))
              (actor-name (identifier-string name)))
         (validate-actor-option-keys options (actor-runtime-option-keys runtime))
-        (let* ((service-uri-value (optional-option options :service-uri))
-               (service-uri
-                 (and service-uri-value
-                      (canonical-service-uri-for-actor
-                       actor-name service-uri-value)))
+        (let* ((service-uri
+                 (when (plist-has-key-p options :service-uri)
+                   (canonical-service-uri-for-actor
+                    actor-name
+                    (required-option options :service-uri "actor"
+                                     'invalid-actor-error))))
                (library-name (and library (getf library :name)))
                (local-types
                  (and library
