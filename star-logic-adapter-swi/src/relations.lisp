@@ -143,7 +143,8 @@
                                 "SWI relation transport failed; session retired.")))))
 
 (defmethod starlogicprotocol:apply-logic-fact-delta
-    ((backend swi-backend) (session swi-session) delta)
+    ((backend swi-backend) session delta)
+  (%require-relation-session backend session :open nil)
   (bordeaux-threads:with-lock-held ((swi-session-lock session))
     (%require-relation-session backend session)
     (when (some (lambda (operation)
@@ -174,7 +175,8 @@
     value))
 
 (defmethod starlogicprotocol:invoke-logic-operation
-    ((backend swi-backend) (session swi-session) operation-id parameters &key limits)
+    ((backend swi-backend) session operation-id parameters &key limits)
+  (%require-relation-session backend session :open nil)
   (bordeaux-threads:with-lock-held ((swi-session-lock session))
     (%require-relation-session backend session)
     (unless (and (stringp operation-id) (string= operation-id "relation-neighbors"))
@@ -270,7 +272,8 @@
                                 "SWI relation operation failed; session retired.")))))
 
 (defmethod starlogicprotocol:next-logic-result
-    ((backend swi-backend) (session swi-session) operation)
+    ((backend swi-backend) session operation)
+  (%require-relation-session backend session :open nil)
   (bordeaux-threads:with-lock-held ((swi-session-lock session))
     (%require-relation-session backend session)
     (%relation-operation backend session operation)
@@ -285,7 +288,8 @@
         (values nil (swi-relation-operation-state operation)))))
 
 (defmethod starlogicprotocol:cancel-logic-operation
-    ((backend swi-backend) (session swi-session) operation reason)
+    ((backend swi-backend) session operation reason)
+  (%require-relation-session backend session :open nil)
   (bordeaux-threads:with-lock-held ((swi-session-lock session))
     (%relation-operation backend session operation)
     (%relation-string reason)
@@ -295,6 +299,7 @@
     (swi-relation-operation-state operation)))
 
 (defmethod starlogicprotocol:logic-operation-status
-    ((backend swi-backend) (session swi-session) operation)
+    ((backend swi-backend) session operation)
+  (%require-relation-session backend session :open nil)
   (bordeaux-threads:with-lock-held ((swi-session-lock session))
     (swi-relation-operation-state (%relation-operation backend session operation))))

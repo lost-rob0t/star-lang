@@ -137,7 +137,9 @@ in descriptor metadata."
          (%bounded-diagnostic cause)
          "SWI session open failed.")))))
 
-(defmethod close-logic-session ((backend swi-backend) (session swi-session))
+(defmethod close-logic-session ((backend swi-backend) session)
+  (unless (swi-session-p session)
+    (%swi-fail 'swi-session-error "Invalid SWI logic session."))
   (bordeaux-threads:with-lock-held ((swi-session-lock session))
     (unless (eq backend (swi-session-backend session))
       (%swi-fail 'swi-shutdown-failure-error

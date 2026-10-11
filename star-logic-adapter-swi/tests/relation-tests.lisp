@@ -217,3 +217,31 @@
                  (is (= 1 (length answers)))
                  (is (string= "r1" (cdr (assoc "id" (first answers) :test #'string=))))))
           (close-logic-session backend fresh))))))
+
+(test relation-malformed-session-is-typed-without-printing-backend
+  (with-relation-session (backend session)
+    ;; No printer safety bindings can mask a regression to the generic fallback.
+    (let ((*print-circle* nil) (*print-level* nil) (*print-length* nil))
+      (dolist (invalid (list nil "foreign" (make-hash-table)))
+        (signals starlogicprotocol:logic-session-error
+          (starlogicprotocol:apply-logic-fact-delta backend invalid (relation-snapshot)))
+        (signals starlogicprotocol:logic-session-error (invoke-neighbors backend invalid "a"))
+        (signals starlogicprotocol:logic-session-error
+          (starlogicprotocol:next-logic-result backend invalid nil))
+        (signals starlogicprotocol:logic-session-error
+          (starlogicprotocol:cancel-logic-operation backend invalid nil "stop"))
+        (signals starlogicprotocol:logic-session-error
+          (starlogicprotocol:logic-operation-status backend invalid nil))
+        (signals starlogicprotocol:logic-session-error (close-logic-session backend invalid)))
+      (let ((foreign (fresh-backend)))
+        (signals starlogicprotocol:logic-session-error
+          (starlogicprotocol:apply-logic-fact-delta foreign session (relation-snapshot)))
+        (signals starlogicprotocol:logic-session-error (invoke-neighbors foreign session "a"))
+        (signals starlogicprotocol:logic-session-error
+          (starlogicprotocol:next-logic-result foreign session nil))
+        (signals starlogicprotocol:logic-session-error
+          (starlogicprotocol:cancel-logic-operation foreign session nil "stop"))
+        (signals starlogicprotocol:logic-session-error
+          (starlogicprotocol:logic-operation-status foreign session nil))
+        (signals starlogicprotocol:logic-session-error (close-logic-session foreign session))))
+    (is (process-alive-p (worker-process session)))))
