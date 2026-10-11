@@ -75,3 +75,23 @@ portable manifest, JSON Schema and release lock are unchanged. A consumer
 must not ship this candidate until a separately versioned release is generated,
 finalized, locked and repinned. SS11/SS13 own the backend's authorization,
 CouchDB JSON/GeoCouch indexing and any smaller server-side result limits.
+
+## SL04 route duration proposal (candidate 0.10.2 only)
+
+The frozen 0.10.1 route document represents estimatedDurationSeconds and
+actualDurationSeconds as unrestricted integers and therefore permits negative
+durations. The replacement route declaration in
+`route-duration-0102.star.inc` is compiled solely as a bumped 0.10.2
+candidate. It uses route-duration-seconds (integer, minimum 0) for both fields,
+without changing route identity, references, or the published 0.10.1 release.
+
+The real StarLang compiler, JSON Schema generator, portable validator, and
+Python/TypeScript/Rust generators are exercised by eight positive/negative
+goldens. Zero represents an instantaneous or unspecified measured duration when
+present; negative integers, strings and fractional values are invalid.
+
+No rule infers route timestamps from durations. Ordering of plannedAt,
+startedAt, and endedAt remains an application-level temporal consistency
+requirement for SS11/SS13. SL01/SL02 review scalar and binding parity; IR14
+must approve, generate, finalize, lock, and repin a successor release before
+downstream consumers may adopt this wire shape.

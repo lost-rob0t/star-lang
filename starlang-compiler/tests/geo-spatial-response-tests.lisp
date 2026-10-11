@@ -202,6 +202,85 @@
     (is (= 4 accepts))
     (is (= 13 rejects))))
 
+
+;; SL04 successor-only route duration: execute the actual compiler and generator.
+(defun sl04-route-duration-manifest ()
+  (let* ((source (sl04-source "../specs/starintel/0.10.1/core.star"))
+         (fragment (sl04-source "../specs/starintel/proposals/route-duration-0102.star.inc"))
+         (anchor "  (document route")
+         (next "  (document geofence")
+         (before (search anchor source))
+         (after (and before (search next source :start2 before)))
+         (version "(:version \"0.10.1\")"))
+    (unless (and before after (search version source))
+      (error "Frozen 0.10.1 route/version anchor changed; refuse proposal rewrite."))
+    (let* ((candidate (concatenate 'string
+                       (subseq source 0 before) fragment (string #\\Newline)
+                       (subseq source after)))
+           (pos (search version candidate))
+           (bumped (concatenate 'string
+                     (subseq candidate 0 pos)
+                     "(:version \"0.10.2\")"
+                     (subseq candidate (+ pos (length version))))))
+      (starlangcompiler:emit-portable-manifest
+       (starlangcompiler:compile-spec-library
+        (starlangcompiler:read-star-syntax bumped))
+       nil))))
+
+(test geo-route-duration-successor-generated-contract
+  (let* ((manifest (sl04-route-duration-manifest))
+         (schema (yason:parse (starlangcompiler:generate-json-schema manifest)))
+         (defs (gethash "$defs" schema))
+         (scalar (gethash "RouteDurationSeconds" defs))
+         (route (gethash "Route" defs))
+         (route-properties (gethash "properties" route))
+         (bindings (starlangcompiler:generate-all-bindings manifest))
+         (type (find (format nil "~A/route" +authority+)
+                     (getf manifest :types)
+                     :key (lambda (item) (getf item :name)) :test #'string=)))
+    (is (string= "0.10.2" (getf (getf manifest :library) :version)))
+    (is (consp type))
+    (is (hash-table-p scalar))
+    (when (hash-table-p scalar)
+      (is (string= "integer" (gethash "type" scalar)))
+      (is (= 0 (gethash "minimum" scalar))))
+    (dolist (field-name '("estimatedDurationSeconds" "actualDurationSeconds"))
+      (let ((field (find field-name (getf type :fields)
+                         :key (lambda (item) (getf item :name)) :test #'string=)))
+        (is (consp field))
+        (when field
+          (is (string= (format nil "~A/route-duration-seconds" +authority+)
+                       (getf field :type)))))
+      (is (string= "#/$defs/RouteDurationSeconds"
+                   (gethash "$ref" (gethash field-name route-properties)))))
+    (dolist (lang '(:python :typescript :rust))
+      (is (plusp (length (cdr (assoc lang bindings))))))))
+
+(test geo-route-duration-successor-scalar-goldens
+  (let* ((manifest (sl04-route-duration-manifest))
+         (fixture (let ((yason:*parse-json-arrays-as-vectors* t))
+                    (yason:parse
+                     (sl04-source "tests/fixtures/geo-route-duration-probes-0102.json"))))
+         (samples (gethash "cases" fixture))
+         (accepts 0)
+         (rejects 0))
+    (is (string= "0.10.2" (gethash "version" (gethash "authority" fixture))))
+    (is (= 8 (length samples)))
+    (loop for sample across samples
+          for value = (gethash "value" sample)
+          for valid = (handler-case
+                          (progn
+                            (staractorprotocol:validate-portable-wire-value
+                             manifest (format nil "~A/route-duration-seconds" +authority+) value)
+                            t)
+                        (staractorprotocol:invalid-wire-envelope-error () nil))
+          do (if (string= "accept" (gethash "outcome" sample))
+                 (progn (incf accepts) (is valid))
+                 (progn (incf rejects) (is (not valid)))))
+    (is (= accepts 4))
+    (is (= rejects 4))))
+
+
 (defun run-tests ()
   (unless (run! 'starlang-geo-spatial-response-tests)
     (error "SL04 spatial response tests failed.")))
