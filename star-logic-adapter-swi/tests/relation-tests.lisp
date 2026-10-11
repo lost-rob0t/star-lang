@@ -1,4 +1,5 @@
 (in-package :starlogicadapterswi-integration-tests)
+(in-suite starlogicadapterswi-integration-tests)
 
 ;; Every test below uses the real pinned SWI process, the public protocol, and
 ;; the production adapter. No fake query evaluator stands in for Prolog.
@@ -9,8 +10,8 @@
        (ignore-errors (close-logic-session ,backend ,session)))))
 
 (defun relation-row (id source predicate destination)
-  (list (cons "id" id) (cons "source" source)
-        (cons "predicate" predicate) (cons "destination" destination)))
+  (list (cons "id" (copy-seq id)) (cons "source" (copy-seq source))
+        (cons "predicate" (copy-seq predicate)) (cons "destination" (copy-seq destination))))
 
 (defun relation-snapshot (&rest rows)
   (list (cons "relations" rows)))
