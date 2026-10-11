@@ -47,3 +47,13 @@ all existing supported language roles above remain unchanged.
 the existing ZMQ actor adapter. Rabbit and ZMQ projections share its exact bytes.
 Native/Python/JS adapters may inject this authority rather than implement a second
 serializer; golden lifecycle fixtures are provided, not a new generated language model.
+
+## Bounded SWI relation integration
+
+`star-logic-adapter-swi` owns a Common Lisp implementation of the existing logic
+protocol for bounded `relation-neighbors` over the trusted Prolog `star_relation/4`
+bridge. SWI executes the query; Lisp owns admission, session/operation lifecycle,
+limits and process cleanup. This does not claim general query conformance, a
+Kotlin engine adapter, a new generated language model, RPC/actor integration or
+canonical server persistence. See [the adapter contract](../star-logic-adapter-swi/README.md).
+

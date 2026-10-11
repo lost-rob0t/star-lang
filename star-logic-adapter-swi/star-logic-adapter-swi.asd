@@ -2,9 +2,10 @@
   :description "Final Common Lisp SWI-Prolog MQI worker adapter foundation"
   :author "lost-rob0t"
   :license "AGPL-3.0-only"
-  :version "0.1.0"
+  :version "0.2.0"
   :depends-on ("star-logic-protocol"
                "star-process-port"
+               "bordeaux-threads"
                "babel"
                "ironclad"
                "usocket"
@@ -19,6 +20,8 @@
      (:file "identity")
      (:file "bootstrap")
      (:file "worker")
-     (:file "adapter"))))
+     (:file "adapter")
+     (:file "relations"))))
   :in-order-to ((test-op (test-op "star-logic-adapter-swi-tests"
                                   "star-logic-adapter-swi-integration-tests"))))
+

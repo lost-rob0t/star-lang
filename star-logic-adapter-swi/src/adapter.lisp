@@ -11,10 +11,25 @@
   descriptor
   (sessions '()))
 
+(defstruct (swi-relation-operation (:constructor %make-relation-operation))
+  session
+  node
+  predicate
+  direction
+  snapshot-digest
+  package-digest
+  answer-limit
+  output-limit
+  (state :pending)
+  (answers '()))
+
 (defstruct (swi-session (:constructor %make-swi-session))
   id
   backend
   worker
+  snapshot-digest
+  (operations '())
+  (lock (bordeaux-threads:make-lock "SWI logic session"))
   (state :opening))
 
 (defun make-swi-backend (&key swipl-executable)
@@ -41,7 +56,7 @@ in descriptor metadata."
              :id +logic-backend-swi-prolog+
              :version version
              :build-id build-id
-             ;; Lifecycle/build conformance is not semantic query conformance.
+             ;; One fixed relation primitive is not general query conformance.
              ;; Empty profiles/capabilities keep this backend out of :auto until
              ;; later STAR-LANG-011 slices prove those semantics.
              :semantic-profiles '()
@@ -122,19 +137,26 @@ in descriptor metadata."
          (%bounded-diagnostic cause)
          "SWI session open failed.")))))
 
-(defmethod close-logic-session ((backend swi-backend) (session swi-session))
-  (unless (eq backend (swi-session-backend session))
-    (%swi-fail 'swi-shutdown-failure-error
-               "Logic session is not owned by this SWI backend."))
-  (case (swi-session-state session)
-    (:closed t)
-    (otherwise
-     (setf (swi-session-state session) :closing)
-     (unwind-protect
-          (%orderly-shutdown-worker (swi-session-worker session))
-       (setf (swi-session-state session) :closed
-             (swi-backend-sessions backend)
-             (delete session (swi-backend-sessions backend) :test #'eq))))))
+(defmethod close-logic-session ((backend swi-backend) session)
+  (unless (swi-session-p session)
+    (%swi-fail 'swi-session-error "Invalid SWI logic session."))
+  (bordeaux-threads:with-lock-held ((swi-session-lock session))
+    (unless (eq backend (swi-session-backend session))
+      (%swi-fail 'swi-shutdown-failure-error
+                 "Logic session is not owned by this SWI backend."))
+    (case (swi-session-state session)
+      (:closed t)
+      (otherwise
+       (setf (swi-session-state session) :closing)
+       (dolist (operation (swi-session-operations session))
+         (when (member (swi-relation-operation-state operation) '(:pending :running))
+           (setf (swi-relation-operation-state operation) :cancelled
+                 (swi-relation-operation-answers operation) nil)))
+       (unwind-protect
+            (%orderly-shutdown-worker (swi-session-worker session))
+         (setf (swi-session-state session) :closed
+               (swi-backend-sessions backend)
+               (delete session (swi-backend-sessions backend) :test #'eq)))))))
 
 (defun %active-session-health (session)
   (let* ((worker (swi-session-worker session))
@@ -174,3 +196,4 @@ in descriptor metadata."
       (list :status :unusable
             :backend-id +logic-backend-swi-prolog+
             :diagnostic (%bounded-diagnostic cause)))))
+
