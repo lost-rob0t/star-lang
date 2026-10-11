@@ -57,3 +57,23 @@ limits and process cleanup. This does not claim general query conformance, a
 Kotlin engine adapter, a new generated language model, RPC/actor integration or
 canonical server persistence. See [the adapter contract](../star-logic-adapter-swi/README.md).
 
+
+## Installed Common Lisp/SWI host package
+
+Issue #215 exports `packages.<system>.star-lang-logic-runtime`. It reuses the
+existing CLI producer source and SBCL/SWI dependencies. `bin/starlang-sbcl`
+sets the installed ASDF source registry and exact SWI executable; ordinary
+SBCL arguments remain available to trusted host applications. This is a local
+host executable, not an untrusted RPC evaluation endpoint.
+`bin/starlang-swipl` exposes that same SWI package. Nix consumers obtain the
+immutable source tree through `package.sourceRoot` or `share/star-lang` and
+must pin the producer input and verify the identities their service requires.
+No source checkout, credentials or live provider are required at runtime.
+
+`checks.installed-logic-runtime` runs existing protocol, IR and real SWI adapter
+suites from an empty temporary working directory using the installed wrapper.
+The existing full StarLang check remains in force. Outputs follow the producer's
+existing default systems; actual build/start evidence is limited to the systems
+reported by CI. This does not make Star-KB's Linux supervisor portable and does
+not complete its installed HTTP/ZMQ checks. No Kotlin or generated-boundary
+ownership changes.
