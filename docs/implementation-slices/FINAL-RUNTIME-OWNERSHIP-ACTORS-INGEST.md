@@ -113,3 +113,12 @@ Add final-system tests proving, in fresh SBCL processes where appropriate:
 Only after the authoritative runtime/compiler path has moved should README stop claiming that the real implementation remains in `prototype/`.
 
 The desired end state is that `prototype/` contains compatibility/end-to-end tests or disappears entirely; `starlang-prototype` must no longer be the product runtime loaded by the CLI, Nix package, or primary CI contract.
+
+## Producer packaging seam (#215)
+
+The `star-lang-logic-runtime` Nix output owns installation of the existing
+Common Lisp/SWI host closure for downstream services. Runtime and logic behavior
+remain in the existing final ASDF systems; the output does not own a second
+engine, actor scheduler, source tree or consumer service. Its installed tests
+exercise `star-logic-protocol`, `star-logic-ir` and `star-logic-adapter-swi`.
+See [the public package contract](../LANGUAGE-SUPPORT.md#installed-common-lispswi-host-package).

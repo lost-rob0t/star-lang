@@ -246,11 +246,45 @@
             platforms = lib.platforms.unix;
           };
         };
+
+        # Public producer boundary for hosts of the existing logic adapter.
+        # Reuse the same tested source and dependency closure as the CLI.
+        logicRuntime = pkgs.runCommand "star-lang-logic-runtime" {
+          nativeBuildInputs = [ pkgs.makeWrapper ];
+          passthru.sourceRoot = "${starLang}/share/common-lisp/source/star-lang";
+        } ''
+          mkdir -p "$out/bin" "$out/share"
+          ln -s ${starLang}/share/common-lisp/source/star-lang "$out/share/star-lang"
+          makeWrapper ${sbcl}/bin/sbcl "$out/bin/starlang-sbcl" \
+            --set CL_SOURCE_REGISTRY "${starLang}/share/common-lisp/source/star-lang//" \
+            --set STARLANG_ROOT "${starLang}/share/common-lisp/source/star-lang" \
+            --set STARLANG_SWI_EXECUTABLE "${swipl}/bin/swipl"
+          makeWrapper ${swipl}/bin/swipl "$out/bin/starlang-swipl"
+        '';
+
+        installedLogicCheck = pkgs.runCommand "star-lang-installed-logic-check" {
+          nativeBuildInputs = [ logicRuntime ];
+        } ''
+          export HOME="$TMPDIR/home"
+          mkdir -p "$HOME" "$TMPDIR/outside-checkout"
+          cd "$TMPDIR/outside-checkout"
+          test -f ${logicRuntime.sourceRoot}/specs/starintel/0.10.1/generated/schema.json
+          starlang-swipl --version
+          starlang-sbcl --non-interactive \
+            --eval '(require :asdf)' \
+            --eval '(asdf:test-system :star-logic-protocol)' \
+            --eval '(asdf:test-system :star-logic-ir)' \
+            --eval '(asdf:test-system :star-logic-adapter-swi)' \
+            --eval '(assert (null (find-package "STAR-LANG.PROTOTYPE")))' \
+            --eval '(sb-ext:quit)'
+          touch "$out"
+        '';
       in
       {
         packages = {
           default = starLang;
           star-lang = starLang;
+          star-lang-logic-runtime = logicRuntime;
         };
 
         apps = {
@@ -265,6 +299,7 @@
         };
 
         checks.default = starLang;
+        checks.installed-logic-runtime = installedLogicCheck;
         hydraJobs =
           if builtins.match ".*-linux" system != null then
             { default = starLang; }
