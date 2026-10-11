@@ -89,6 +89,12 @@
 
 (defun starlang-generic-wire-json-value (value)
   (cond
+    ((eq value staractorprotocol:+portable-json-null+) +json-null+)
+    ((eq value staractorprotocol:+portable-json-false+) +json-false+)
+    ((eq value staractorprotocol:+portable-json-empty-object+) (make-json-object nil))
+    ((staractorprotocol:portable-json-number-p value) value)
+    ((and (vectorp value) (not (stringp value)))
+     (make-json-array (map 'list #'starlang-generic-wire-json-value value)))
     ((eq value t) +json-true+)
     ((null value) +json-null+)
     ((stringp value) value)
@@ -112,6 +118,7 @@
 
 (defun starlang-wire-map-json-value (value)
   (cond
+    ((eq value staractorprotocol:+portable-json-empty-object+) (make-json-object nil))
     ((null value)
      (make-json-object '()))
     ((staractorprotocol:portable-string-alist-p value)
@@ -178,7 +185,8 @@
          value))
     ((string= type "integer") value)
     ((string= type "boolean")
-     (if value +json-true+ +json-false+))
+     (if (and value (not (eq value staractorprotocol:+portable-json-false+)))
+         +json-true+ +json-false+))
     ((string= type "decimal") value)
     ((string= type "map")
      (starlang-wire-map-json-value value))
@@ -326,3 +334,8 @@
          (entries (lifecycle-common-json-entries envelope)))
     (push (cons "payload" payload-json) entries)
     (canonical-json-string (make-json-object entries))))
+
+(defun canonical-portable-json-string (value)
+  "Encode protocol-owned opaque JSON values, retaining exact numeric tokens."
+  (staractorprotocol::validate-portable-generic-wire-value value)
+  (canonical-json-string (starlang-generic-wire-json-value value)))

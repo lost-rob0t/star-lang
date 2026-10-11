@@ -1,0 +1,52 @@
+{
+  "format": "starintel-compatibility-capabilities/1",
+  "canonicalProfile": "canonical-0.10.1",
+  "reference": "versioned_reader.py",
+  "profiles": [
+    {
+      "profile": "nested-0.9.0-cb258634",
+      "read": "supported-for-complete-pinned-schema",
+      "schemaDtypes": 51,
+      "migrate": "supported-only-for-source-locked-mappings-and-valid-required-data",
+      "pairedMigrationDtypes": 28,
+      "restore": "exact-original-bytes-from-unedited-verified-migration-output"
+    },
+    {
+      "profile": "canonical-0.10.1",
+      "read": "generated-schema-and-semantic-validation",
+      "migrate": "validated-identity",
+      "restore": "only-with-valid-archival-migration-receipt"
+    },
+    {
+      "profile": "nested-0.10.1",
+      "read": "unsupported",
+      "migrate": "unsupported"
+    },
+    {
+      "profile": "executable-only-legacy-extended-dialect",
+      "read": "unsupported",
+      "migrate": "unsupported"
+    },
+    {
+      "profile": "0.7.3-unpinned",
+      "read": "unsupported",
+      "migrate": "unsupported"
+    }
+  ],
+  "sdkHistoricalReaderParity": "not-established-by-this-reference-bundle",
+  "arbitraryDowngrade": "unsupported",
+  "productionRewrite": "not-performed",
+  "evidence": {
+    "pairedFixtures": "historical-reader-fixtures.json",
+    "canonicalFixtures": "canonical-migration-fixtures.json",
+    "authorityTests": "tools/test-starintel-versioned-reader.py",
+    "relocationTests": "tools/test-starintel-consumer.py",
+    "fuzz": {
+      "method": "deterministic-seeded-property-cases",
+      "seed": 204,
+      "cases": 64,
+      "scope": "historical alert archival roundtrip with opaque exact numeric lexemes, nulls, booleans, whitespace and malformed duplicate-key rejection",
+      "notClaimed": "coverage-guided fuzzing or cross-SDK parity"
+    }
+  }
+}

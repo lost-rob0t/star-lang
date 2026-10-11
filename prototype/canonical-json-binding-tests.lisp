@@ -2,7 +2,13 @@
 (load (merge-pathnames "actor-wire-prototype.lisp" *load-truename*))
 (load (merge-pathnames "core-semantics-prototype.lisp" *load-truename*))
 (load (merge-pathnames "canonical-json-prototype.lisp" *load-truename*))
-(load (merge-pathnames "binding-generator-prototype.lisp" *load-truename*))
+(let ((python-generator #'starlangcompiler:generate-python-bindings)
+      (typescript-generator #'starlangcompiler:generate-typescript-bindings))
+  (load (merge-pathnames "binding-generator-prototype.lisp" *load-truename*))
+  ;; Compatibility imports share the final symbols. Loading the shell must
+  ;; preserve their definitions, including when final systems are already loaded.
+  (assert (eq python-generator #'starlangcompiler:generate-python-bindings))
+  (assert (eq typescript-generator #'starlangcompiler:generate-typescript-bindings)))
 
 (in-package #:star-lang.core-surface.prototype)
 

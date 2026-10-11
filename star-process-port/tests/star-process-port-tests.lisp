@@ -193,6 +193,65 @@
       (is (= capture-count-before (%capture-thread-count))
           "run-process returned with a live capture thread after normal root exit."))))
 
+(test capture-cleanup-waits-for-thread-termination-acknowledgement
+  ;; Use real pipe readers with a bounded unwind step. DESTROY-THREAD requests
+  ;; termination asynchronously on SBCL; merely yielding is not a join. The
+  ;; delay belongs only to this thread fixture, never to production cleanup.
+  (let* ((process (launch-process (%test-shell)
+                                  (list (%fixture-script)
+                                        "descendant-holds-pipes" "2")))
+         (stdout-state (starprocessport::%make-capture-state 64))
+         (stderr-state (starprocessport::%make-capture-state 64))
+         (ready (bordeaux-threads:make-semaphore))
+         (threads nil)
+         (started (get-internal-real-time)))
+    (labels ((reader (stream state name)
+               (make-thread
+                (lambda ()
+                  (unwind-protect
+                       (progn
+                         (bordeaux-threads:signal-semaphore ready)
+                         (starprocessport::%drain-stream-bounded stream state))
+                    (sleep 0.02d0)))
+                :name name)))
+      (unwind-protect
+           (progn
+             (setf threads
+                   (list (reader (starprocessport:process-stdout process)
+                                 stdout-state "test delayed stdout cleanup")
+                         (reader (starprocessport:process-stderr process)
+                                 stderr-state "test delayed stderr cleanup")))
+             (dotimes (i 2)
+               (is (bordeaux-threads:wait-on-semaphore ready :timeout 1.0d0)))
+             (starprocessport:wait-process process :timeout 1.0d0
+                                                   :close-streams nil)
+             (bordeaux-threads:with-timeout (0.75d0)
+               (starprocessport::%finish-capture-threads
+                process (first threads) stdout-state
+                (second threads) stderr-state 0.2d0))
+             (is (null (starprocessport::capture-state-error stdout-state)))
+             (is (null (starprocessport::capture-state-error stderr-state)))
+             (is (every (lambda (thread)
+                          (not (bordeaux-threads:thread-alive-p thread)))
+                        threads))
+             (is (< (%elapsed-seconds started) 0.75d0))
+             (is (starprocessport::capture-state-truncated-p stdout-state))
+             (is (starprocessport::capture-state-truncated-p stderr-state)))
+        (dolist (thread threads)
+          (when (bordeaux-threads:thread-alive-p thread)
+            (ignore-errors (bordeaux-threads:destroy-thread thread)))
+          (ignore-errors
+            (bordeaux-threads:with-timeout (1.0d0) (join-thread thread))))
+        (dispose-process process :terminate-timeout 0.05d0)))))
+
+(test repeated-descendant-pipe-cleanup-does-not-leave-capture-threads
+  (let ((capture-count-before (%capture-thread-count)))
+    (dotimes (i 100)
+      (let ((result (%run-fixture '("descendant-holds-pipes" "2")
+                                  :terminate-timeout 0.05d0)))
+        (is (process-result-success-p result))
+        (is (= capture-count-before (%capture-thread-count)))))))
+
 (test descendant-held-pipes-do-not-break-timeout-boundedness
   (let ((capture-count-before (%capture-thread-count)))
     (multiple-value-bind (result timed-out-p elapsed)
@@ -260,3 +319,4 @@
     (unless (results-status results)
       (error "star-process-port tests failed."))
     t))
+

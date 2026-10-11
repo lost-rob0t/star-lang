@@ -1,0 +1,101 @@
+{
+  "authority": {
+    "library": "org.starintel/core@1",
+    "version": "0.10.1"
+  },
+  "scalarRules": [
+    {
+      "name": "latitude",
+      "minimum": -90,
+      "maximum": 90,
+      "scale": 8
+    },
+    {
+      "name": "longitude",
+      "minimum": -180,
+      "maximum": 180,
+      "scale": 8
+    },
+    {
+      "name": "distance-meters",
+      "minimum": 0,
+      "scale": 3
+    },
+    {
+      "name": "confidence-score",
+      "minimum": 0,
+      "maximum": 1,
+      "scale": 4
+    }
+  ],
+  "scalarCases": [
+    {
+      "scalar": "latitude",
+      "value": "90.00000000",
+      "outcome": "accept"
+    },
+    {
+      "scalar": "latitude",
+      "value": "90.00000001",
+      "outcome": "reject"
+    },
+    {
+      "scalar": "latitude",
+      "value": "39.123456789",
+      "outcome": "reject"
+    },
+    {
+      "scalar": "longitude",
+      "value": "-180.00000000",
+      "outcome": "accept"
+    },
+    {
+      "scalar": "longitude",
+      "value": "180.00000001",
+      "outcome": "reject"
+    },
+    {
+      "scalar": "longitude",
+      "value": "-83.123456789",
+      "outcome": "reject"
+    },
+    {
+      "scalar": "distance-meters",
+      "value": "0.000",
+      "outcome": "accept"
+    },
+    {
+      "scalar": "distance-meters",
+      "value": "-0.001",
+      "outcome": "reject"
+    },
+    {
+      "scalar": "distance-meters",
+      "value": "10.1234",
+      "outcome": "reject"
+    },
+    {
+      "scalar": "confidence-score",
+      "value": "1.0000",
+      "outcome": "accept"
+    },
+    {
+      "scalar": "confidence-score",
+      "value": "1.0001",
+      "outcome": "reject"
+    },
+    {
+      "scalar": "confidence-score",
+      "value": "0.12345",
+      "outcome": "reject"
+    }
+  ],
+  "knownSchemaGaps": [
+    "decimal-string numeric bounds and fractional precision",
+    "Geo.boundingBox fixed four-element cardinality",
+    "GeoPoint.geometryType constrained to point",
+    "Geo.accuracyMeters nonnegative constraint",
+    "query-spatial typed response and pagination",
+    "mission-target location provenance/evidence binding"
+  ]
+}

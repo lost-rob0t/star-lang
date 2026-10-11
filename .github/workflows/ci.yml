@@ -100,6 +100,16 @@ jobs:
             case "$f" in
               ./specs/starintel/*/generated/*.py) continue ;;
               ./tools/finalize-starintel-release.py) continue ;;
+              ./tools/sync-starintel-consumer.py) continue ;;
+              ./tools/test-starintel-consumer.py) continue ;;
+              ./tools/test-starintel-research-contracts.py) continue ;;
+              ./tools/test-supported-workflow-contracts.py) continue ;;
+              ./tools/test-starintel-versioned-reader.py) continue ;;
+              ./tools/test-starintel-raw-json.py) continue ;;
+              ./specs/starintel/compatibility/versioned_reader.py) continue ;;
+              ./specs/starintel/compatibility/raw_json_numbers.py) continue ;;
+              ./specs/starintel/0.10.1/workflow_semantics.py) continue ;;
+              ./specs/starintel/0.10.1/operation_semantics.py) continue ;;
             esac
             forbidden="$forbidden $f"
           done < <(find . -path ./.git -prune -o -type f \( -name '*.rkt' -o -name '*.scm' -o -name '*.ss' -o -name '*.py' \) -print)
@@ -117,7 +127,8 @@ jobs:
             cl-fiveam \
             cl-ironclad \
             cl-usocket \
-            cl-yason
+            cl-yason \
+            python3-jsonschema
 
       - name: Verify generated StarIntel release artifacts
         shell: bash
@@ -125,7 +136,11 @@ jobs:
           set -euo pipefail
           sbcl --disable-debugger \
             --script tools/generate-starintel-release.lisp --check
-          python3 tools/finalize-starintel-release.py --check
+          python3 tools/finalize-starintel-release.py --check --bundle
+          python3 tools/test-starintel-consumer.py
+          python3 tools/test-starintel-research-contracts.py
+          python3 tools/test-supported-workflow-contracts.py
+          python3 tools/test-starintel-versioned-reader.py
 
       - name: Load starlang-prototype ASDF system
         shell: bash
@@ -159,6 +174,15 @@ jobs:
             --eval '(asdf:test-system :star-logic-protocol)' \
             --eval '(assert (null (find-package "STAR-LANG.PROTOTYPE")))' \
             --eval '(assert (null (find-package "STAR-LANG.CORE-SURFACE.PROTOTYPE")))' \
+            --eval '(sb-ext:quit)'
+
+      - name: Test final StarLang compiler and geo/mission source signatures
+        shell: bash
+        run: |
+          set -euo pipefail
+          sbcl --non-interactive \
+            --eval '(require :asdf)' \
+            --eval '(asdf:test-system :starlang-compiler)' \
             --eval '(sb-ext:quit)'
 
       - name: Test final actor protocol system independently

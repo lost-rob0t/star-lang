@@ -1,0 +1,1 @@
+{"actor":"nim.echo","attempt":1,"causationId":"req","correlationId":"correlation/req","dataset":"fixture","kind":"ack","messageId":"completed","messageType":"star.protocol/ack@1","payload":{"forMessageId":"req","status":"completed"},"starVersion":1}

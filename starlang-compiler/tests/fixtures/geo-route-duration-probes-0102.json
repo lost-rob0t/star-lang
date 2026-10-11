@@ -1,0 +1,48 @@
+{
+  "authority": {
+    "library": "org.starintel/core@1",
+    "version": "0.10.2"
+  },
+  "cases": [
+    {
+      "id": "zero-duration",
+      "value": 0,
+      "outcome": "accept"
+    },
+    {
+      "id": "one-second",
+      "value": 1,
+      "outcome": "accept"
+    },
+    {
+      "id": "one-day",
+      "value": 86400,
+      "outcome": "accept"
+    },
+    {
+      "id": "large-duration",
+      "value": 4294967295,
+      "outcome": "accept"
+    },
+    {
+      "id": "negative-one",
+      "value": -1,
+      "outcome": "reject"
+    },
+    {
+      "id": "negative-one-day",
+      "value": -86400,
+      "outcome": "reject"
+    },
+    {
+      "id": "string-duration",
+      "value": "42",
+      "outcome": "reject"
+    },
+    {
+      "id": "fractional-duration",
+      "value": 1.5,
+      "outcome": "reject"
+    }
+  ]
+}

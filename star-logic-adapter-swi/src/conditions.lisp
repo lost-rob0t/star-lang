@@ -22,6 +22,7 @@
 (define-condition swi-unexpected-eof-error (swi-session-error) ())
 (define-condition swi-shutdown-failure-error (swi-session-error) ())
 (define-condition swi-worker-crash-error (swi-session-error) ())
+(define-condition swi-query-limit-error (swi-session-error) ())
 
 (defun %swi-fail (condition-type control &rest arguments)
   (error condition-type :message (apply #'format nil control arguments)))
@@ -30,3 +31,4 @@
   (error condition-type
          :message (apply #'format nil control arguments)
          :diagnostic diagnostic))
+

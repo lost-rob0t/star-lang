@@ -1,0 +1,26 @@
+{
+  "contract": "starintel-migration/1",
+  "canonicalAuthority": "../0.10.1/core.star",
+  "canonicalCommit": "d6ca8780845c4296f64ac8e65aaa9db143842460",
+  "historicalSources": [
+    {
+      "profile": "nested-0.9.0-cb258634",
+      "repository": "lost-rob0t/starintel-gpt-auto-dig",
+      "commit": "cb258634bf413b9f3620c229dfd821270e8d5377",
+      "path": "schemas/starintel-doc-v0.9.0.schema.json",
+      "wireVersion": "0.9.0"
+    }
+  ],
+  "sha256": {
+    "0.9.0/schema.json": "4ed54fb389a09ef669f8c395c348719a6d22bdf0daff72fef92060b238412694",
+    "../0.10.1/generated/schema.json": "1d677d679adcf64ed2df6e9e98eff47c3f66f67f10efbe4c4b69f7fffa2def0a",
+    "../0.10.1/generated/portable-manifest.json": "b464f5af646ed7a7409cc8aec1c17d69c3d656d412c7ab5fbce6c83d42bc6c6f",
+    "../0.10.1/supported-workflow-mappings.json": "83c52626d416e018f802f023dca825f43fdd7936d61f598a891d0dbe1f1a3e48",
+    "canonical-migration-fixtures.json": "7f70fecc59ae472cd0429269076162fe8f9c740e9c1d6fae867f6cc823d77250",
+    "historical-reader-fixtures.json": "4bb0e4424577488df339d783ffa6c6a0e40babed0e27377d1cceb6fe48d199a3",
+    "../0.10.1/core.star": "e09205e71fcd0f2bf87ff7d104c5ccff298d0054764def81e00f81a6bd8639fc",
+    "raw_json_numbers.py": "f4ea7fa656e97ab8d9055b5cd48ddcea34e2556c9ae91c0cb54d912c6a7767bb",
+    "numeric-historical-reader-fixtures.json": "1ce528fa358f43a790fac68f8c70a9f81e0634f8aba4e9a86d790ccce4f4363f",
+    "numeric-canonical-migration-fixtures.json": "be5bc82856483e870513fb9546b8ca0500dd35128f6d94f4a19695d4dfaa455d"
+  }
+}

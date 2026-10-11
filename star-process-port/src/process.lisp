@@ -326,44 +326,52 @@ before calling it; regardless, the child is reaped before this function returns.
 (defun %start-capture-thread (stream state name)
   (make-thread (lambda () (%drain-stream-bounded stream state)) :name name))
 
-(defun %quiesce-capture-thread (thread state deadline)
-  "Bound capture-thread completion by DEADLINE and force-stop a lingering reader."
+(defun %join-capture-thread-until (thread deadline)
+  "Wait for actual thread completion, without extending DEADLINE.
+
+A force-stopped thread may make JOIN-THREAD signal rather than return a value.
+Liveness after the join is the completion test; errors from draining are kept
+separately in CAPTURE-STATE."
   (when thread
-    (cond
-      ((not (thread-alive-p thread))
-       ;; The thread already reached EOF; joining a dead thread is immediate.
-       (ignore-errors (join-thread thread)))
-      (t
-       (let ((remaining (%seconds-until-deadline deadline)))
-         (when (plusp remaining)
-           (handler-case
-               (with-timeout (remaining)
-                 (join-thread thread))
-             (bordeaux-threads:timeout () nil))))
-       (when (thread-alive-p thread)
-         ;; An unowned descendant can inherit a pipe writer and suppress EOF
-         ;; after our root process is reaped. That must not keep this invocation
-         ;; or its capture threads alive beyond the bounded cleanup budget.
-         (setf (capture-state-truncated-p state) t
-               (capture-state-forced-stop-p state) t)
-         (ignore-errors (destroy-thread thread))
-         ;; Give the implementation one scheduler handoff to finish termination;
-         ;; this does not extend the monotonic cleanup deadline.
-         (sleep 0)))))
-  state)
+    (if (not (thread-alive-p thread))
+        (ignore-errors (join-thread thread))
+        (let ((remaining (%seconds-until-deadline deadline)))
+          (when (plusp remaining)
+            (handler-case
+                (with-timeout (remaining)
+                  (ignore-errors (join-thread thread)))
+              (bordeaux-threads:timeout () nil))))))
+  (or (null thread) (not (thread-alive-p thread))))
+
+(defun %request-capture-stop (thread state)
+  (when (and thread (thread-alive-p thread))
+    ;; A descendant may retain a writer after the owned root has exited.
+    (setf (capture-state-truncated-p state) t
+          (capture-state-forced-stop-p state) t)
+    (ignore-errors (destroy-thread thread))))
 
 (defun %finish-capture-threads (process
                                 stdout-thread stdout-state
                                 stderr-thread stderr-state
                                 timeout)
-  "Quiesce both capture threads under one shared deadline, then close streams."
-  (let ((deadline (%deadline timeout)))
-    (%quiesce-capture-thread stdout-thread stdout-state deadline)
-    (%quiesce-capture-thread stderr-thread stderr-state deadline)
+  "Quiesce both capture threads under one shared deadline, then close streams.
+
+Reserve half of that budget for acknowledging asynchronous termination. Natural
+EOF waits must not consume the whole budget before stop is even requested."
+  (let* ((started (get-internal-real-time))
+         (budget (ceiling (* timeout internal-time-units-per-second)))
+         (deadline (+ started budget))
+         (drain-deadline (+ started (floor budget 2))))
+    (%join-capture-thread-until stdout-thread drain-deadline)
+    (%join-capture-thread-until stderr-thread drain-deadline)
+    ;; Request both stops before waiting on either acknowledgement: each reader
+    ;; has the remaining shared budget, rather than the second getting none.
+    (%request-capture-stop stdout-thread stdout-state)
+    (%request-capture-stop stderr-thread stderr-state)
+    (%join-capture-thread-until stdout-thread deadline)
+    (%join-capture-thread-until stderr-thread deadline)
     (%close-process-streams process)
-    ;; Closing the owned read streams is the final wake-up path. Yield once,
-    ;; then record an actual cleanup failure only if a capture thread survived.
-    (sleep 0)
+    ;; Do not pretend a stop request or scheduler yield proves completion.
     (when (and stdout-thread (thread-alive-p stdout-thread))
       (setf (capture-state-error stdout-state)
             (make-condition 'simple-error
@@ -509,3 +517,4 @@ writers cannot keep this invocation alive indefinitely."
              (otherwise 'process-exit-error))
            :message message
            :result result)))
+

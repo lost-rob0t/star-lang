@@ -1,0 +1,21 @@
+(require :asdf)
+(let ((*standard-output* *error-output*)) (asdf:load-system :star-actor-wire/tests))
+(let* ((raw (uiop:slurp-stream-string *standard-input*))
+       (bytes (babel:string-to-octets raw :encoding :utf-8))
+       (mode (uiop:getenv "STAR_WIRE_SMOKE_MODE"))
+       (request
+         (cond ((equal mode "command")
+                (star-actor-wire:decode-command-message :zmq '("star.actor2actor/1")
+                  (star-actor-wire-tests::exact-manifest) bytes))
+               ((equal mode "outcome")
+                (let ((outcome (star-actor-wire:decode-envelope
+                                (star-actor-wire-tests::exact-manifest) bytes)))
+                  (staractorprotocol:validate-correlated-lifecycle-outcome
+                    (star-actor-wire-tests::exact-request) outcome)
+                  outcome))
+               (t (let ((request (star-actor-wire-tests::exact-request)))
+               (setf (cdr (assoc "document" (getf request :payload) :test #'equal))
+                     (star-actor-wire:decode-json-value bytes)) request))))
+       (snapshot (staractorprotocol:snapshot-portable-wire-value request))
+       (encoded (star-actor-wire:encode-envelope (star-actor-wire-tests::exact-manifest) snapshot)))
+  (write-string (babel:octets-to-string encoded :encoding :utf-8)))

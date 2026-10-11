@@ -1,0 +1,1 @@
+{"actor":"nim.echo","attempt":1,"causationId":"req","correlationId":"correlation/req","dataset":"fixture","kind":"error","messageId":"unknown","messageType":"star.protocol/error@1","payload":{"code":"star.outcome-unknown","forMessageId":"req","message":"reconcile","retryable":false},"starVersion":1}

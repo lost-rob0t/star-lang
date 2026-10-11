@@ -2,6 +2,16 @@
   (:use :cl)
   (:nicknames :star-actor-protocol)
   (:export
+   #:portable-json-number #:portable-json-number-p #:make-portable-json-number
+   #:portable-json-number-lexeme #:portable-json-number-token-p
+   #:+portable-json-null+ #:+portable-json-false+ #:+portable-json-empty-object+
+   #:validate-domain-service-definition
+   #:validate-actor-service-description
+   #:actor-service-enrollment-decision
+   #:actor-service-admission-decision
+   #:validate-correlated-lifecycle-outcome
+   #:actor2actor-completion-decision
+   #:actor2actor-task-observation
    #:star-actor-protocol-error
    #:invalid-star-service-uri-error
    #:invalid-actor-reference-error
@@ -48,6 +58,32 @@
    #:lifecycle-causation-id
    #:cancel-target-message-id
    #:cancel-target-correlation-id
+   #:+actor2actor-semantic-profile+
+   #:invalid-actor2actor-task-error
+   #:actor2actor-task
+   #:actor2actor-task-p
+   #:actor2actor-task-task-id
+   #:actor2actor-task-actor
+   #:actor2actor-task-correlation-id
+   #:actor2actor-task-status
+   #:actor2actor-task-terminal-p
+   #:actor2actor-task-last-message-id
+   #:actor2actor-task-sequence
+   #:actor2actor-task-result
+   #:make-actor2actor-task
+   #:validate-actor2actor-task
+   #:actor2actor-terminal-status-p
+   #:actor2actor-status-for-envelope
+   #:actor2actor-advance-task
+   #:actor2actor-stream-frame
+   #:actor2actor-stream-frame-p
+   #:actor2actor-stream-frame-task-id
+   #:actor2actor-stream-frame-correlation-id
+   #:actor2actor-stream-frame-sequence
+   #:actor2actor-stream-frame-envelope
+   #:actor2actor-stream-frame-terminal-p
+   #:make-actor2actor-stream-frame
+   #:validate-actor2actor-stream-frame
    #:make-wire-envelope
    #:validate-wire-envelope
    #:portable-manifest-message-contract

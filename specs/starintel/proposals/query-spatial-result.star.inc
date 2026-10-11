@@ -1,0 +1,27 @@
+  ;; 0.10.2 proposal only. SS11/SS13 retain CouchDB/GeoCouch execution.
+  (enum spatial-participation (direct anchored derived))
+  (enum spatial-result-completeness (complete partial unknown))
+  (document spatial-match
+    (:persistence transient)
+    (source reference :required)
+    (projection reference :required)
+    (geometry reference :required)
+    (participation spatial-participation :required)
+    (evidence (list reference) :required)
+    (relationPath (list reference) :optional)
+    (observedAt unix-time :optional)
+    (validFrom unix-time :optional)
+    (validUntil unix-time :optional)
+    (distanceMeters distance-meters :optional)
+    (confidence confidence-score :optional))
+  (message query-spatial-result
+    (:fields
+     ((dataset string :required)
+      (mode spatial-query-mode :required)
+      (matches (list spatial-match) :required)
+      (completeness spatial-result-completeness :required)
+      (partialReasons (list string) :optional)
+      (snapshotId string :optional)
+      (nextCursor string :optional)
+      (hasMore boolean :required)
+      (evaluatedAt unix-time :required))))

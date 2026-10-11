@@ -136,6 +136,11 @@
     ((eq value t) t)
     ((null value) t)
     ((stringp value) t)
+    ((portable-json-number-p value)
+     (unless (portable-json-number-token-p (portable-json-number-lexeme value))
+       (fail-invalid-wire-envelope "Invalid exact JSON number token.")) t)
+    ((and (vectorp value) (not (stringp value)))
+     (map nil #'validate-portable-generic-wire-value value) t)
     ((integerp value) t)
     ((symbolp value) t)
     ((portable-keyword-plist-p value)
@@ -158,6 +163,11 @@
     ((eq value t) t)
     ((null value) t)
     ((stringp value) t)
+    ((portable-json-number-p value)
+     (unless (portable-json-number-token-p (portable-json-number-lexeme value))
+       (fail-invalid-wire-envelope "Invalid exact JSON number token.")) t)
+    ((and (vectorp value) (not (stringp value)))
+     (map nil #'validate-portable-generic-wire-value value) t)
     ((integerp value) t)
     ((symbolp value) t)
     ((portable-string-alist-p value)
@@ -173,6 +183,7 @@
 
 (defun validate-portable-wire-map (value context)
   (cond
+    ((eq value +portable-json-empty-object+) t)
     ((null value) t)
     ((portable-string-alist-p value)
      (dolist (entry value t)
@@ -335,6 +346,7 @@
      t)
     ((string= type "boolean")
      (unless (or (eq value t)
+                 (eq value +portable-json-false+)
                  (null value))
        (fail-invalid-wire-envelope
         "~A requires a boolean."

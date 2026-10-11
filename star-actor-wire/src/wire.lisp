@@ -1,0 +1,242 @@
+(defpackage :star-actor-wire
+  (:use :cl)
+  (:export #:decode-json-value #:encode-json-value #:decode-command-message
+           #:wire-error #:encode-envelope #:decode-envelope
+           #:unsupported-peer-protocol #:negotiate-actor2actor-profile
+           #:encode-binding-message #:decode-binding-message))
+(in-package :star-actor-wire)
+
+(define-condition wire-error (error) ()
+  (:report (lambda (condition stream)
+             (declare (ignore condition))
+             (write-string "Invalid or unsupported StarLang JSON frame." stream))))
+
+(defconstant +wire-byte-limit+ 1048576)
+(defconstant +wire-depth-limit+ 32)
+(defconstant +wire-value-limit+ 16384)
+
+(defparameter +envelope-fields+
+  '(("starVersion" . :star-version) ("kind" . :kind)
+    ("messageId" . :message-id) ("messageType" . :message-type)
+    ("actor" . :actor) ("sender" . :sender)
+    ("correlationId" . :correlation-id) ("causationId" . :causation-id)
+    ("attempt" . :attempt) ("idempotencyKey" . :idempotency-key)
+    ("dataset" . :dataset) ("replyTo" . :reply-to)
+    ("sentAt" . :sent-at) ("deadline" . :deadline) ("payload" . :payload)))
+(defparameter +control-fields+
+  '(("status" . :status) ("forMessageId" . :for-message-id)
+    ("reason" . :reason) ("retryAfterMs" . :retry-after-ms)
+    ("code" . :code) ("message" . :message) ("retryable" . :retryable)
+    ("details" . :details) ("targetMessageId" . :target-message-id)
+    ("targetCorrelationId" . :target-correlation-id)))
+
+(defun fail-wire () (error 'wire-error))
+
+(defun scan-json-frame (text)
+  "Bounded strict JSON parser. Only strings use Yason; numbers never become floats."
+  (let ((index 0) (size (length text)) (nodes 0))
+    (labels ((peek () (and (< index size) (char text index)))
+             (space () (loop while (member (peek) '(#\Space #\Tab #\Return #\Newline))
+                            do (incf index)))
+             (take (char) (unless (eql (peek) char) (fail-wire)) (incf index))
+             (string-value ()
+               (let ((start index))
+                 (take #\")
+                 (loop
+                   (let ((c (peek)))
+                     (unless c (fail-wire))
+                     (incf index)
+                     (cond ((eql c #\") (return))
+                           ((< (char-code c) 32) (fail-wire))
+                           ((eql c #\\)
+                            (let ((escape (peek)))
+                              (unless (and escape (find escape "\"\\/bfnrtu")) (fail-wire))
+                              (incf index)
+                              (when (eql escape #\u)
+                                (dotimes (i 4)
+                                  (unless (and (peek) (find (peek) "0123456789abcdefABCDEF"))
+                                    (fail-wire))
+                                  (incf index))))))))
+                 (let ((value (yason:parse (subseq text start index))))
+                   (unless (and (stringp value)
+                                (every (lambda (c) (not (<= #xD800 (char-code c) #xDFFF))) value))
+                     (fail-wire)) value)))
+             (literal (word value)
+               (loop for c across word do (take c)) value)
+             (number-value ()
+               (let ((start index))
+                 (loop while (and (peek) (not (find (peek) '(#\Space #\Tab #\Return #\Newline #\, #\] #\}))))
+                       do (incf index))
+                 (let ((token (subseq text start index)))
+                   (unless (staractorprotocol:portable-json-number-token-p token) (fail-wire))
+                   (if (or (string= token "-0")
+                           (find-if (lambda (c) (find c ".eE")) token))
+                       (staractorprotocol:make-portable-json-number token)
+                       (parse-integer token)))))
+             (value (depth)
+               (when (or (> depth +wire-depth-limit+)
+                         (> (incf nodes) +wire-value-limit+)) (fail-wire))
+               (space)
+               (case (peek)
+                 (#\" (string-value))
+                 (#\t (literal "true" 'yason:true))
+                 (#\f (literal "false" 'yason:false))
+                 (#\n (literal "null" :null))
+                 (#\{
+                  (incf index) (space)
+                  (let ((object (make-hash-table :test #'equal)))
+                    (unless (eql (peek) #\})
+                      (loop
+                        (space)
+                        (let ((key (string-value)))
+                          (when (nth-value 1 (gethash key object)) (fail-wire))
+                          (space) (take #\:)
+                          (setf (gethash key object) (value (1+ depth))))
+                        (space)
+                        (unless (eql (peek) #\,) (return))
+                        (incf index)))
+                    (take #\}) object))
+                 (#\[
+                  (incf index) (space)
+                  (let ((items nil))
+                    (unless (eql (peek) #\])
+                      (loop (push (value (1+ depth)) items) (space)
+                            (unless (eql (peek) #\,) (return)) (incf index)))
+                    (take #\]) (coerce (nreverse items) 'vector)))
+                 (otherwise (number-value)))))
+      (let ((result (value 0)))
+        (space) (unless (= index size) (fail-wire)) result))))
+
+(defun portable-json-value (value)
+  (cond
+    ((eq value 'yason:true) t)
+    ((eq value 'yason:false) staractorprotocol:+portable-json-false+)
+    ((eq value :null) staractorprotocol:+portable-json-null+)
+    ((and (hash-table-p value) (zerop (hash-table-count value)))
+     staractorprotocol:+portable-json-empty-object+)
+    ((hash-table-p value)
+     (loop for key being the hash-keys of value using (hash-value child)
+           collect (cons key (portable-json-value child))))
+    ((and (vectorp value) (not (stringp value)))
+     (map 'vector #'portable-json-value value))
+    (t value)))
+
+(defun mapped-plist (object fields)
+  (unless (hash-table-p object) (fail-wire))
+  (loop for key being the hash-keys of object using (hash-value value)
+        for mapping = (assoc key fields :test #'string=)
+        unless mapping do (fail-wire)
+        append (list (cdr mapping) (portable-json-value value))))
+
+(defun closed-name (value choices)
+  ;; Never intern peer-controlled strings into the Lisp image.
+  (or (and (stringp value) (cdr (assoc value choices :test #'string=))) (fail-wire)))
+
+(defun normalize-typed-json-fields (manifest fields payload)
+  (if (eq payload staractorprotocol:+portable-json-empty-object+) nil
+      (mapcar (lambda (entry)
+                (let ((field (find (car entry) fields :key (lambda (f) (getf f :name)) :test #'equal)))
+                  (cons (car entry) (if field (normalize-typed-json-value manifest (getf field :type) (cdr entry))
+                                       (cdr entry))))) payload)))
+
+(defun normalize-typed-json-value (manifest type value)
+  ;; Preserve historical typed booleans/lists; explicit JSON forms are for ANY/MAP.
+  (cond
+    ((equal type "boolean")
+     (if (eq value staractorprotocol:+portable-json-false+) nil value))
+    ((and (consp type) (eq (first type) :optional))
+     (cond ((eq value staractorprotocol:+portable-json-null+) nil)
+           ((eq value staractorprotocol:+portable-json-false+) value)
+           (t (normalize-typed-json-value manifest (second type) value))))
+    ((and (consp type) (eq (first type) :list) (vectorp value) (not (stringp value)))
+     (map 'list (lambda (v) (normalize-typed-json-value manifest (second type) v)) value))
+    ((member type '("any" "map") :test #'equal) value)
+    ((stringp type)
+     (let ((contract (ignore-errors (staractorprotocol:portable-manifest-type-contract manifest type))))
+       (case (getf contract :kind)
+         (:scalar (normalize-typed-json-value manifest (getf contract :base) value))
+         (:document (normalize-typed-json-fields manifest
+                       (staractorprotocol:portable-manifest-document-fields manifest contract) value))
+         (otherwise value))))
+    (t value)))
+
+(defun encode-envelope (manifest envelope)
+  "Use the canonical serializer and authoritative manifest validation unchanged."
+  (let* ((envelope (staractorprotocol:snapshot-portable-wire-value envelope))
+         (text (starcanonicaljson:canonical-lifecycle-envelope-json manifest envelope))
+         (bytes (babel:string-to-octets text :encoding :utf-8)))
+    (unless (<= 1 (length bytes) +wire-byte-limit+) (fail-wire))
+    (scan-json-frame text)
+    bytes))
+
+(defun decode-envelope (manifest bytes)
+  "Decode a bounded JSON frame, preserving payload key spelling and no new schema."
+  (handler-case
+      (progn
+        (check-type bytes (simple-array (unsigned-byte 8) (*)))
+        (unless (<= 1 (length bytes) +wire-byte-limit+) (fail-wire))
+        (let* ((text (babel:octets-to-string bytes :encoding :utf-8))
+               (object (scan-json-frame text))
+               (envelope (mapped-plist object +envelope-fields+)))
+          (unless (equalp bytes (babel:string-to-octets text :encoding :utf-8)) (fail-wire))
+          (setf (getf envelope :kind)
+                (closed-name (getf envelope :kind)
+                             '(("command" . :command) ("event" . :event) ("reply" . :reply)
+                               ("ack" . :ack) ("error" . :error) ("cancel" . :cancel))))
+          (dolist (field +envelope-fields+)
+            (unless (member (cdr field) '(:kind :payload :star-version :attempt))
+              (multiple-value-bind (value present) (gethash (car field) object)
+                (when (and present (not (stringp value))) (fail-wire)))))
+          (when (member (getf envelope :kind) '(:ack :error :cancel))
+            (let ((payload (mapped-plist (gethash "payload" object) +control-fields+)))
+              (when (eq (getf envelope :kind) :ack)
+                (setf (getf payload :status)
+                      (closed-name (getf payload :status)
+                                   '(("accepted" . :accepted) ("completed" . :completed)
+                                     ("rejected" . :rejected) ("retry" . :retry)))))
+              (when (eq (getf envelope :kind) :error)
+                (unless (member (gethash "retryable" (gethash "payload" object))
+                                '(yason:true yason:false)) (fail-wire)))
+              (when (eq (getf payload :retryable) staractorprotocol:+portable-json-false+)
+                (setf (getf payload :retryable) nil))
+              (setf (getf envelope :payload) payload)))
+          (when (member (getf envelope :kind) '(:command :event :reply))
+            (setf (getf envelope :payload)
+                  (normalize-typed-json-fields
+                   manifest
+                   (getf (staractorprotocol:portable-manifest-message-contract
+                          manifest (getf envelope :message-type)) :fields)
+                   (getf envelope :payload))))
+          (staractorprotocol:validate-lifecycle-envelope-against-manifest manifest envelope)
+          ;; JSON false/null, empty object/array and unknown payload fields must
+          ;; not collapse silently in the portable Lisp representation. Reuse
+          ;; the canonical authority and require a lossless value round trip.
+          (let ((round-trip (scan-json-frame
+                             (babel:octets-to-string (encode-envelope manifest envelope) :encoding :utf-8))))
+            (unless (equalp object round-trip) (fail-wire)))
+          envelope))
+    (wire-error (condition) (error condition))
+    (error () (fail-wire))))
+
+(defun decode-json-value (bytes)
+  "Read bounded exact opaque JSON into protocol-owned portable values.
+This proves JSON fidelity only; callers still perform canonical document validation."
+  (handler-case
+      (progn
+        (check-type bytes (simple-array (unsigned-byte 8) (*)))
+        (unless (<= 1 (length bytes) +wire-byte-limit+) (fail-wire))
+        (let* ((text (babel:octets-to-string bytes :encoding :utf-8))
+               (value (portable-json-value (scan-json-frame text))))
+          (unless (equalp bytes (babel:string-to-octets text :encoding :utf-8)) (fail-wire))
+          (staractorprotocol:snapshot-portable-wire-value value)))
+    (wire-error (condition) (error condition))
+    (error () (fail-wire))))
+
+(defun encode-json-value (value)
+  "Encode exact protocol JSON values without SDK dependencies or float coercion."
+  (let* ((snapshot (staractorprotocol:snapshot-portable-wire-value value))
+         (text (starcanonicaljson:canonical-portable-json-string snapshot))
+         (bytes (babel:string-to-octets text :encoding :utf-8)))
+    (unless (<= 1 (length bytes) +wire-byte-limit+) (fail-wire))
+    (scan-json-frame text)
+    bytes))
