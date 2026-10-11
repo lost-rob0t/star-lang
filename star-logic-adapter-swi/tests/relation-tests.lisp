@@ -4,7 +4,8 @@
 ;; Every test below uses the real pinned SWI process, the public protocol, and
 ;; the production adapter. No fake query evaluator stands in for Prolog.
 (defmacro with-relation-session ((backend session) &body body)
-  `(let* ((,backend (fresh-backend))
+  `(let* ((*print-circle* t) (*print-level* 4) (*print-length* 8)
+          (,backend (fresh-backend))
           (,session (open-logic-session ,backend "relations")))
      (unwind-protect (progn ,@body)
        (ignore-errors (close-logic-session ,backend ,session)))))
@@ -170,3 +171,49 @@
         (starlogicprotocol:next-logic-result backend session operation))
       (is (eq :failed (starlogicprotocol:logic-operation-status backend session operation)))
       (is (process-reaped-p process)))))
+
+(test relation-count-bytes-and-operation-budgets-are-bounded
+  (with-relation-session (backend session)
+    (signals starlogicprotocol:logic-session-error
+      (starlogicprotocol:apply-logic-fact-delta
+       backend session
+       (list (cons "relations" (loop for i below 257 collect
+                                 (relation-row (format nil "r~3,'0D" i) "a" "owns" "b"))))))
+    (signals starlogicprotocol:logic-session-error
+      (starlogicprotocol:apply-logic-fact-delta
+       backend session
+       (list (cons "relations" (loop for i below 100 collect
+                                 (relation-row (format nil "r~D" i)
+                                               (make-string 512 :initial-element #\a)
+                                               (make-string 512 :initial-element #\p)
+                                               (make-string 512 :initial-element #\b)))))))
+    (starlogicprotocol:apply-logic-fact-delta backend session (relation-snapshot))
+    (dolist (limits '((("answers" . 0)) (("answers" . 129))
+                     (("output-bytes" . 65537)) (("unknown" . 1))
+                     (("answers" . 1) ("answers" . 2))))
+      (signals starlogicprotocol:logic-session-error
+        (invoke-neighbors backend session "a" :limits limits)))
+    (let ((operations (loop repeat 128 collect (invoke-neighbors backend session "a"))))
+      (signals starlogicprotocol:logic-session-error (invoke-neighbors backend session "a"))
+      (dolist (operation operations)
+        (starlogicprotocol:cancel-logic-operation backend session operation "budget test"))
+      (is (every (lambda (operation)
+                   (eq :cancelled (starlogicprotocol:logic-operation-status backend session operation)))
+                 operations)))))
+
+(test relation-owned-results-and-fresh-worker-snapshot-replay
+  (with-relation-session (backend session)
+    (let* ((snapshot (relation-snapshot (relation-row "r1" "a" "owns" "b")))
+           (digest (nth-value 1 (starlogicprotocol:apply-logic-fact-delta backend session snapshot)))
+           (first (collect-neighbors backend session (invoke-neighbors backend session "a"))))
+      (setf (char (cdr (assoc "source" (first first) :test #'string=)) 0) #\X)
+      (let ((again (collect-neighbors backend session (invoke-neighbors backend session "a"))))
+        (is (string= "a" (cdr (assoc "source" (first again) :test #'string=)))))
+      (let ((fresh (open-logic-session backend "replay")))
+        (unwind-protect
+             (progn
+               (is (string= digest (nth-value 1 (starlogicprotocol:apply-logic-fact-delta backend fresh snapshot))))
+               (let ((answers (collect-neighbors backend fresh (invoke-neighbors backend fresh "a"))))
+                 (is (= 1 (length answers)))
+                 (is (string= "r1" (cdr (assoc "id" (first answers) :test #'string=))))))
+          (close-logic-session backend fresh))))))
