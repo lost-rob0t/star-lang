@@ -39,9 +39,13 @@ After the owned root process is reaped, stdout/stderr collection receives one
 shared `terminate-timeout` cleanup budget. A descendant outside this port's
 ownership may inherit a pipe writer and therefore suppress EOF after the root
 has exited. Such a descendant does not extend `run-process` indefinitely: any
-capture thread still blocked when the shared cleanup budget expires is stopped,
-the corresponding result stream is marked truncated, and the owned process
-streams are closed. This is output-resource fencing only; it does not make the
+capture thread still blocked after half of the shared cleanup budget receives
+a stop request, and the remaining half is reserved for bounded termination
+acknowledgement. Both readers receive stop requests before either is joined.
+The corresponding result stream is marked truncated, and the owned process
+streams are closed. A thread still alive after the deadline raises a typed
+`process-output-error`; a stop request or scheduler yield alone is not treated
+as completion. This is output-resource fencing only; it does not make the
 port a process-tree supervisor or define descendant restart policy.
 
 ## Provenance and secrets
@@ -65,3 +69,4 @@ appropriate test shell. It also exercises inherited stdout/stderr descriptors:
 a descendant may keep pipe writers open after the owned root exits, but normal
 completion, timeout, and cancellation must still return without retaining live
 capture threads.
+
