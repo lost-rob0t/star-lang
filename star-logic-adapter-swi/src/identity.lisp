@@ -1,6 +1,6 @@
 (in-package :starlogicadapterswi)
 
-(defparameter +swi-adapter-version+ "0.1.0")
+(defparameter +swi-adapter-version+ "0.2.0")
 (defparameter +supported-mqi-major+ 1)
 (defparameter +supported-mqi-minor+ 0)
 (defparameter +bootstrap-id+ "star.logic.bootstrap/1")
@@ -98,3 +98,4 @@
                 version
                 (%parse-version-triplet version)
                 (%sha256-file resolved))))))
+
