@@ -24,6 +24,8 @@ BEGIN STARLANG AGENT INSTRUCTIONS
 - Use test-driven development and run focused, surrounding, cross-runtime, and full gates.
 - Actor-semantic tests must execute the real runtime boundary they claim to verify.
 - Mocks may replace external-effect ports, never actor semantics evidence.
+- Reusable StarIntel domain reasoning, situation assessment, and SITREP decision rules are implemented and versioned in `starintel-labs/star-kb`; StarLang owns their canonical data/schema/portable structural semantics, not a competing rule engine.
+- StarIntel remains Zara-independent: Zara-specific adapters and native integrations belong only in Zara-scoped repositories; never add a StarLang or StarIntel dependency on Zara.
 - Keep the final-system dependency graph acyclic.
 - Java is a JVM consumer ABI, Nim may provide isolated native/edge adapters, and C is thin FFI unless separately approved.
 - Commit no secrets, credentials, private datasets, or private evidence.
