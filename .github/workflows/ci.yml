@@ -100,6 +100,8 @@ jobs:
             case "$f" in
               ./specs/starintel/*/generated/*.py) continue ;;
               ./tools/finalize-starintel-release.py) continue ;;
+              ./tools/finalize-face-intel-extension.py) continue ;;
+              ./tools/test-face-intel-extension.py) continue ;;
               ./tools/sync-starintel-consumer.py) continue ;;
               ./tools/test-starintel-consumer.py) continue ;;
               ./tools/test-starintel-research-contracts.py) continue ;;
@@ -141,6 +143,9 @@ jobs:
           python3 tools/test-starintel-research-contracts.py
           python3 tools/test-supported-workflow-contracts.py
           python3 tools/test-starintel-versioned-reader.py
+          sbcl --script tools/generate-face-intel-extension.lisp --check
+          python3 tools/finalize-face-intel-extension.py --check
+          python3 tools/test-face-intel-extension.py
 
       - name: Load starlang-prototype ASDF system
         shell: bash

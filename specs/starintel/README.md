@@ -1,5 +1,9 @@
 # StarIntel schemas in StarLang
 
+The additive [FaceIntel extension](extensions/face-intel/0.1.0/README.md)
+defines supplied face observations, candidate Person records, and candidate
+Relations in `org.starintel/face-intel@1`, importing core `0.10.1` by exact digest.
+
 StarLang source under this directory is the canonical schema authority for
 StarIntel documents. Language-specific libraries and generated bindings are
 consumers; they must not maintain an independent copy of the object model.
