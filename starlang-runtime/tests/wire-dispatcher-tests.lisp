@@ -255,7 +255,86 @@
    (null (find-package "STAR-LANG.CORE-SURFACE.PROTOTYPE"))
    "Final deterministic wire dispatcher loaded the prototype package."))
 
+(defun test-real-dispatcher-outcomes-pass-canonical-correlation-guard ()
+  ;; Exercise actual admission and settlement, not hand-constructed outcomes.
+  ;; Actor identity names the invoked actor across the lifecycle; transport
+  ;; reply routing is independent. Canonical lifecycle-v1 fixtures agree.
+  (dolist (actor '("worker" "star://test:localhost:worker"))
+    (dolist (mode '(:complete :retry :fail :deadline :cancel))
+      (let* ((dispatcher
+               (make-deterministic-dispatcher
+                (dispatcher-manifest) :now "2026-08-15T10:00:00Z"))
+             (command
+               (dispatcher-command
+                :actor actor
+                :deadline (when (eq mode :deadline) "2026-08-15T09:59:59Z")))
+             (calls 0))
+        (setf (getf command :dataset) "fixture")
+        (register-dispatch-actor
+         dispatcher "worker"
+         (lambda (runtime envelope)
+           (declare (ignore runtime envelope))
+           (incf calls)
+           (ecase mode
+             (:complete (complete-dispatch :message-type "test/result@1"
+                                           :payload '(("value" . "ok"))))
+             (:retry (retry-dispatch :retry-after-ms 10 :reason "busy"))
+             (:fail (starlangruntime:fail-dispatch :code "fixture.failed"
+                                                  :message "Synthetic failure"))
+             (:cancel (defer-dispatch))
+             (:deadline (error "Expired request invoked handler.")))))
+        (submit-dispatch-envelope dispatcher command)
+        (run-dispatcher-next dispatcher)
+        (when (eq mode :cancel)
+          (submit-dispatch-envelope
+           dispatcher
+           (staractorprotocol:make-cancel-envelope
+            command :message-id "cancel-guard" :actor actor :sender "caller")))
+        (let* ((outcomes (drain-dispatcher-emitted dispatcher))
+               (kinds (mapcar (lambda (value) (getf value :kind)) outcomes)))
+          (check (equal kinds
+                        (ecase mode
+                          (:complete '(:ack :reply :ack))
+                          (:retry '(:ack :ack))
+                          ((:fail :cancel) '(:ack :error))
+                          (:deadline '(:error))))
+                 "Unexpected actual lifecycle chain for ~A: ~S" mode kinds)
+          (check (= calls (if (eq mode :deadline) 0 1))
+                 "Handler count differs for ~A." mode)
+          (dolist (outcome outcomes)
+            (check (staractorprotocol:validate-correlated-lifecycle-outcome
+                    command outcome)
+                   "Actual ~A outcome failed canonical correlation guard." mode)
+            (check (equal actor (getf outcome :actor))
+                   "Outcome actor was replaced by a reply routing identity.")))))))
+
+(defun test-public-command-identity-validation ()
+  (let* ((original (dispatcher-command :deadline "2026-08-15T10:00:00Z"))
+         (retry (copy-tree original)))
+    (setf (getf retry :message-id) "retry-identity"
+          (getf retry :causation-id) (getf original :message-id)
+          (getf retry :attempt) 2)
+    (check (eq retry (starlangruntime:validate-command-idempotency-identity
+                     original retry))
+           "Public identity validator rejected compatible retry metadata.")
+    (dolist (change '((:actor . "other") (:sender . "other")
+                      (:correlation-id . "other") (:idempotency-key . "other")
+                      (:dataset . "other") (:reply-to . "other")
+                      (:deadline . "2026-08-16T10:00:00Z")
+                      (:message-type . "other/run@1")
+                      (:payload . (("target" . "changed")))))
+      (let ((conflict (copy-tree original)))
+        (setf (getf conflict (car change)) (cdr change))
+        (check (signals-p
+                'wire-dispatcher-idempotency-conflict-error
+                (lambda ()
+                  (starlangruntime:validate-command-idempotency-identity
+                   original conflict)))
+               "Public validator accepted changed identity field ~A." (car change))))))
+
 (defun run-tests ()
+  (test-real-dispatcher-outcomes-pass-canonical-correlation-guard)
+  (test-public-command-identity-validation)
   (test-completion-terminal-replay-and-identity-conflict)
   (test-retry-and_redelivery_metadata)
   (test_deferred_cancel_and_late_completion)

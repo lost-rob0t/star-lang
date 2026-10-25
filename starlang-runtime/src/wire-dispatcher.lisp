@@ -200,6 +200,14 @@
        (getf command :actor))))
   command)
 
+(defun validate-command-idempotency-identity (recorded-command command)
+  "Require COMMAND to retain RECORDED-COMMAND's semantic idempotency identity.
+Inputs must already be validated command envelopes. Returns COMMAND, or signals
+WIRE-DISPATCHER-IDEMPOTENCY-CONFLICT-ERROR. Delivery message ID, causation and
+attempt may change on retry; this does not authorize or execute either command."
+  (ensure-dispatcher-command-identity-compatible
+   (list :command recorded-command) command))
+
 (defun dispatcher-cancelled-p (dispatcher command)
   (or (gethash (getf command :message-id)
                (deterministic-dispatcher-cancelled-messages dispatcher))
@@ -243,7 +251,7 @@
       (staractorprotocol:make-ack-envelope
        command
        :message-id (dispatcher-next-message-id dispatcher "ack")
-       :actor (or (getf command :sender) "star.dispatcher")
+       :actor (getf command :actor)
        :sender (getf command :actor)
        :status status
        :reason reason
@@ -258,7 +266,7 @@
       (staractorprotocol:make-error-envelope
        command
        :message-id (dispatcher-next-message-id dispatcher "error")
-       :actor (or (getf command :sender) "star.dispatcher")
+       :actor (getf command :actor)
        :sender (getf command :actor)
        :code code
        :message message
@@ -275,7 +283,7 @@
        command
        :message-id (dispatcher-next-message-id dispatcher "reply")
        :message-type message-type
-       :actor (or (getf command :sender) "star.dispatcher")
+       :actor (getf command :actor)
        :sender (getf command :actor)
        :dataset (getf command :dataset)
        :sent-at (deterministic-dispatcher-now dispatcher)
@@ -421,8 +429,8 @@
           (dispatcher-command-record-if-addressable
            dispatcher command)))
     (when identity-record
-      (ensure-dispatcher-command-identity-compatible
-       identity-record command)))
+      (validate-command-idempotency-identity
+       (getf identity-record :command) command)))
   (let* ((record (command-idempotency-record dispatcher command))
          (status (getf record :status)))
     (cond

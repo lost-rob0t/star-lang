@@ -107,6 +107,7 @@
    #:command-idempotency-record
    #:set-command-idempotency-record
    #:command-idempotency-identity
+   #:validate-command-idempotency-identity
    #:process-command
    #:submit-dispatch-envelope
    #:run-dispatcher
