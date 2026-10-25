@@ -332,7 +332,106 @@
                    original conflict)))
                "Public validator accepted changed identity field ~A." (car change))))))
 
+(defun test-canonical-payload-identity-survives-wire-replay ()
+  (let* ((manifest (dispatcher-manifest))
+         (calls 0)
+         (dispatcher nil)
+         (command nil))
+    (setf (getf (first (getf manifest :messages)) :fields)
+          '((:name "data" :type "map" :required t)))
+    (labels ((wire-copy (envelope)
+               (star-actor-wire:decode-envelope
+                manifest (star-actor-wire:encode-envelope manifest envelope)))
+             (make-runtime ()
+               (let ((runtime (make-deterministic-dispatcher manifest)))
+                 (register-dispatch-actor
+                  runtime "worker"
+                  (lambda (owner envelope)
+                    (declare (ignore owner envelope))
+                    (incf calls)
+                    (complete-dispatch :message-type "test/result@1"
+                                       :payload '(("value" . "ok")))))
+                 runtime))
+             (data (envelope)
+               (cdr (assoc "data" (getf envelope :payload) :test #'string=)))
+             (field (envelope name)
+               (assoc name (data envelope) :test #'string=)))
+      (setf dispatcher (make-runtime)
+            command (dispatcher-command))
+      (setf (getf command :payload)
+            (list
+             (cons "data"
+                   (list (cons "items" (vector "CaseSensitive" 7))
+                         (cons "number" (staractorprotocol:make-portable-json-number "1.2300"))
+                         (cons "flag" staractorprotocol:+portable-json-false+)
+                         (cons "nullable" staractorprotocol:+portable-json-null+)
+                         (cons "empty" #())))))
+      (setf command (wire-copy command))
+      (submit-dispatch-envelope dispatcher command)
+      (check (eq :completed (run-dispatcher-next dispatcher))
+             "Canonical array fixture did not execute the real dispatcher.")
+      (check (= calls 1) "Initial canonical fixture did not invoke its handler once.")
+      ;; Reconstruct a new runtime record from the real dispatcher's command and
+      ;; outcomes through the supported encoder/decoder. This is a wire replay
+      ;; regression, not a claim of a database restart test.
+      (let* ((record (starlangruntime:command-idempotency-record dispatcher command))
+             (restored-command (wire-copy (getf record :command)))
+             (restored (make-runtime)))
+        (starlangruntime:set-command-idempotency-record
+         restored restored-command
+         (list :status (getf record :status)
+               :command restored-command
+               :outcomes (mapcar #'wire-copy (getf record :outcomes))))
+        (setf dispatcher restored))
+      (let ((retry (wire-copy command)))
+        (check (not (eq (cdr (field command "items"))
+                        (cdr (field retry "items"))))
+               "Wire replay fixture accidentally reused the same array object.")
+        (check (not (eq (cdr (field command "number"))
+                        (cdr (field retry "number"))))
+               "Wire replay fixture accidentally reused the same numeric token object.")
+        (setf (getf retry :message-id) "canonical-replay"
+              (getf retry :causation-id) (getf command :message-id)
+              (getf retry :attempt) 2)
+        (submit-dispatch-envelope dispatcher retry)
+        (check (eq :duplicate (run-dispatcher-next dispatcher))
+               "Equivalent decoded array/number payload was rejected after restore.")
+        (check (= calls 1) "Canonical replay repeated the handler effect."))
+      ;; Object key ordering and portable array list/vector representation have
+      ;; the same canonical payload bytes, while empty array is not null.
+      (let ((equivalent (wire-copy command)))
+        (setf (cdr (field equivalent "items"))
+              (coerce (cdr (field equivalent "items")) 'list)
+              (cdr (assoc "data" (getf equivalent :payload) :test #'string=))
+              (reverse (data equivalent)))
+        (check (eq equivalent
+                   (starlangruntime:validate-command-idempotency-identity
+                    command equivalent))
+               "Canonical map/array equivalence changed command identity."))
+      (dolist (mutation '(:element :case :number-lexeme :number-type :false :null :absence :empty))
+        (let ((conflict (wire-copy command)))
+          (ecase mutation
+            (:element (setf (aref (cdr (field conflict "items")) 1) 8))
+            (:case (setf (aref (cdr (field conflict "items")) 0) "casesensitive"))
+            (:number-lexeme
+             (setf (cdr (field conflict "number"))
+                   (staractorprotocol:make-portable-json-number "1.230")))
+            (:number-type (setf (cdr (field conflict "number")) "1.2300"))
+            (:false (setf (cdr (field conflict "flag")) t))
+            (:null (setf (cdr (field conflict "nullable")) staractorprotocol:+portable-json-false+))
+            (:absence
+             (setf (cdr (assoc "data" (getf conflict :payload) :test #'string=))
+                   (remove "nullable" (data conflict) :key #'car :test #'string=)))
+            (:empty (setf (cdr (field conflict "empty")) staractorprotocol:+portable-json-null+)))
+          (setf conflict (wire-copy conflict))
+          (submit-dispatch-envelope dispatcher conflict)
+          (check (signals-p 'wire-dispatcher-idempotency-conflict-error
+                            (lambda () (run-dispatcher-next dispatcher)))
+                 "Changed portable JSON value (~A) reused a command identity." mutation)
+          (check (= calls 1) "Conflicting ~A payload invoked handler." mutation))))))
+
 (defun run-tests ()
+  (test-canonical-payload-identity-survives-wire-replay)
   (test-real-dispatcher-outcomes-pass-canonical-correlation-guard)
   (test-public-command-identity-validation)
   (test-completion-terminal-replay-and-identity-conflict)

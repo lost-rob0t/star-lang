@@ -3,7 +3,7 @@
   :author "lost-rob0t"
   :license "AGPL-3.0-only"
   :version "0.3.0"
-  :depends-on ("star-actor-protocol" "star-mailbox")
+  :depends-on ("star-actor-protocol" "star-mailbox" "star-canonical-json")
   :serial t
   :components
   ((:module "src"

@@ -190,9 +190,22 @@
      (deterministic-dispatcher-idempotency dispatcher))))
 
 (defun ensure-dispatcher-command-identity-compatible (record command)
-  (let ((recorded-command (getf record :command)))
-    (unless (equal (command-idempotency-identity recorded-command)
-                   (command-idempotency-identity command))
+  (let* ((recorded-command (getf record :command))
+         (recorded-identity (command-idempotency-identity recorded-command))
+         (submitted-identity (command-idempotency-identity command))
+         ;; EQUAL compares vectors and exact-number structures by object identity.
+         ;; Canonical payload bytes instead preserve portable JSON semantics,
+         ;; including string case, exact numeric lexemes and absent/null/false.
+         (recorded-payload
+           (starcanonicaljson:canonical-portable-json-string
+            (getf recorded-identity :payload)))
+         (submitted-payload
+           (starcanonicaljson:canonical-portable-json-string
+            (getf submitted-identity :payload))))
+    (remf recorded-identity :payload)
+    (remf submitted-identity :payload)
+    (unless (and (equal recorded-identity submitted-identity)
+                 (string= recorded-payload submitted-payload))
       (fail-actor
        'wire-dispatcher-idempotency-conflict-error
        "Idempotency key ~A for actor ~A is already bound to a different command identity."
