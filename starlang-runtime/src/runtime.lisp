@@ -426,6 +426,17 @@
                 contract
                 value)))
 
+(defun snapshot-actor-state (actor role value)
+  (handler-case
+      (staractorprotocol:snapshot-portable-wire-value value)
+    (staractorprotocol:invalid-wire-envelope-error (condition)
+      (fail-actor
+       'actor-contract-error
+       "Actor ~A ~A state violates the bounded portable ownership contract: ~A"
+       (actor-name actor)
+       role
+       condition))))
+
 (defun dispatch-incarnation-current-p
     (runtime actor reference completion-incarnation)
   (and (eq :running (runtime-status runtime))
@@ -460,11 +471,13 @@
 (defun invoke-native-transition
     (actor message runtime reference completion-incarnation)
   (let* ((definition (actor-instance-definition actor))
+         (working-state
+           (snapshot-actor-state actor "committed" (actor-instance-data actor)))
          (values
            (multiple-value-list
             (funcall (actor-definition-handler definition)
                      message
-                     (actor-instance-data actor)
+                     working-state
                      runtime))))
     ;; A handler may stop, restart, unregister, or shut down its own actor via
     ;; another real actor. Once that happens this dispatch no longer owns any
@@ -483,15 +496,18 @@
        (actor-definition-output-validator definition)
        (actor-definition-produces definition)
        result actor)
-      ;; Validators are trusted host code and may themselves change lifecycle.
-      ;; Recheck immediately before the only actor-local success commit.
-      (ensure-dispatch-incarnation-current
-       runtime actor reference completion-incarnation)
-      (when state-supplied-p
-        (setf (actor-instance-data actor) next-state))
-      (incf (actor-instance-invocation-count actor))
-      (setf (actor-instance-last-error actor) nil)
-      result)))
+      (let ((owned-next-state
+              (and state-supplied-p
+                   (snapshot-actor-state actor "next" next-state))))
+        ;; Validators and state snapshotting run before the only actor-local
+        ;; success commit. Lifecycle changes still fence the entire result.
+        (ensure-dispatch-incarnation-current
+         runtime actor reference completion-incarnation)
+        (when state-supplied-p
+          (setf (actor-instance-data actor) owned-next-state))
+        (incf (actor-instance-invocation-count actor))
+        (setf (actor-instance-last-error actor) nil)
+        result))))
 
 (defun next-correlation-id (runtime)
   (incf (runtime-sequence runtime))
