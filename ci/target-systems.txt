@@ -22,3 +22,4 @@ star-xlsx
 starlang-compiler
 starlang-runtime
 starlang-cli
+star-lang
