@@ -47,17 +47,20 @@ env -u CL_SOURCE_REGISTRY -u ASDF_OUTPUT_TRANSLATIONS -u ASDF \
   --eval '(progn (require :asdf)
                  (format t "~A~%" (or (uiop:getenv "ASDF") ""))
                  (format t "~A~%" (or (uiop:getenv "CL_SOURCE_REGISTRY") ""))
-                 (format t "~A~%" (or (uiop:getenv "ASDF_OUTPUT_TRANSLATIONS") "")))' \
+                 (format t "~A~%" (or (uiop:getenv "ASDF_OUTPUT_TRANSLATIONS") ""))
+                 (format t "~A~%" (or (uiop:getenv "LD_LIBRARY_PATH") "")))' \
   --eval '(sb-ext:quit)' >"$probe_file" 2>/dev/null || true
-probe="$(grep -a '^/nix/store' "$probe_file" | head -3)"
+probe="$(grep -a '^/nix/store' "$probe_file" | head -4)"
 rm -f "$probe_file"
 ASDF_FASL="$(sed -n 1p <<<"$probe")"
 STORE_REGISTRY="$(sed -n 2p <<<"$probe")"
 OUT_TRANSLATIONS="$(sed -n 3p <<<"$probe")"
+LIBRARY_PATH="$(sed -n 4p <<<"$probe")"
 
 # Repository first; nix dependency stores after; no empty entry in between.
 export CL_SOURCE_REGISTRY="${REPO_ROOT}//:${STORE_REGISTRY%/}"
 [[ -n "$ASDF_FASL" ]] && export ASDF="$ASDF_FASL"
 [[ -n "$OUT_TRANSLATIONS" ]] && export ASDF_OUTPUT_TRANSLATIONS="$OUT_TRANSLATIONS"
+[[ -n "$LIBRARY_PATH" ]] && export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+$LD_LIBRARY_PATH:}$LIBRARY_PATH"
 cd "$REPO_ROOT"
 exec "$RAW_SBCL" --dynamic-space-size 3000 --no-sysinit "$@"

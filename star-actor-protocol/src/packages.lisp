@@ -27,6 +27,20 @@
    #:star-service-uri-target-p
    #:ensure-star-service-uri
    #:canonical-star-service-uri-for-actor
+   #:invalid-star-resource-uri-error
+   #:star-resource-kind-error
+   #:legacy-star-resource-uri-error
+   #:star-resource-uri
+   #:star-resource-uri-p
+   #:star-resource-uri-authority
+   #:star-resource-uri-resource-kind
+   #:star-resource-uri-resource-path
+   #:star-resource-uri-path-segments
+   #:parse-star-resource-uri
+   #:star-resource-uri-string
+   #:ensure-star-resource-uri
+   #:canonical-star-resource-uri-for-actor
+   #:hierarchical-star-uri-p
    #:star-actor-reference
    #:star-actor-reference-p
    #:star-actor-reference-domain-id
@@ -38,6 +52,8 @@
    #:make-star-actor-reference
    #:star-actor-reference-service-uri
    #:star-actor-reference-same-logical-actor-p
+   #:make-star-resource-actor-reference
+   #:star-actor-reference-canonical-p
    #:+lifecycle-wire-version+
    #:+ack-message-type+
    #:+error-message-type+

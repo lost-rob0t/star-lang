@@ -62,9 +62,23 @@
                 :accepts (copy-list (getf actor :accepts))
                 :produces (copy-list (getf actor :produces))
                 :capabilities (copy-list (getf actor :capabilities)))))
-    (when (getf actor :service-uri)
+    (cond
+      ((getf actor :resource-uri)
+       (setf portable
+             (append portable
+                     (list :resource-uri (getf actor :resource-uri)))))
+      ((getf actor :service-uri)
+       (setf portable
+             (append portable
+                     (list :service-uri (getf actor :service-uri))))))
+    (when (getf actor :states)
       (setf portable
-            (append portable (list :service-uri (getf actor :service-uri)))))
+            (append portable
+                    (list :states (copy-tree (getf actor :states))))))
+    (when (getf actor :handlers)
+      (setf portable
+            (append portable
+                    (list :handlers (copy-tree (getf actor :handlers))))))
     (when (getf actor :metadata)
       (setf portable
             (append portable

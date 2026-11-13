@@ -19,9 +19,13 @@
     #:compile-actor
     #:compile-actor-source
     #:compile-actor-file
+    #:compile-domain-server
+    #:compile-domain-tool
     #:compile-spec-library
     #:compile-star-core
     #:emit-lifecycle-manifest
+    #:domain-server-manifest-entry
+    #:emit-domain-program-manifest
     #:emit-portable-manifest
     #:supported-binding-languages
     #:generate-bindings
@@ -70,12 +74,16 @@
     #:star-lang-core-error-span
     #:star-lang-core-error-syntax-kind
     #:star-lang-source-error
+    #:domain-server-core-error
+    #:domain-tool-error
+    #:invalid-actor-body-error
     #:invalid-actor-error
     #:invalid-declaration-error
     #:invalid-envelope-error
     #:invalid-field-error
     #:invalid-library-error
     #:invalid-macro-error
+    #:invalid-star-resource-uri-error
     #:invalid-star-service-uri-error
     #:invalid-type-error
     #:macro-context-error

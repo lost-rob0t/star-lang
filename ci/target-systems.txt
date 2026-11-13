@@ -21,4 +21,5 @@ star-logic-adapter-swi
 star-xlsx
 starlang-compiler
 starlang-runtime
+star-transport-zmq
 starlang-cli

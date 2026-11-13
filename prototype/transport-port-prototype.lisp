@@ -1,5 +1,35 @@
 (in-package #:star-lang.core-surface.prototype)
 
+;;;; Forwarding shell after the transport-port contract migration.
+;;;;
+;;;; The transport port contract (port struct, delivery struct, settlement
+;;;; operations, and error condition) is final-owned by star-adapter-sdk.
+;;;; This shell re-exports that contract and keeps the fake at-least-once
+;;;; transport as a prototype-owned test double composed on the final
+;;;; contract (mocks may replace external-effect ports, never semantics).
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (require :asdf))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (unless (find-package "STARADAPTERSDK")
+    (let ((repository-root
+            (make-pathname
+             :name nil
+             :type nil
+             :directory (butlast (pathname-directory
+                               (or *load-truename*
+                                   *compile-file-truename*))))))
+      (funcall (find-symbol "INITIALIZE-SOURCE-REGISTRY" "ASDF")
+               (list :source-registry
+                     (list :tree (namestring repository-root))
+                     :inherit-configuration))
+      (funcall (find-symbol "LOAD-ASD" "ASDF")
+               (merge-pathnames "../star-adapter-sdk/star-adapter-sdk.asd"
+                                (or *load-truename*
+                                    *compile-file-truename*)))
+      (funcall (find-symbol "LOAD-SYSTEM" "ASDF") :star-adapter-sdk))))
+
 (export '(advance-fake-transport-clock
           bind-fake-transport-port
           fake-transport-dead-letters
@@ -8,73 +38,40 @@
           fake-transport-published
           fake-transport-settlements
           fake-transport-submit
-          make-fake-transport
-          make-transport-port
-          transport-ack
-          transport-delivery-envelope
-          transport-delivery-redelivery-count
-          transport-delivery-tag
-          transport-now
-          transport-publish
-          transport-receive
-          transport-reject
-          transport-requeue))
+          make-fake-transport))
 
-(define-condition transport-port-error (star-lang-core-error) ())
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defparameter *transport-port-contract-symbols*
+    '(#:transport-port-error
+    #:transport-port-p
+    #:transport-delivery-p
+    #:make-transport-port
+    #:transport-receive
+    #:transport-publish
+    #:transport-ack
+    #:transport-requeue
+    #:transport-reject
+    #:transport-now
+    #:transport-delivery-tag
+    #:transport-delivery-envelope
+    #:transport-delivery-redelivery-count
+    #:transport-delivery-visible-at
+    #:make-transport-delivery))
+  )
 
-(defstruct (transport-delivery (:constructor %make-transport-delivery))
-  tag
-  envelope
-  (redelivery-count 0)
-  (visible-at 0))
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (dolist (name *transport-port-contract-symbols*)
+    (let ((final (find-symbol (symbol-name name) :staradaptersdk)))
+      (unless final
+        (error "Transport port forwarding lost symbol ~A." name))
+      (import final)
+      (export final))))
 
-(defstruct (transport-port (:constructor %make-transport-port))
-  name
-  receive-fn
-  publish-fn
-  ack-fn
-  requeue-fn
-  reject-fn
-  now-fn)
-
-(defun make-transport-port (&key name receive publish ack requeue reject now)
-  (dolist (entry (list (cons "receive" receive)
-                       (cons "publish" publish)
-                       (cons "ack" ack)
-                       (cons "requeue" requeue)
-                       (cons "reject" reject)
-                       (cons "now" now)))
-    (unless (functionp (cdr entry))
-      (fail 'transport-port-error
-            "Transport port ~A operation must be a function."
-            (car entry))))
-  (%make-transport-port
-   :name (or name "transport")
-   :receive-fn receive
-   :publish-fn publish
-   :ack-fn ack
-   :requeue-fn requeue
-   :reject-fn reject
-   :now-fn now))
-
-(defun transport-receive (port)
-  (funcall (transport-port-receive-fn port)))
-
-(defun transport-publish (port envelope)
-  (funcall (transport-port-publish-fn port) envelope))
-
-(defun transport-ack (port delivery)
-  (funcall (transport-port-ack-fn port) delivery))
-
-(defun transport-requeue (port delivery replacement-envelope delay-ms)
-  (funcall (transport-port-requeue-fn port)
-           delivery replacement-envelope delay-ms))
-
-(defun transport-reject (port delivery reason)
-  (funcall (transport-port-reject-fn port) delivery reason))
-
-(defun transport-now (port)
-  (funcall (transport-port-now-fn port)))
+(defun %make-transport-delivery (&key tag envelope
+                                   (redelivery-count 0) (visible-at 0))
+  (staradaptersdk:make-transport-delivery
+   :tag tag :envelope envelope
+   :redelivery-count redelivery-count :visible-at visible-at))
 
 (defstruct (fake-transport (:constructor %make-fake-transport))
   (inbound '())

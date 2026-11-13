@@ -8,6 +8,7 @@
 (in-package #:star-lang.compiler.core)
 
 (define-condition invalid-star-service-uri-error (star-lang-core-error) ())
+(define-condition invalid-star-resource-uri-error (star-lang-core-error) ())
 
 (defparameter +actor-common-option-keys+
   '(:runtime :service-uri :accepts :produces :restart :mailbox
@@ -16,17 +17,31 @@
 (defparameter +actor-all-option-keys+
   (append +actor-common-option-keys+ '(:handler :protocol :endpoint)))
 
-(defun canonical-service-uri-for-actor (actor-name value)
-  "Canonicalize a STAR service URI through the final protocol authority,
-translating protocol failures into source-aware compiler conditions."
+(defun canonical-actor-uri-for-actor (actor-name value)
+  "Canonicalize an actor's STAR URI through the final protocol authority,
+translating protocol failures into source-aware compiler conditions.
+Hierarchical resource URIs (issue #72) return (VALUES canonical t); legacy
+tuple URIs remain compatibility input and return (VALUES canonical nil)."
   (let ((datum (if (star-syntax-p value) (syntax-atom value) value)))
     (unless (stringp datum)
       (fail 'invalid-star-service-uri-error
             "Actor service URI must be a string, received ~S." datum))
     (handler-case
-        (staractorprotocol:canonical-star-service-uri-for-actor actor-name datum)
+        (cond
+          ((staractorprotocol:hierarchical-star-uri-p datum)
+           (values
+            (staractorprotocol:canonical-star-resource-uri-for-actor
+             actor-name datum)
+            t))
+          (t
+           (values
+            (staractorprotocol:canonical-star-service-uri-for-actor
+             actor-name datum)
+            nil)))
       (staractorprotocol:invalid-star-service-uri-error (condition)
-        (fail 'invalid-star-service-uri-error "~A" condition)))))
+        (fail 'invalid-star-service-uri-error "~A" condition))
+      (staractorprotocol:invalid-star-resource-uri-error (condition)
+        (fail 'invalid-star-resource-uri-error "~A" condition)))))
 
 (defun actor-option-elements (value)
   "Return the element list of an actor options occurrence (syntax or raw)."
@@ -37,6 +52,9 @@ translating protocol failures into source-aware compiler conditions."
      (fail 'invalid-actor-error "Actor options must be a property list."))))
 
 (defun actor-declaration-elements (form)
+  "Return the element list of an actor declaration: (actor name options
+body-declaration*). Declarations after the options plist form the native
+StarLang actor body (issue #69)."
   (let ((elements
           (cond
             ((and (star-syntax-p form) (syntax-list-p form))
@@ -44,9 +62,10 @@ translating protocol failures into source-aware compiler conditions."
             ((and (listp form) (not (star-syntax-p form))) form)
             (t
              (fail 'invalid-actor-error "Expected (actor name (...options...)).")))))
-    (unless (and (= (length elements) 3)
+    (unless (and (>= (length elements) 3)
                  (string= (declaration-kind form) "actor"))
-      (fail 'invalid-actor-error "Expected (actor name (...options...))."))
+      (fail 'invalid-actor-error
+            "Expected (actor name (...options...) [body...])."))
     elements))
 
 (defun signal-actor-option-error (key code message &key first-key details)
@@ -177,7 +196,8 @@ deterministic string alist."
   (let* ((elements (actor-declaration-elements form))
          (operator (first elements))
          (name (second elements))
-         (options (third elements)))
+         (options (third elements))
+         (body-forms (subseq elements 3)))
     (declare (ignore operator))
     (let ((*star-current-syntax*
             (or (and (star-syntax-p form) form) *star-current-syntax*)))
@@ -189,10 +209,6 @@ deterministic string alist."
              (actor-name (identifier-string name)))
         (validate-actor-option-keys options (actor-runtime-option-keys runtime))
         (let* ((service-uri-value (optional-option options :service-uri))
-               (service-uri
-                 (and service-uri-value
-                      (canonical-service-uri-for-actor
-                       actor-name service-uri-value)))
                (library-name (and library (getf library :name)))
                (local-types
                  (and library
@@ -212,51 +228,103 @@ deterministic string alist."
                                  (normalize-type-expression
                                   type library-name local-types)
                                  (identifier-string type)))
-                           (plist-elements types)))))
-          (let ((actor
-                  (list :kind :actor
-                        :name actor-name
-                        :runtime runtime
-                        :service-uri service-uri
-                        :accepts (funcall normalize-contract
-                                          (required-option options :accepts "actor" 'invalid-actor-error))
-                        :produces (funcall normalize-contract
-                                           (required-option options :produces "actor" 'invalid-actor-error))
-                        :restart (normalize-restart
-                                  (required-option options :restart "actor" 'invalid-actor-error))
-                        :mailbox (normalize-mailbox
-                                  (required-option options :mailbox "actor" 'invalid-actor-error))
-                        :capabilities
-                        (if (plist-has-key-p options :capabilities)
-                            (normalize-actor-capabilities
-                             (required-option options :capabilities "actor"
-                                              'invalid-actor-error))
-                            '()))))
-            (ecase runtime
-              (:native
-               (let ((handler (required-option options :handler "native actor"
-                                               'invalid-actor-error)))
-                 (setf actor (append actor (list :handler (identifier-string handler))))))
-              (:external
-               (let ((protocol (required-option options :protocol "external actor"
+                           (plist-elements types))))
+               (accepted
+                 (funcall normalize-contract
+                          (required-option options :accepts "actor"
+                                           'invalid-actor-error)))
+               (normalize-type-name
+                 (lambda (name)
+                   (if library-name
+                       (normalize-type-expression name library-name local-types)
+                       (identifier-string name)))))
+          (multiple-value-bind (uri-canonical uri-hierarchical)
+              (if service-uri-value
+                  (canonical-actor-uri-for-actor actor-name service-uri-value)
+                  (values nil nil))
+            (let ((actor
+                    (append
+                     (list :kind :actor
+                           :name actor-name
+                           :runtime runtime)
+                     (if uri-canonical
+                         (if uri-hierarchical
+                             (list :resource-uri uri-canonical)
+                             (list :service-uri uri-canonical))
+                         '())
+                     (list :accepts accepted
+                           :produces (funcall normalize-contract
+                                              (required-option options :produces "actor" 'invalid-actor-error))
+                           :restart (normalize-restart
+                                     (required-option options :restart "actor" 'invalid-actor-error))
+                           :mailbox (normalize-mailbox
+                                     (required-option options :mailbox "actor" 'invalid-actor-error))
+                           :capabilities
+                           (if (plist-has-key-p options :capabilities)
+                               (normalize-actor-capabilities
+                                (required-option options :capabilities "actor"
                                                  'invalid-actor-error))
-                     (endpoint (required-option options :endpoint "external actor"
-                                                 'invalid-actor-error)))
-                 (unless (stringp (if (star-syntax-p endpoint)
-                                      (syntax-atom endpoint)
-                                      endpoint))
-                   (fail 'invalid-actor-error
-                         "External actor endpoint must be a string."))
+                               '())))))
+              (ecase runtime
+                (:native
                  (setf actor
                        (append actor
-                               (list :protocol (identifier-string protocol)
-                                     :endpoint (if (star-syntax-p endpoint)
-                                                   (syntax-atom endpoint)
-                                                   endpoint)))))))
-            (when (plist-has-key-p options :metadata)
-              (setf actor
-                    (append actor
-                            (list :metadata
-                                  (normalize-actor-metadata
-                                   (required-option options :metadata "actor"))))))
-            actor))))))
+                               (compile-native-actor-behavior
+                                options body-forms accepted
+                                normalize-type-name actor-name))))
+                (:external
+                 (when body-forms
+                   (fail 'invalid-actor-error
+                         "External actor ~A cannot declare a StarLang body."
+                         actor-name))
+                 (let ((protocol (required-option options :protocol "external actor"
+                                                  'invalid-actor-error))
+                       (endpoint (required-option options :endpoint "external actor"
+                                                  'invalid-actor-error)))
+                   (unless (stringp (if (star-syntax-p endpoint)
+                                        (syntax-atom endpoint)
+                                        endpoint))
+                     (fail 'invalid-actor-error
+                           "External actor endpoint must be a string."))
+                   (setf actor
+                         (append actor
+                                 (list :protocol (identifier-string protocol)
+                                       :endpoint (if (star-syntax-p endpoint)
+                                                     (syntax-atom endpoint)
+                                                     endpoint)))))))
+              (when (plist-has-key-p options :metadata)
+                (setf actor
+                      (append actor
+                              (list :metadata
+                                    (normalize-actor-metadata
+                                     (required-option options :metadata "actor"))))))
+              actor)))))))
+
+(defun compile-native-actor-behavior (options body-forms accepted
+                                      normalize-type actor-name)
+  "Lower native actor behavior: exactly one of the legacy :handler identity
+or a StarLang body (issue #69). Returns trailing IR plist entries."
+  (let ((handler-option
+          (and (plist-has-key-p options :handler)
+               (identifier-string (optional-option options :handler)))))
+    (cond
+      ((and handler-option body-forms)
+       (fail 'invalid-actor-error
+             "Native actor ~A cannot mix :handler with a StarLang body."
+             actor-name))
+      (body-forms
+       (multiple-value-bind (states handlers)
+           (compile-body-declarations
+            body-forms nil accepted normalize-type
+            (format nil "Actor ~A" actor-name))
+         (ensure-body-covers-accepted-types
+          accepted
+          (mapcar (lambda (handler) (getf handler :message-type)) handlers)
+          (format nil "Actor ~A" actor-name))
+         (list :states states :handlers handlers)))
+      (handler-option
+       (list :handler handler-option))
+      (t
+       (fail 'invalid-actor-error
+             "Native actor ~A requires a :handler or a StarLang body."
+             actor-name)))))

@@ -4,6 +4,7 @@
   :license "AGPL-3.0-only"
   :version "0.1.0"
   :depends-on ("star-actor-protocol"
+               "star-adapter-sdk"
                "star-canonical-json"
                "star-journal"
                "star-lease"
