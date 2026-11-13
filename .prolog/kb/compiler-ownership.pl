@@ -1,3 +1,5 @@
+:- multifile final_owner/2, asdf_dependency/2.
+
 % Compiler ownership facts after the actor-compiler extraction (2026-09-10).
 
 % The closed StarLang compiler core and actor lowering are final-owned by

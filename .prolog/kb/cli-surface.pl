@@ -1,3 +1,5 @@
+:- multifile final_owner/2, asdf_dependency/2.
+
 % Final CLI surface facts after the first-class final-system CLI slice
 % (2026-09-11, verified by the starlang-cli gate run).
 
