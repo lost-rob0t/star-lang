@@ -25,3 +25,11 @@ loud_suites([starlang_prototype_runner_children,
              star_actor_protocol_asserts,
              starlang_runtime_asserts,
              star_canonical_json_asserts]).
+
+% ci/with-nix-sbcl.sh execs SBCL WITHOUT --disable-debugger/--non-interactive.
+% A failing --eval test gate then enters the interactive debugger; with
+% non-tty stdin the process can exit 0 on failure (silent green). Gate
+% invocations must pass --disable-debugger --non-interactive so failures are
+% loud. Verified during PR #145 (fiveam failure initially "passed").
+silent_gate_symptom(with_nix_sbcl_eval_debugger_exit_zero).
+loud_gate_pattern(with_nix_sbcl_disable_debugger_non_interactive).
