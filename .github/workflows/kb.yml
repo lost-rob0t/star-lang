@@ -1,0 +1,70 @@
+name: Star KB contracts
+
+on:
+  pull_request:
+    paths:
+      - "star-kb/**"
+      - "star-kb-tek9/**"
+      - ".github/workflows/kb.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "star-kb/**"
+      - "star-kb-tek9/**"
+      - ".github/workflows/kb.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  kb:
+    name: Common Lisp + Tek9 integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install SBCL, LMDB and Quicklisp bootstrap dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes sbcl curl ca-certificates git liblmdb-dev libffi-dev
+
+      - name: Install Quicklisp
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location \
+            https://beta.quicklisp.org/quicklisp.lisp \
+            --output /tmp/quicklisp.lisp
+          sbcl --non-interactive \
+            --load /tmp/quicklisp.lisp \
+            --eval '(quicklisp-quickstart:install :path #P"/home/runner/quicklisp/")' \
+            --eval '(sb-ext:quit)'
+
+      - name: Pin Tek9 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/quicklisp/local-projects"
+          git init "$HOME/quicklisp/local-projects/tek9"
+          git -C "$HOME/quicklisp/local-projects/tek9" remote add origin \
+            https://github.com/lost-rob0t/tek9.git
+          git -C "$HOME/quicklisp/local-projects/tek9" fetch --depth=1 origin \
+            1cb978084da8b4f1d184b3ef2a1d30057f525608
+          git -C "$HOME/quicklisp/local-projects/tek9" checkout --detach FETCH_HEAD
+          ln -s "$GITHUB_WORKSPACE" "$HOME/quicklisp/local-projects/star-lang"
+
+      - name: Run STAR-KB contract and real Tek9 tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          sbcl --non-interactive \
+            --load "$HOME/quicklisp/setup.lisp" \
+            --eval '(ql:register-local-projects)' \
+            --eval '(ql:quickload :star-kb)' \
+            --eval '(asdf:test-system :star-kb)' \
+            --eval '(ql:quickload :star-kb-tek9)' \
+            --eval '(asdf:test-system :star-kb-tek9)' \
+            --eval '(sb-ext:quit)'
