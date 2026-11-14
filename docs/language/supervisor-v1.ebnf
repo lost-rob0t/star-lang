@@ -1,0 +1,52 @@
+(* StarLang supervisor surface grammar, proposal v1.
+   Normative semantic rules: SUPERVISOR-GRAMMAR.org.
+   This is grammar documentation, not a replacement StarLang reader/parser.
+
+   Token-level EBNF: comma = sequence; | = alternative; { } = repetition.
+   Quoted terminals are existing-reader token values, not Lisp symbols.
+   Existing keyword case-folding is retained; structural/enum identifiers
+   have the exact lowercase spelling shown. User identifiers preserve case.
+   Source trivia and literal lexing remain owned by read-star-syntax.
+*)
+
+supervisorUnit = supervisorDeclaration, endOfInput ;
+
+supervisorDeclaration =
+    "(", "supervisor", identifier,
+        "(", supervisorOption, { supervisorOption }, ")",
+    ")" ;
+
+supervisorOption =
+      ":strategy", strategy
+    | ":restart", restartClass
+    | ":restart-intensity", restartIntensity
+    | ":backoff", backoff
+    | ":shutdown", shutdown
+    | ":children", childList ;
+
+strategy = "one-for-one" | "one-for-all" | "rest-for-one" ;
+restartClass = "permanent" | "transient" | "temporary" ;
+restartIntensity = "(", unsignedInteger, duration, ")" ;
+backoff = "none" | "(", "fixed", duration, ")" ;
+shutdown = "immediate" | "(", "drain", duration, ")" ;
+childList = "(", identifier, { identifier }, ")" ;
+duration = "(", timeUnit, unsignedInteger, ")" ;
+timeUnit = "milliseconds" | "seconds" | "minutes" ;
+
+identifier = ? existing closed-reader syntax node of kind identifier ? ;
+unsignedInteger = ? existing integer node with value 0..9007199254740991 ? ;
+endOfInput = ? end of source after existing-reader trivia ? ;
+
+(* Additional mandatory constraints, not expressible by the unordered plist:
+   - Exactly one :strategy, :restart, :restart-intensity, :shutdown, :children.
+   - At most one :backoff; default is none.
+   - No duplicate/unknown options or extra positional values.
+   - Duration quantity > 0; exact millisecond product <= 9007199254740991.
+   - Child references resolve to native actors or supervisors in one linked
+     activation graph; one selected root, unique children, no multiple parents,
+     no cycles. Name resolution respects existing occurrence/scope identity.
+   - Child order is semantic and must be retained in IR.
+   - Declaration restart class is the single child restart-class authority.
+   - No quoting, Common Lisp package names, eval, function objects, or new
+     permissive reader entrypoint. Existing source/parser limits still apply.
+*)

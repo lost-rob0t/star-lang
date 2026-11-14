@@ -1,0 +1,399 @@
+#+title: StarLang supervisor — final surface grammar proposal v1
+#+status: REVIEW
+#+filetags: :starlang:grammar:supervision:design:
+
+* Contract and status
+
+This defines the target user-written =.star= supervisor grammar, not just a
+syntax sketch. It supersedes the initial six-clause sketch in PR #91. It is a
+fully specified proposal for owner review, NOT a claim that the parser or
+runtime already implements the whole contract. The research/design repository
+remains the semantic approval authority; this draft PR is the review location.
+
+Three distinct representations must not be confused:
+
+| Representation | Written by | Example |
+|----------------+------------+---------|
+| StarLang source | Application author | =(supervisor ingestSupervisor (:strategy one-for-one ...))= |
+| Normalized IR | Compiler/linker | A data-only supervisor node with normalized durations and resolved child identities. |
+| Common Lisp host API | Embedder / generated host integration | =(starsupervisor:make-supervisor-spec ...)= |
+
+Lisp-like surface syntax is not itself normalized IR. Another source frontend
+can target this core in future without making the Common Lisp host API the
+language grammar. No alternate frontend is specified or required here.
+
+Current baseline: =a9d54f71eaa3b49fff1aae6ee065c2ec5ea71a51=.
+The compiler's actor grammar already uses =(actor name (keyword value ...))=,
+with bare enum identifiers such as =native= and =permanent=. This proposal uses
+that same structure. Source option keywords are hyphenated; generated JSON
+field names are lower camelCase. They are not the same naming layer.
+
+* The source an application author writes
+
+#+begin_src lisp
+(supervisor ingestSupervisor
+  (:strategy one-for-one
+   :restart permanent
+   :restart-intensity (3 (seconds 10))
+   :backoff (fixed (milliseconds 250))
+   :shutdown (drain (seconds 5))
+   :children (fetcher normalizer oneShot)))
+#+end_src
+
+This is the complete proposed supervisor declaration. It is not a call to
+Common Lisp, not a constructor plist supplied by the host, and not emitted IR.
+
+The options mean: supervise those named children individually; permit at most
+three child restart attempts in a rolling ten-second window; wait 250ms before
+a permitted restart; drain for at most five seconds during shutdown. The
+supervisor itself is =permanent= when attached beneath another supervisor.
+
+The complete source-design examples are in
+[[file:../../star-supervisor/examples/source-design/README.org][examples/source-design]]. They are compiler acceptance inputs for the proposed
+grammar, not programs accepted by today's supervisor frontend.
+
+* Actors remain actor declarations
+
+For example, =normalizer.star= contains this ordinary actor form:
+
+#+begin_src lisp
+(actor normalizer
+  (:runtime native
+   :accepts ()
+   :produces ()
+   :handler normalizeHandler
+   :restart permanent
+   :mailbox (bounded 32)))
+#+end_src
+
+The empty contract lists keep this example about lifecycle rather than message
+schemas; a typed application supplies its existing message type references.
+=normalizeHandler= is a symbolic handler binding, not embedded Lisp code. The
+host must supply that binding through the existing integration boundary; the
+compiler must never evaluate it as a Lisp symbol or function. This proposal
+does not redefine the actor grammar or introduce a general expression language.
+
+Restart classification has one source owner: the child declaration's =:restart=.
+An actor owns its class; a supervisor owns its class when used as a child.
+The parent's =:restart-intensity= is a shared budget, not another child class.
+There are no per-edge class overrides or inline duplicate actor declarations
+in v1. The existing =:mailbox= stays on the actor, not its supervisor.
+
+* Normative grammar
+
+[[file:supervisor-v1.ebnf][supervisor-v1.ebnf]] is the complete token-level EBNF. The following is the
+same structural contract in compact form. Quoted terminals are literal source
+tokens; =identifier= and =integerToken= come from the existing closed reader.
+
+#+begin_example
+supervisorUnit = supervisorDeclaration, EOF ;
+
+supervisorDeclaration =
+  "(", "supervisor", identifier,
+    "(", supervisorOption, { supervisorOption }, ")",
+  ")" ;
+
+supervisorOption =
+    ":strategy", strategy
+  | ":restart", restartClass
+  | ":restart-intensity", "(", unsignedInteger, duration, ")"
+  | ":backoff", backoff
+  | ":shutdown", shutdown
+  | ":children", "(", identifier, { identifier }, ")" ;
+
+strategy = "one-for-one" | "one-for-all" | "rest-for-one" ;
+restartClass = "permanent" | "transient" | "temporary" ;
+backoff = "none" | "(", "fixed", duration, ")" ;
+shutdown = "immediate" | "(", "drain", duration, ")" ;
+duration = "(", timeUnit, unsignedInteger, ")" ;
+timeUnit = "milliseconds" | "seconds" | "minutes" ;
+#+end_example
+
+** Cardinality, defaults, and lexical rules
+
+The EBNF permits options in any order. Validation additionally requires exactly
+one each of =:strategy=, =:restart=, =:restart-intensity=, =:shutdown=, and
+=:children=. =:backoff= is optional, at most once, and defaults to =none=.
+There are no other implicit policy defaults. The printer uses the order shown
+in the main example; reordering options does not change semantic IR.
+
+Every child list is nonempty and ordered. Every option has exactly one value.
+Duplicate keys, unknown keys, extra positional values, and nested per-key
+clauses are errors, not last-value-wins or ignored extensions.
+
+The existing UTF-8 closed reader remains authoritative: comments, whitespace,
+strings, integer lexing, limits, spans, and occurrence/scoping identity are
+unchanged. This grammar consumes its syntax nodes, never Common Lisp READ/EVAL.
+Existing case-insensitive option-keyword recognition is retained. Structural
+words and enum identifiers in this extension match the exact lowercase
+spellings above; user identifiers retain their source spelling and case.
+
+=:one-for-one= and =:permanent= are NOT source enum values here. The colon marks
+an option key, while =one-for-one= and =permanent= are identifier values. The
+Common Lisp host API still uses Lisp keywords, e.g. =:one-for-one=.
+
+=unsignedInteger= is an integer syntax node whose value is between 0 and
+9007199254740991 inclusive; it is not a string, float, boolean, or expression.
+The numeric lexeme is handled by the existing reader, so this rule does not
+invent a second numeric lexer. Restart count zero is valid. Every duration is
+strictly positive and its exact millisecond product must also fit that range.
+Use =none= for zero backoff and =immediate= for no drain. Existing source limits
+and stricter backend resource limits must still be enforced before activation.
+
+Conversion is exact integer multiplication: milliseconds × 1, seconds × 1000,
+minutes × 60000. =10s=, ="10s"=, =0.5=, =(+ 1 2)=, and unbounded/infinite
+values are not durations in this grammar. No unit is inferred.
+
+** Source units and name resolution
+
+A supervisor unit contains exactly one top-level supervisor declaration.
+An actor unit keeps the existing single-actor contract. An embedding/compiler
+link operation receives an explicit collection of units plus an explicit root
+supervisor name; it does not concatenate forms and feed them to a single-actor
+compiler. This proposal adds no =(program ...)=, =(module ...)=, =using=, or
+Common Lisp package notation as an undocumented wrapper.
+
+A child reference is an identifier, not a filename, service URI, actor handle,
+or embedded declaration. Resolution uses the existing syntax scope machinery
+inside the explicitly linked graph; it performs no implicit file search,
+network discovery, or StarIntel registry lookup. Existing exact-versioned,
+digest-locked import rules continue to apply to any imported declarations.
+A standalone unit may retain unresolved symbolic references until link time;
+a complete linked executable graph may not.
+
+Each reference must resolve to a native actor or supervisor. External actor,
+process, pool, and remote lifecycle supervision are not part of this v1 grammar
+contract: they require a separately specified lifecycle adapter, not an
+assumption that a routing reference confers lifecycle ownership.
+
+Within one linked activation graph, a declaration identifies one child instance.
+There must be one selected root, one parent for every other reachable node,
+unique child entries, and no cycles. Repeated names across unrelated host
+activations are allowed. Reusing one declaration twice under two parents in the
+same activation is rejected; parameterized actor templates/aliases are not
+quietly introduced by the child list.
+
+* Nested trees use the same grammar
+
+=fetchSupervisor.star=:
+
+#+begin_src lisp
+(supervisor fetchSupervisor
+  (:strategy one-for-one
+   :restart permanent
+   :restart-intensity (3 (seconds 10))
+   :shutdown immediate
+   :children (fetcher)))
+#+end_src
+
+=serviceRoot.star=:
+
+#+begin_src lisp
+(supervisor serviceRoot
+  (:strategy rest-for-one
+   :restart permanent
+   :restart-intensity (2 (minutes 1))
+   :shutdown (drain (seconds 10))
+   :children (fetchSupervisor normalizer oneShot)))
+#+end_src
+
+=serviceRoot= is selected as root by the host/link request. Its own =:restart=
+is recorded but has no parent to act on it; there is no invisible supervisor
+above it. The order is intentional: if =fetchSupervisor= fails terminally,
+=rest-for-one= selects it and later siblings for the recovery transition.
+This tree is a target grammar example; PR #91's current driver is flat only.
+
+* Defined policy semantics
+
+** Restart classes
+
+| Exit cause | permanent | transient | temporary |
+|------------+-----------+-----------+-----------|
+| Observed normal exit | Restart | Remain stopped | Remain stopped |
+| Abnormal failure | Restart | Restart | Remain stopped |
+| Operator stop / supervisor teardown | Remain stopped | Remain stopped | Remain stopped |
+
+For the prototype-compatible failure model, a failed mailbox dispatch is
+abnormal, including a failed contract validation. A normal self-stop is normal.
+A supervisor's exhausted restart budget is a terminal failure visible to its
+parent, so a transient parent-child binding can recover it. This is a StarLang
+classification, not a promise to copy every OTP exit-reason detail.
+
+** Strategy, ordering, and batch accounting
+
+Startup follows child declaration order; shutdown of a selected group is in
+reverse declaration order. A strategy activates only when the triggering
+child's class requires restart. A temporary/normal-transient exit alone does
+not cause otherwise healthy siblings to restart.
+
+| Strategy | Selected recovery group |
+|----------+-------------------------|
+| one-for-one | The triggering child only. |
+| one-for-all | The triggering child and currently active/backoff siblings. |
+| rest-for-one | The triggering child and currently active/backoff later siblings. |
+
+A selected supervisor denotes its subtree. Stop selected live children before
+starting replacements. Collateral stop events belong to that same recovery
+transition and must not recursively trigger another restart wave. Active
+permanent/transient siblings selected by the strategy are restarted; temporary
+siblings may be stopped but are never restarted. Already terminal or
+operator-disabled children are not revived by a sibling failure.
+
+=restart-intensity= counts attempted direct-child replacements shared across a
+supervisor, not just failures of one child and not application-message retries.
+Initial starts do not count. Retain attempt timestamps in =(now - period, now]=.
+For a multi-child recovery group, reserve one attempt per eligible replacement
+as an atomic batch immediately before starting it. If the group would exceed
+the budget, start none of the group: fail this supervisor and stop its subtree.
+An admitted attempt that fails to start is terminal =restart-failed=; do not add
+an unbounded internal retry loop. Backoff expiry alone does not reset history.
+
+A parent replacing a failed child-supervisor spends one parent attempt; that
+child-supervisor's own restart history begins empty. A parent's operator-stop
+mode still suppresses all nested automatic restarts. Runtime generation/tombstone
+identity must survive subtree reconstruction within the same live runtime so
+old references cannot become current again.
+
+** Backoff, state, and drain
+
+=none= means immediately eligible. =(fixed duration)= delays the selected
+recovery group until that interval after failure observation; child stops may
+complete during that interval. Replacement requires both the deadline to have
+arrived and the previous generation to be quiescent. No sleeping actor or
+implicit correctness-by-polling loop is part of the source language.
+
+Within a live runtime, replacement preserves committed native actor state,
+advances generation, installs a fresh mailbox, and discards queued work. The
+failed message is not replayed and external side effects are not rolled back.
+This deliberately matches the existing runtime; reset-from-initializer is not
+silently substituted. A whole-host restart/durable state restoration is outside
+this grammar contract. A backend unable to provide this restart model must
+reject activation, not approximate it with resume or duplicate actors.
+
+=immediate= fences new work and requests immediate shutdown without draining.
+=(drain duration)= first fences new admission and disables restart, then permits
+already admitted work to finish until one absolute monotonic subtree deadline.
+Internal traffic cannot extend that deadline. Descendants inherit the minimum
+of their deadline and the ancestor deadline; the timeout is not multiplied by
+the number of children. At expiry, discard remaining queues and fence late
+runtime completions before completing teardown. This does not roll back
+arbitrary external effects.
+
+A time limit does NOT authorize unsafe thread killing or guarantee preemption
+of arbitrary Lisp code. A backend unable to establish quiescence must return
+=shutdown-timeout=, retain containment responsibility, and not start a competing
+replacement. Backend support must be checked before starting the graph. The
+prototype's =max-steps= drain is not a time-bounded drain and cannot be substituted
+for seconds/milliseconds in source. Blocking-process supervision needs its own
+supported adapter.
+
+* What the compiler emits instead — IR
+
+[[file:../../star-supervisor/examples/source-design/ingestSupervisor.expected-ir.json][ingestSupervisor.expected-ir.json]] is the expected linked supervisor-node
+projection for the main example. It is an illustrative golden data node, not an
+already generated full manifest or a new published wire schema.
+
+#+begin_src json
+{
+  "kind": "supervisor",
+  "name": "ingestSupervisor",
+  "strategy": "one-for-one",
+  "restart": "permanent",
+  "restartIntensity": {"maxRestarts": 3, "periodMs": 10000},
+  "backoff": {"kind": "fixed", "delayMs": 250},
+  "shutdown": {"kind": "drain", "timeoutMs": 5000},
+  "children": [
+    {"kind": "actor", "name": "fetcher"},
+    {"kind": "actor", "name": "normalizer"},
+    {"kind": "actor", "name": "oneShot"}
+  ]
+}
+#+end_src
+
+Unit compilation retains symbolic child references; link resolves their kind
+and identity in the graph. The names in this example are unambiguous local
+identities, not distributed actor addresses. Locked imported identities must
+also retain the existing library/version/digest identity rather than flattening
+two different libraries to the same name.
+
+Normalize omitted/explicit =none= backoff to
+={"kind":"none","delayMs":0}= and =immediate= shutdown to
+={"kind":"immediate","timeoutMs":0}=. Equivalent duration spellings normalize
+to equal millisecond values. The children array preserves declaration order;
+object keys use the existing canonical JSON sorting, never array sorting.
+
+All IR values are data: no function closures, Lisp package symbols, live refs,
+Sento objects, dispatcher handles, or host clock functions. Syntax spans and
+macro origins remain in the source-map/provenance layer. The existing normalized
+IR envelope is =org.star-lang/normalized-ir@2=; this PR does not claim that its
+schema already allows supervisors. Shipping the new node requires a versioned
+schema/manifest extension and explicit capability rejection by older consumers.
+Do not silently inject this node into an unchanged v2 contract.
+
+* Diagnostics and acceptance obligations
+
+These are required compiler/link/runtime capability checks for the target, not
+a list of tests claimed to have run. Report the offending source span and, for
+name/cycle/duplicate errors, related declaration spans.
+
+| Proposed diagnostic | Phase | Required example |
+|---------------------+-------+------------------|
+| supervisor-shape | validate | Old separate =(:strategy ...)= clauses; multiple option lists; extra positional data. |
+| supervisor-option | read/validate | Unknown option, odd plist, or an option legal elsewhere but not here. |
+| supervisor-duplicate-option | validate | Two =:children= or two =:strategy= entries. |
+| supervisor-missing-option | validate | Missing strategy, restart, intensity, shutdown, or children. |
+| supervisor-strategy | validate | Unknown strategy or keyword enum in place of a bare enum. |
+| supervisor-restart | validate | Restart class outside permanent/transient/temporary. |
+| supervisor-duration | validate | Missing unit, zero/negative duration, float, string, or multiplication overflow. |
+| supervisor-intensity | validate | Negative/noninteger count or wrong intensity tuple length. |
+| supervisor-child-list | validate | Empty child list or nonidentifier child. |
+| supervisor-unknown-child | link | Misspelled/unresolved child identifier. |
+| supervisor-child-kind | link | Reference to a document, external actor, or another unsupported declaration kind. |
+| supervisor-duplicate-child | link | Repeated child after scoped-name resolution. |
+| supervisor-multiple-parents | link | One instance owned by two reachable supervisors. |
+| supervisor-cycle | link | Self-edge or multi-node cycle; report the entire cycle path. |
+| supervisor-root | link | Missing/ambiguous/non-supervisor selected root. |
+| supervisor-backend-unsupported | activate | Unsupported strategy, nesting, state preservation, or timed drain. |
+
+Mandatory positive coverage: every restart class; every strategy; nested trees;
+option permutation; omitted/explicit none equivalence; ms/seconds/minutes
+normalization; zero restart allowance; nonzero duration extremes; child-order
+preservation; deterministic data-only IR; and fresh-process compilation without
+prototype packages. Negative cases cover every row above. Clock injection is
+permitted; actor/mailbox operations must use the actual runtime under test.
+
+* Implementation boundary and next compiler slice
+
+| Feature | PR #91 code | Target defined here |
+|---------+-------------+---------------------|
+| Common Lisp supervisor constructors and tick driver | Present, not locally execution-verified. | Host integration, not source grammar. |
+| Supervisor .star reader keywords and validator | Not implemented. | Closed grammar above. |
+| Actor source forms used by examples | Existing compiler path. | Unchanged actor syntax. |
+| One-for-one/native flat children | Prototype implementation present. | Required. |
+| Other strategies and nested trees | Not implemented. | Defined; unsupported backends reject before spawn. |
+| Fixed deadline backoff | Prototype implementation present. | Unit-bearing source lowered to milliseconds. |
+| Timed drain | Not implemented; current drain counts rounds. | Absolute monotonic subtree deadline. |
+| Normalized supervisor IR/linking | Not implemented. | Data-only node and graph validation above. |
+
+The next implementation must extend the existing =starlang-compiler= keyword
+vocabulary and grammar validation, add supervisor unit compilation and graph
+linking, and retain the normal read -> locked imports -> expand -> validate ->
+lower pipeline. It must not use READ/EVAL, add a second parser, implement policy
+in the Sento adapter, or pretend to compile by evaluating the host Lisp example.
+No parser/runtime implementation change is made by this documentation commit.
+
+* Basis
+
+- [[file:../../starlang-compiler/src/actor-ir.lisp][Existing actor declaration validation/lowering]] and
+  [[file:../../starlang-compiler/tests/actor-compiler-tests.lisp][actor source/IR tests]] establish the source form and bare enum conventions.
+- [[file:../../starlang-compiler/src/core-surface.lisp][Existing closed reader]] owns lexical syntax, limits, source identity, and
+  the current normalized-IR envelope version.
+- [[https://github.com/lost-rob0t/star-lang/issues/57][#57]] supplies supervision requirements; [[https://github.com/lost-rob0t/star-lang/issues/42][#42]] supplies the real-actor evidence boundary.
+- [[https://github.com/lost-rob0t/starintel-auto-research/blob/main/roam/design/star-lang/STAR-LANG-002-durable-actor-runtime.org][STAR-LANG-002]] is the REVIEW design basis, not automatic approval of this grammar.
+- [[https://www.erlang.org/doc/system/sup_princ.html][OTP supervision principles]] are the source of the familiar strategy/class
+  vocabulary. StarLang's batch accounting, state preservation, and deadline
+  contract are explicitly defined here rather than claimed OTP equivalence.
+
+StarIntel server still owns its actor registry. Transport selection, scheduling,
+business persistence, and durable recovery are not encoded in this supervisor
+source grammar. Review this declaration language in PR #91 before promotion.
