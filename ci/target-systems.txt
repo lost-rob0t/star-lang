@@ -9,6 +9,7 @@ star-artifact
 star-verification
 star-adapter-sdk
 star-http-port
+star-fetch
 star-scrape
 star-process-port
 star-canonical-json
