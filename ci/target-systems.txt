@@ -6,6 +6,7 @@ star-journal
 star-lease
 star-capability
 star-artifact
+star-fs
 star-verification
 star-adapter-sdk
 star-http-port
