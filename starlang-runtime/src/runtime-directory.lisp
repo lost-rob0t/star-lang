@@ -85,6 +85,11 @@
              address
              (staractorprotocol:star-service-uri-address uri))))))))
 
+(defun validate-runtime-directory-resource-uri (entry)
+  (let ((resource-uri (getf entry :resource-uri)))
+    (when resource-uri
+      (staractorprotocol:parse-star-resource-uri resource-uri))))
+
 (defun validate-runtime-directory-entry (entry)
   (ensure-runtime-directory-plist entry "runtime directory entry")
   (runtime-directory-required-string
@@ -102,6 +107,7 @@
      (getf entry :name)
      (getf entry :alive)))
   (validate-runtime-directory-capabilities entry)
+  (validate-runtime-directory-resource-uri entry)
   (validate-runtime-directory-service-uri entry)
   (copy-tree entry))
 
@@ -128,29 +134,46 @@
 
 (defun resolve-star-service-uri (port context uri-value)
   (let* ((uri (staractorprotocol:ensure-star-service-uri uri-value))
-         (canonical (staractorprotocol:star-service-uri-string uri))
-         (matches
+         (canonical (staractorprotocol:star-service-uri-string uri))         (matches
            (remove-if-not
             (lambda (entry)
               (let ((service-uri (getf entry :service-uri)))
                 (and service-uri
                      (string= canonical service-uri))))
             (runtime-directory-snapshot port context))))
-    (cond
-      ((null matches)
-       (fail-actor
-        'runtime-directory-service-not-found-error
-        "STAR service ~A is not registered in the runtime directory."
-        canonical))
-      ((rest matches)
-       (fail-actor
-        'runtime-directory-error
-        "STAR service ~A has duplicate runtime-directory registrations."
-        canonical))
-      ((null (getf (first matches) :alive))
-       (fail-actor
-        'runtime-directory-service-unavailable-error
-        "STAR service ~A is registered but not alive."
-        canonical))
-      (t
-       (copy-tree (first matches))))))
+    (resolve-directory-matches canonical matches)))
+
+(defun resolve-star-resource-uri (port context uri-value)
+  "Resolve one canonical hierarchical resource URI against the local
+runtime directory. Liveness stays separate from semantic identity: a
+registered but non-alive entry is typed unavailable, not unknown."
+  (let* ((uri (staractorprotocol:ensure-star-resource-uri uri-value))
+         (canonical (staractorprotocol:star-resource-uri-string uri))
+         (matches
+           (remove-if-not
+            (lambda (entry)
+              (let ((resource-uri (getf entry :resource-uri)))
+                (and resource-uri
+                     (string= canonical resource-uri))))
+            (runtime-directory-snapshot port context))))
+    (resolve-directory-matches canonical matches)))
+
+(defun resolve-directory-matches (canonical matches)
+  (cond
+    ((null matches)
+     (fail-actor
+      'runtime-directory-service-not-found-error
+      "STAR service ~A is not registered in the runtime directory."
+      canonical))
+    ((rest matches)
+     (fail-actor
+      'runtime-directory-error
+      "STAR service ~A has duplicate runtime-directory registrations."
+      canonical))
+    ((null (getf (first matches) :alive))
+     (fail-actor
+      'runtime-directory-service-unavailable-error
+      "STAR service ~A is registered but not alive."
+      canonical))
+    (t
+     (copy-tree (first matches)))))

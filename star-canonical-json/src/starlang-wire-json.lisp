@@ -6,7 +6,7 @@
 (defun starlang-json-array-key-p (key)
   (member key
           '(:imports :types :predicates :messages :actors :fields :values
-            :accepts :produces :capabilities)
+            :accepts :produces :capabilities :states :handlers)
           :test #'eq))
 
 (defun starlang-plist-key-present-p (plist key)
@@ -18,6 +18,34 @@
        (starlang-plist-key-present-p plist :name)
        (starlang-plist-key-present-p plist :type)
        (starlang-plist-key-present-p plist :required)))
+
+(defun starlang-body-ir-json-value (value)
+  "Render native body IR deterministically as JSON data. Keyword-headed IR
+forms serialize as arrays so lowering never collides with field objects;
+binding alists serialize as objects."
+  (cond
+    ((eq value t) +json-true+)
+    ((null value) +json-null+)
+    ((keywordp value) (starlang-json-symbol-value value))
+    ((symbolp value)
+     (staractorprotocol:portable-wire-identifier-string value))
+    ((stringp value) value)
+    ((integerp value) value)
+    ((and (consp value) (keywordp (first value)))
+     (make-json-array
+      (mapcar #'starlang-body-ir-json-value value)))
+    ((and (consp value) (consp (first value)))
+     (make-json-object
+      (mapcar
+       (lambda (entry)
+         (cons (car entry) (starlang-body-ir-json-value (cdr entry))))
+       value)))
+    ((listp value)
+     (make-json-array
+      (mapcar #'starlang-body-ir-json-value value)))
+    (t
+     (fail-canonical-json
+      "Cannot convert ~S to canonical JSON." value))))
 
 (defun starlang-manifest-json-object (plist &optional manifest)
   (let ((entries '()))
@@ -49,6 +77,8 @@
               (getf container :name))))
     ((eq key :required)
      (if value +json-true+ +json-false+))
+    ((eq key :body)
+     (starlang-body-ir-json-value value))
     ((starlang-json-array-key-p key)
      (make-json-array
       (mapcar

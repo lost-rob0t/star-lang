@@ -10,6 +10,7 @@
     :components
     ((:file "packages")
      (:file "service-uri")
+     (:file "resource-uri")
      (:file "actor-reference")
      (:file "message-lifecycle")
      (:file "portable-json")

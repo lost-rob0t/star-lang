@@ -21,15 +21,49 @@
    #:make-runtime-directory-port
    #:runtime-directory-snapshot
    #:resolve-star-service-uri
+   #:resolve-star-resource-uri
+   #:body-fail-error
+   #:body-fail-code
+   #:body-fail-message
+   #:body-unknown-message-error
+   #:body-effect-error
+   #:make-body-actor-definition
+   #:make-domain-server-engine
+   #:invoke-domain-operation
+   #:domain-server-engine
+   #:domain-server-engine-p
+   #:domain-server-core-error
+   #:domain-tool-error
+   #:domain-server-engine-instance-count
+   #:domain-server-engine-instance-state
+   #:domain-server-engine-definition
+   #:domain-server-engine-tools
+   #:domain-server-engine-tool-runner
+   #:domain-server-engine-handlers
+   #:domain-server-engine-initializer
+   #:domain-server-engine-instances
+   #:make-domain-server-instance
+   #:domain-server-instance
+   #:domain-server-instance-p
+   #:domain-server-instance-key
+   #:domain-server-instance-state
+   #:make-tool-runner-port
+   #:tool-runner-port
+   #:tool-runner-port-p
+   #:tool-runner-port-run-fn
+   #:run-domain-tool
+   #:tool-command-argv
    #:actor-definition
    #:actor-definition-p
    #:actor-definition-name
    #:actor-definition-service-uri
+   #:actor-definition-resource-uri
    #:actor-definition-kind
    #:actor-definition-accepts
    #:actor-definition-produces
    #:actor-definition-restart-policy
    #:actor-definition-mailbox-capacity
+   #:actor-definition-states
    #:actor-definition-metadata
    #:make-native-actor-definition
    #:make-external-actor-definition

@@ -24,6 +24,7 @@
             (:constructor %make-actor-definition
                 (&key name
                       service-uri
+                      resource-uri
                       kind
                       handler
                       accepts
@@ -33,9 +34,11 @@
                       initial-state
                       restart-policy
                       mailbox-capacity
+                      states
                       metadata)))
   (name "" :type string)
   (service-uri "" :type string)
+  (resource-uri nil :type (or null string))
   (kind :native :type keyword)
   handler
   accepts
@@ -45,6 +48,7 @@
   initial-state
   (restart-policy :permanent :type keyword)
   (mailbox-capacity 128 :type (integer 1 *))
+  states
   metadata)
 
 (defstruct (actor-instance
@@ -139,8 +143,17 @@
   (handler-case
       (staractorprotocol:canonical-star-service-uri-for-actor
        name
-       (or service-uri (default-local-service-uri name)))
+       (if (and service-uri (plusp (length service-uri)))
+           service-uri
+           (default-local-service-uri name)))
     (staractorprotocol:invalid-star-service-uri-error (condition)
+      (fail-actor 'actor-definition-error "~A" condition))))
+
+(defun canonical-resource-uri (name resource-uri)
+  (handler-case
+      (staractorprotocol:canonical-star-resource-uri-for-actor
+       name resource-uri)
+    (staractorprotocol:invalid-star-resource-uri-error (condition)
       (fail-actor 'actor-definition-error "~A" condition))))
 
 (defun make-native-actor-definition
@@ -209,10 +222,15 @@
                 "Expected an actor definition, received ~S."
                 definition))
   (ensure-actor-kind (actor-definition-kind definition))
-  (setf (actor-definition-service-uri definition)
-        (canonical-service-uri
-         (actor-definition-name definition)
-         (actor-definition-service-uri definition)))
+  (if (actor-definition-resource-uri definition)
+      (setf (actor-definition-resource-uri definition)
+            (canonical-resource-uri
+             (actor-definition-name definition)
+             (actor-definition-resource-uri definition)))
+      (setf (actor-definition-service-uri definition)
+            (canonical-service-uri
+             (actor-definition-name definition)
+             (actor-definition-service-uri definition))))
   (when (and (eq :native (actor-definition-kind definition))
              (not (functionp (actor-definition-handler definition))))
     (fail-actor 'actor-definition-error
@@ -246,19 +264,33 @@
 (defun actor-service-uri (actor)
   (actor-definition-service-uri (actor-instance-definition actor)))
 
+(defun actor-identity-uri (actor)
+  "The canonical registration identity: resource URI when the actor is
+bound to one, otherwise the legacy tuple service URI."
+  (or (actor-definition-resource-uri (actor-instance-definition actor))
+      (actor-definition-service-uri (actor-instance-definition actor))))
+
 (defun actor-reference (actor)
   (unless (actor-instance-p actor)
     (fail-actor 'actor-definition-error
                 "Expected an actor instance, received ~S."
                 actor))
-  (let ((uri (staractorprotocol:parse-star-service-uri
-              (actor-service-uri actor))))
-    (staractorprotocol:make-star-actor-reference
-     :domain-id (staractorprotocol:star-service-uri-domain uri)
-     :logical-path (staractorprotocol:star-service-uri-actor-name uri)
-     :node-id (staractorprotocol:star-service-uri-address uri)
-     :generation (actor-instance-generation actor)
-     :protocol-revision 1)))
+  (let ((resource-uri
+          (actor-definition-resource-uri (actor-instance-definition actor))))
+    (if resource-uri
+        (let ((uri (staractorprotocol:parse-star-resource-uri resource-uri)))
+          (staractorprotocol:make-star-resource-actor-reference
+           :authority (staractorprotocol:star-resource-uri-authority uri)
+           :resource-path (staractorprotocol:star-resource-uri-resource-path uri)
+           :generation (actor-instance-generation actor)))
+        (let ((uri (staractorprotocol:parse-star-service-uri
+                    (actor-service-uri actor))))
+          (staractorprotocol:make-star-actor-reference
+           :domain-id (staractorprotocol:star-service-uri-domain uri)
+           :logical-path (staractorprotocol:star-service-uri-actor-name uri)
+           :node-id (staractorprotocol:star-service-uri-address uri)
+           :generation (actor-instance-generation actor)
+           :protocol-revision 1)))))
 
 (defun actor-mailbox-depth (actor)
   (unless (actor-instance-p actor)
@@ -274,7 +306,7 @@
            (gethash (actor-name actor)
                     (runtime-actors-by-name runtime)))
        (eq actor
-           (gethash (actor-service-uri actor)
+           (gethash (actor-identity-uri actor)
                     (runtime-actors-by-uri runtime)))))
 
 (defun register-actor (runtime actor)
@@ -289,15 +321,15 @@
                   "Actor ~A is owned by another StarLang runtime."
                   (actor-name actor))))
   (let ((name (actor-name actor))
-        (service-uri (actor-service-uri actor)))
+        (identity-uri (actor-identity-uri actor)))
     (when (or (gethash name (runtime-actors-by-name runtime))
-              (gethash service-uri (runtime-actors-by-uri runtime)))
+              (gethash identity-uri (runtime-actors-by-uri runtime)))
       (fail-actor 'actor-already-registered-error
                   "Actor ~A (~A) is already registered."
-                  name service-uri))
+                  name identity-uri))
     (setf (actor-instance-owner actor) runtime
           (gethash name (runtime-actors-by-name runtime)) actor
-          (gethash service-uri (runtime-actors-by-uri runtime)) actor
+          (gethash identity-uri (runtime-actors-by-uri runtime)) actor
           (runtime-actor-order runtime)
           (append (runtime-actor-order runtime) (list name)))
     actor))
@@ -326,6 +358,14 @@
      (gethash
       (staractorprotocol:star-actor-reference-service-uri target)
       (runtime-actors-by-uri runtime)))
+    ((and (stringp target)
+          (staractorprotocol:hierarchical-star-uri-p target))
+     (handler-case
+         (gethash
+          (staractorprotocol:star-resource-uri-string
+           (staractorprotocol:parse-star-resource-uri target))
+          (runtime-actors-by-uri runtime))
+       (staractorprotocol:invalid-star-resource-uri-error () nil)))
     ((and (stringp target)
           (staractorprotocol:star-service-uri-target-p target))
      (handler-case
@@ -361,9 +401,9 @@
 (defun unregister-actor (runtime target)
   (let* ((actor (resolve-actor runtime target))
          (name (actor-name actor))
-         (service-uri (actor-service-uri actor)))
+         (identity-uri (actor-identity-uri actor)))
     (remhash name (runtime-actors-by-name runtime))
-    (remhash service-uri (runtime-actors-by-uri runtime))
+    (remhash identity-uri (runtime-actors-by-uri runtime))
     (setf (runtime-actor-order runtime)
           (remove name (runtime-actor-order runtime) :test #'string=))
     (incf (actor-instance-completion-incarnation actor))
@@ -395,8 +435,15 @@
   (ensure-runtime-running runtime)
   (let ((actor (resolve-actor runtime target)))
     ;; Current v1 policy preserves committed actor state and drops queued work.
-    ;; The new generation receives a fresh bounded mailbox.
+    ;; The new generation receives a fresh bounded mailbox. Typed body state
+    ;; applies its persistence classes: journaled slots keep committed values,
+    ;; ephemeral slots reset to their declared initial values (issue #69).
     (stop-actor runtime actor)
+    (when (actor-definition-states (actor-instance-definition actor))
+      (setf (actor-instance-data actor)
+            (reset-typed-actor-state
+             (actor-instance-definition actor)
+             (actor-instance-data actor))))
     (start-actor runtime actor)))
 
 (defun shutdown-runtime (runtime)
@@ -438,7 +485,7 @@
            (gethash (actor-name actor)
                     (runtime-actors-by-name runtime)))
        (eq actor
-           (gethash (actor-service-uri actor)
+           (gethash (actor-identity-uri actor)
                     (runtime-actors-by-uri runtime)))))
 
 (defun make-stale-completion-condition (actor reference)

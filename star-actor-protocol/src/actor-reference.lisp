@@ -48,16 +48,50 @@
     (invalid-star-service-uri-error (condition)
       (fail-invalid-actor-reference "~A" condition))))
 
+(defun make-star-resource-actor-reference
+    (&key authority resource-path
+          (generation 0) (protocol-revision 1) capability-set-hash)
+  "Build an actor reference bound to a canonical hierarchical resource URI.
+The legacy node-id stays empty so tuple serialization is never emitted for
+canonical references (issue #72)."
+  (unless (and (stringp authority) (plusp (length authority)))
+    (fail-invalid-actor-reference
+     "Canonical actor reference requires a non-empty authority."))
+  (unless (and (stringp resource-path) (plusp (length resource-path)))
+    (fail-invalid-actor-reference
+     "Canonical actor reference requires a non-empty resource path."))
+  (unless (and (integerp generation) (>= generation 0))
+    (fail-invalid-actor-reference
+     "Actor reference generation must be a non-negative integer, received ~S."
+     generation))
+  (unless (and (integerp protocol-revision) (> protocol-revision 0))
+    (fail-invalid-actor-reference
+     "Actor reference protocol revision must be a positive integer, received ~S."
+     protocol-revision))
+  (%make-star-actor-reference
+   authority resource-path "" generation protocol-revision
+   capability-set-hash))
+
+(defun star-actor-reference-canonical-p (reference)
+  "True when REFERENCE is bound to a canonical hierarchical resource URI
+(empty legacy node-id)."
+  (and (star-actor-reference-p reference)
+       (zerop (length (star-actor-reference-node-id reference)))))
+
 (defun star-actor-reference-service-uri (reference)
   (unless (star-actor-reference-p reference)
     (fail-invalid-actor-reference
      "Expected a STAR actor reference, received ~S."
      reference))
-  (star-service-uri-string
-   (make-star-service-uri
-    (star-actor-reference-domain-id reference)
-    (star-actor-reference-node-id reference)
-    (star-actor-reference-logical-path reference))))
+  (if (star-actor-reference-canonical-p reference)
+      (format nil "star://~A/actor/~A"
+              (star-actor-reference-domain-id reference)
+              (star-actor-reference-logical-path reference))
+      (star-service-uri-string
+       (make-star-service-uri
+        (star-actor-reference-domain-id reference)
+        (star-actor-reference-node-id reference)
+        (star-actor-reference-logical-path reference)))))
 
 (defun star-actor-reference-same-logical-actor-p (left right)
   (and (star-actor-reference-p left)

@@ -27,6 +27,7 @@
           ps.dexador
           ps.fiveam
           ps.ironclad
+          ps.pzmq
           ps.usocket
           ps.yason
           (sentoRemoting ps)
@@ -109,6 +110,14 @@
               --eval '(asdf:test-system :star-logic-adapter-swi)' \
               --eval '(assert (null (find-package "STAR-LANG.PROTOTYPE")))' \
               --eval '(asdf:test-system :starlang-prototype)' \
+              --eval '(sb-ext:quit)';
+
+            # The ZMQ transport gate loads pzmq and runs the two-process
+            # ingest fixture (real service + client OS processes exchanging
+            # canonical wire envelopes over ZMQ TCP).
+            timeout 300 sbcl --non-interactive \
+              --eval '(require :asdf)' \
+              --eval '(asdf:test-system :star-transport-zmq)' \
               --eval '(sb-ext:quit)'
 
             timeout 120 sbcl --non-interactive \
@@ -218,6 +227,11 @@
               --eval '(asdf:test-system :star-logic-adapter-swi)' \
               --eval '(assert (null (find-package "STAR-LANG.PROTOTYPE")))' \
               --eval '(asdf:test-system :starlang-prototype)' \
+              --eval '(sb-ext:quit)';
+
+            ${pkgs.coreutils}/bin/timeout 300 ${sbcl}/bin/sbcl --non-interactive \
+              --eval '(require :asdf)' \
+              --eval '(asdf:test-system :star-transport-zmq)' \
               --eval '(sb-ext:quit)'
 
             ${pkgs.coreutils}/bin/timeout 120 ${sbcl}/bin/sbcl --non-interactive \

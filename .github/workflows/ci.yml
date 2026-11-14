@@ -128,7 +128,16 @@ jobs:
             cl-ironclad \
             cl-usocket \
             cl-yason \
+            libzmq3-dev \
             python3-jsonschema
+
+      # Debian has no cl-pzmq; vendor it into the workspace source registry so
+      # the star-transport-zmq target system loads under the apt toolchain.
+      - name: Vendor pzmq for the ZeroMQ transport system
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/orivej/pzmq "$GITHUB_WORKSPACE/pzmq"
 
       - name: Verify generated StarIntel release artifacts
         shell: bash
