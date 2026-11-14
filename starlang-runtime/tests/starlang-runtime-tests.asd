@@ -2,7 +2,7 @@
   :description "Unit tests for starlang-runtime"
   :author "lost-rob0t"
   :license "AGPL-3.0-only"
-  :depends-on ("starlang-runtime")
+  :depends-on ("starlang-runtime" "star-actor-wire")
   :serial t
   :components
   ((:file "starlang-runtime-tests")

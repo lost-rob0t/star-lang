@@ -255,7 +255,185 @@
    (null (find-package "STAR-LANG.CORE-SURFACE.PROTOTYPE"))
    "Final deterministic wire dispatcher loaded the prototype package."))
 
+(defun test-real-dispatcher-outcomes-pass-canonical-correlation-guard ()
+  ;; Exercise actual admission and settlement, not hand-constructed outcomes.
+  ;; Actor identity names the invoked actor across the lifecycle; transport
+  ;; reply routing is independent. Canonical lifecycle-v1 fixtures agree.
+  (dolist (actor '("worker" "star://test:localhost:worker"))
+    (dolist (mode '(:complete :retry :fail :deadline :cancel))
+      (let* ((dispatcher
+               (make-deterministic-dispatcher
+                (dispatcher-manifest) :now "2026-08-15T10:00:00Z"))
+             (command
+               (dispatcher-command
+                :actor actor
+                :deadline (when (eq mode :deadline) "2026-08-15T09:59:59Z")))
+             (calls 0))
+        (setf (getf command :dataset) "fixture")
+        (register-dispatch-actor
+         dispatcher "worker"
+         (lambda (runtime envelope)
+           (declare (ignore runtime envelope))
+           (incf calls)
+           (ecase mode
+             (:complete (complete-dispatch :message-type "test/result@1"
+                                           :payload '(("value" . "ok"))))
+             (:retry (retry-dispatch :retry-after-ms 10 :reason "busy"))
+             (:fail (starlangruntime:fail-dispatch :code "fixture.failed"
+                                                  :message "Synthetic failure"))
+             (:cancel (defer-dispatch))
+             (:deadline (error "Expired request invoked handler.")))))
+        (submit-dispatch-envelope dispatcher command)
+        (run-dispatcher-next dispatcher)
+        (when (eq mode :cancel)
+          (submit-dispatch-envelope
+           dispatcher
+           (staractorprotocol:make-cancel-envelope
+            command :message-id "cancel-guard" :actor actor :sender "caller")))
+        (let* ((outcomes (drain-dispatcher-emitted dispatcher))
+               (kinds (mapcar (lambda (value) (getf value :kind)) outcomes)))
+          (check (equal kinds
+                        (ecase mode
+                          (:complete '(:ack :reply :ack))
+                          (:retry '(:ack :ack))
+                          ((:fail :cancel) '(:ack :error))
+                          (:deadline '(:error))))
+                 "Unexpected actual lifecycle chain for ~A: ~S" mode kinds)
+          (check (= calls (if (eq mode :deadline) 0 1))
+                 "Handler count differs for ~A." mode)
+          (dolist (outcome outcomes)
+            (check (staractorprotocol:validate-correlated-lifecycle-outcome
+                    command outcome)
+                   "Actual ~A outcome failed canonical correlation guard." mode)
+            (check (equal actor (getf outcome :actor))
+                   "Outcome actor was replaced by a reply routing identity.")))))))
+
+(defun test-public-command-identity-validation ()
+  (let* ((original (dispatcher-command :deadline "2026-08-15T10:00:00Z"))
+         (retry (copy-tree original)))
+    (setf (getf retry :message-id) "retry-identity"
+          (getf retry :causation-id) (getf original :message-id)
+          (getf retry :attempt) 2)
+    (check (eq retry (starlangruntime:validate-command-idempotency-identity
+                     original retry))
+           "Public identity validator rejected compatible retry metadata.")
+    (dolist (change '((:actor . "other") (:sender . "other")
+                      (:correlation-id . "other") (:idempotency-key . "other")
+                      (:dataset . "other") (:reply-to . "other")
+                      (:deadline . "2026-08-16T10:00:00Z")
+                      (:message-type . "other/run@1")
+                      (:payload . (("target" . "changed")))))
+      (let ((conflict (copy-tree original)))
+        (setf (getf conflict (car change)) (cdr change))
+        (check (signals-p
+                'wire-dispatcher-idempotency-conflict-error
+                (lambda ()
+                  (starlangruntime:validate-command-idempotency-identity
+                   original conflict)))
+               "Public validator accepted changed identity field ~A." (car change))))))
+
+(defun test-canonical-payload-identity-survives-wire-replay ()
+  (let* ((manifest (dispatcher-manifest))
+         (calls 0)
+         (dispatcher nil)
+         (command nil))
+    (setf (getf (first (getf manifest :messages)) :fields)
+          '((:name "data" :type "map" :required t)))
+    (labels ((wire-copy (envelope)
+               (star-actor-wire:decode-envelope
+                manifest (star-actor-wire:encode-envelope manifest envelope)))
+             (make-runtime ()
+               (let ((runtime (make-deterministic-dispatcher manifest)))
+                 (register-dispatch-actor
+                  runtime "worker"
+                  (lambda (owner envelope)
+                    (declare (ignore owner envelope))
+                    (incf calls)
+                    (complete-dispatch :message-type "test/result@1"
+                                       :payload '(("value" . "ok")))))
+                 runtime))
+             (data (envelope)
+               (cdr (assoc "data" (getf envelope :payload) :test #'string=)))
+             (field (envelope name)
+               (assoc name (data envelope) :test #'string=)))
+      (setf dispatcher (make-runtime)
+            command (dispatcher-command))
+      (setf (getf command :payload)
+            (list
+             (cons "data"
+                   (list (cons "items" (vector "CaseSensitive" 7))
+                         (cons "number" (staractorprotocol:make-portable-json-number "1.2300"))
+                         (cons "flag" staractorprotocol:+portable-json-false+)
+                         (cons "nullable" staractorprotocol:+portable-json-null+)
+                         (cons "empty" #())))))
+      (setf command (wire-copy command))
+      (submit-dispatch-envelope dispatcher command)
+      (check (eq :completed (run-dispatcher-next dispatcher))
+             "Canonical array fixture did not execute the real dispatcher.")
+      (check (= calls 1) "Initial canonical fixture did not invoke its handler once.")
+      ;; Reconstruct a new runtime record from the real dispatcher's command and
+      ;; outcomes through the supported encoder/decoder. This is a wire replay
+      ;; regression, not a claim of a database restart test.
+      (let* ((record (starlangruntime:command-idempotency-record dispatcher command))
+             (restored-command (wire-copy (getf record :command)))
+             (restored (make-runtime)))
+        (starlangruntime:set-command-idempotency-record
+         restored restored-command
+         (list :status (getf record :status)
+               :command restored-command
+               :outcomes (mapcar #'wire-copy (getf record :outcomes))))
+        (setf dispatcher restored))
+      (let ((retry (wire-copy command)))
+        (check (not (eq (cdr (field command "items"))
+                        (cdr (field retry "items"))))
+               "Wire replay fixture accidentally reused the same array object.")
+        (check (not (eq (cdr (field command "number"))
+                        (cdr (field retry "number"))))
+               "Wire replay fixture accidentally reused the same numeric token object.")
+        (setf (getf retry :message-id) "canonical-replay"
+              (getf retry :causation-id) (getf command :message-id)
+              (getf retry :attempt) 2)
+        (submit-dispatch-envelope dispatcher retry)
+        (check (eq :duplicate (run-dispatcher-next dispatcher))
+               "Equivalent decoded array/number payload was rejected after restore.")
+        (check (= calls 1) "Canonical replay repeated the handler effect."))
+      ;; Object key ordering and portable array list/vector representation have
+      ;; the same canonical payload bytes, while empty array is not null.
+      (let ((equivalent (wire-copy command)))
+        (setf (cdr (field equivalent "items"))
+              (coerce (cdr (field equivalent "items")) 'list)
+              (cdr (assoc "data" (getf equivalent :payload) :test #'string=))
+              (reverse (data equivalent)))
+        (check (eq equivalent
+                   (starlangruntime:validate-command-idempotency-identity
+                    command equivalent))
+               "Canonical map/array equivalence changed command identity."))
+      (dolist (mutation '(:element :case :number-lexeme :number-type :false :null :absence :empty))
+        (let ((conflict (wire-copy command)))
+          (ecase mutation
+            (:element (setf (aref (cdr (field conflict "items")) 1) 8))
+            (:case (setf (aref (cdr (field conflict "items")) 0) "casesensitive"))
+            (:number-lexeme
+             (setf (cdr (field conflict "number"))
+                   (staractorprotocol:make-portable-json-number "1.230")))
+            (:number-type (setf (cdr (field conflict "number")) "1.2300"))
+            (:false (setf (cdr (field conflict "flag")) t))
+            (:null (setf (cdr (field conflict "nullable")) staractorprotocol:+portable-json-false+))
+            (:absence
+             (setf (cdr (assoc "data" (getf conflict :payload) :test #'string=))
+                   (remove "nullable" (data conflict) :key #'car :test #'string=)))
+            (:empty (setf (cdr (field conflict "empty")) staractorprotocol:+portable-json-null+)))
+          (setf conflict (wire-copy conflict))
+          (submit-dispatch-envelope dispatcher conflict)
+          (check (signals-p 'wire-dispatcher-idempotency-conflict-error
+                            (lambda () (run-dispatcher-next dispatcher)))
+                 "Changed portable JSON value (~A) reused a command identity." mutation)
+          (check (= calls 1) "Conflicting ~A payload invoked handler." mutation))))))
+
 (defun run-tests ()
+  (test-canonical-payload-identity-survives-wire-replay)
+  (test-real-dispatcher-outcomes-pass-canonical-correlation-guard)
+  (test-public-command-identity-validation)
   (test-completion-terminal-replay-and-identity-conflict)
   (test-retry-and_redelivery_metadata)
   (test_deferred_cancel_and_late_completion)

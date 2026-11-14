@@ -190,15 +190,36 @@
      (deterministic-dispatcher-idempotency dispatcher))))
 
 (defun ensure-dispatcher-command-identity-compatible (record command)
-  (let ((recorded-command (getf record :command)))
-    (unless (equal (command-idempotency-identity recorded-command)
-                   (command-idempotency-identity command))
+  (let* ((recorded-command (getf record :command))
+         (recorded-identity (command-idempotency-identity recorded-command))
+         (submitted-identity (command-idempotency-identity command))
+         ;; EQUAL compares vectors and exact-number structures by object identity.
+         ;; Canonical payload bytes instead preserve portable JSON semantics,
+         ;; including string case, exact numeric lexemes and absent/null/false.
+         (recorded-payload
+           (starcanonicaljson:canonical-portable-json-string
+            (getf recorded-identity :payload)))
+         (submitted-payload
+           (starcanonicaljson:canonical-portable-json-string
+            (getf submitted-identity :payload))))
+    (remf recorded-identity :payload)
+    (remf submitted-identity :payload)
+    (unless (and (equal recorded-identity submitted-identity)
+                 (string= recorded-payload submitted-payload))
       (fail-actor
        'wire-dispatcher-idempotency-conflict-error
        "Idempotency key ~A for actor ~A is already bound to a different command identity."
        (getf command :idempotency-key)
        (getf command :actor))))
   command)
+
+(defun validate-command-idempotency-identity (recorded-command command)
+  "Require COMMAND to retain RECORDED-COMMAND's semantic idempotency identity.
+Inputs must already be validated command envelopes. Returns COMMAND, or signals
+WIRE-DISPATCHER-IDEMPOTENCY-CONFLICT-ERROR. Delivery message ID, causation and
+attempt may change on retry; this does not authorize or execute either command."
+  (ensure-dispatcher-command-identity-compatible
+   (list :command recorded-command) command))
 
 (defun dispatcher-cancelled-p (dispatcher command)
   (or (gethash (getf command :message-id)
@@ -243,7 +264,7 @@
       (staractorprotocol:make-ack-envelope
        command
        :message-id (dispatcher-next-message-id dispatcher "ack")
-       :actor (or (getf command :sender) "star.dispatcher")
+       :actor (getf command :actor)
        :sender (getf command :actor)
        :status status
        :reason reason
@@ -258,7 +279,7 @@
       (staractorprotocol:make-error-envelope
        command
        :message-id (dispatcher-next-message-id dispatcher "error")
-       :actor (or (getf command :sender) "star.dispatcher")
+       :actor (getf command :actor)
        :sender (getf command :actor)
        :code code
        :message message
@@ -275,7 +296,7 @@
        command
        :message-id (dispatcher-next-message-id dispatcher "reply")
        :message-type message-type
-       :actor (or (getf command :sender) "star.dispatcher")
+       :actor (getf command :actor)
        :sender (getf command :actor)
        :dataset (getf command :dataset)
        :sent-at (deterministic-dispatcher-now dispatcher)
@@ -421,8 +442,8 @@
           (dispatcher-command-record-if-addressable
            dispatcher command)))
     (when identity-record
-      (ensure-dispatcher-command-identity-compatible
-       identity-record command)))
+      (validate-command-idempotency-identity
+       (getf identity-record :command) command)))
   (let* ((record (command-idempotency-record dispatcher command))
          (status (getf record :status)))
     (cond
