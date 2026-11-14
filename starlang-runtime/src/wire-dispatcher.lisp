@@ -182,6 +182,11 @@
         :deadline (getf command :deadline)
         :payload (copy-tree (getf command :payload))))
 
+(defun command-delivery-attempt-identity (command)
+  (list :message-id (getf command :message-id)
+        :causation-id (getf command :causation-id)
+        :attempt (getf command :attempt)))
+
 (defun dispatcher-command-record-if-addressable (dispatcher command)
   (when (and (deterministic-dispatcher-p dispatcher)
              (listp command))
@@ -198,6 +203,17 @@
        "Idempotency key ~A for actor ~A is already bound to a different command identity."
        (getf command :idempotency-key)
        (getf command :actor))))
+  command)
+
+(defun ensure-deferred-delivery-attempt-current (record command)
+  (let ((recorded-command (getf record :command)))
+    (unless (equal (command-delivery-attempt-identity recorded-command)
+                   (command-delivery-attempt-identity command))
+      (fail-actor
+       'wire-dispatcher-error
+       "Deferred completion for command ~A does not match the active delivery attempt ~A."
+       (getf command :message-id)
+       (getf recorded-command :message-id))))
   command)
 
 (defun dispatcher-cancelled-p (dispatcher command)
@@ -285,17 +301,17 @@
 
 (defun terminal-record (command outcomes)
   (list :status :terminal
-        :command command
+        :command (copy-tree command)
         :outcomes outcomes))
 
 (defun in-progress-record (command accepted)
   (list :status :in-progress
-        :command command
+        :command (copy-tree command)
         :outcomes (list accepted)))
 
 (defun retry-record (command outcomes)
   (list :status :retry
-        :command command
+        :command (copy-tree command)
         :outcomes outcomes))
 
 (defun replay-terminal-outcomes (dispatcher record)
@@ -573,6 +589,7 @@
   (ensure-wire-dispatcher-plist result "deferred dispatch result")
   (let* ((record (require-deferred-dispatch-record dispatcher command))
          (status (getf record :status)))
+    (ensure-dispatcher-command-identity-compatible record command)
     (cond
       ((eq status :terminal)
        :late-terminal)
@@ -583,6 +600,7 @@
         (getf command :message-id)
         status))
       (t
+       (ensure-deferred-delivery-attempt-current record command)
        (case (getf result :outcome)
          (:complete
           (complete-command dispatcher command result))
