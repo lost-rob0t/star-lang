@@ -1,0 +1,29 @@
+name: Scraper mapping contract
+on:
+  pull_request:
+    paths: ['fixtures/star-scrape*', 'star-scrape/**', 'specs/scraper/**', 'tools/generate-scraper-release.lisp', '.github/workflows/scraper-contract.yml']
+  push:
+    branches: [main]
+    paths: ['fixtures/star-scrape*', 'star-scrape/**', 'specs/scraper/**', 'tools/generate-scraper-release.lisp', '.github/workflows/scraper-contract.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  mapping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CL_SOURCE_REGISTRY: '${{ github.workspace }}//:'
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y sbcl cl-babel cl-ironclad cl-usocket cl-yason cl-fiveam
+      - name: Test v1 compatibility and v2 pure mapping
+        run: sbcl --non-interactive --eval '(require :asdf)' --eval '(asdf:test-system :star-scrape)'
+      - name: Generate consumable vocabulary and digest lock
+        run: sbcl --script tools/generate-scraper-release.lisp --output-directory /tmp/scraper-generated/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: scraper-v2-generated
+          path: /tmp/scraper-generated/
+      - name: Verify committed generated artifacts
+        run: sbcl --script tools/generate-scraper-release.lisp --check

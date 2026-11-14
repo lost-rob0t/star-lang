@@ -48,5 +48,7 @@
    #:scraper-schema-error
    #:scraper-policy-error
    #:load-scraper-vocabulary
+   #:compile-mapping-manifest
    #:compile-scraper-manifest
    #:scraper-manifest-json))
+

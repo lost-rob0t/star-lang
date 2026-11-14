@@ -12,5 +12,7 @@
     :components
     ((:file "packages")
      (:file "scrape")
-     (:file "schema"))))
+     (:file "schema")
+     (:file "mapping-schema"))))
   :in-order-to ((test-op (test-op "star-scrape-tests"))))
+
