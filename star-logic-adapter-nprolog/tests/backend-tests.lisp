@@ -3,6 +3,7 @@
   (:import-from :starlogicadapternprolog
                 #:nprolog-executable-unavailable-error
                 #:nprolog-bridge-unavailable-error
+                #:nprolog-batch-error
                 #:nprolog-package-mismatch-error
                 #:nprolog-request-too-large-error
                 #:nprolog-malformed-startup-data-error
@@ -186,6 +187,33 @@
       (find-symbol "NPROLOG-WORKER-PASSWORD" :starlogicadapternprolog)
     (declare (ignore symbol))
     (is (null status))))
+
+;; Upstream -s always exits 0 (even on consult failure), and a clean consult
+;; prints nothing; validation is therefore exit 0 + empty ANSI-stripped
+;; stdout.
+(test batch-verdict-requires-empty-stdout-and-zero-exit
+  (multiple-value-bind (valid diagnostic)
+      (starlogicadapternprolog::%batch-verdict 0 "")
+    (is-true valid)
+    (is (string= "" diagnostic)))
+  (multiple-value-bind (valid diagnostic)
+      (starlogicadapternprolog::%batch-verdict
+       0 (format nil "~C[31mSyntax error expected period ~C[39m" #\Escape #\Escape))
+    (is-false valid)
+    (is (search "Syntax error" diagnostic)))
+  (multiple-value-bind (valid diagnostic)
+      (starlogicadapternprolog::%batch-verdict 1 "")
+    (is-false valid)
+    (is (string= "" diagnostic))))
+
+(test batch-validate-rejects-missing-and-dotless-files
+  (let ((backend (starlogicadapternprolog::%make-nprolog-backend)))
+    (signals nprolog-batch-error
+      (starlogicadapternprolog::nprolog-batch-validate
+       backend "/nonexistent/starlang-batch-missing.pl"))
+    (signals nprolog-batch-error
+      (starlogicadapternprolog::nprolog-batch-validate
+       backend "/tmp/starlang-dotless-batch-name"))))
 
 (defun run-tests ()
   (run 'starlogicadapternprolog-tests))

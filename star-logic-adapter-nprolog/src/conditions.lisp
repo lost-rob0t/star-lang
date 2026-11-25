@@ -9,6 +9,7 @@
 
 (define-condition nprolog-executable-unavailable-error (nprolog-adapter-error) ())
 (define-condition nprolog-bridge-unavailable-error (nprolog-adapter-error) ())
+(define-condition nprolog-batch-error (nprolog-adapter-error) ())
 (define-condition nprolog-worker-launch-error (nprolog-session-error) ())
 (define-condition nprolog-worker-exited-during-startup-error (nprolog-session-error) ())
 (define-condition nprolog-malformed-startup-data-error (nprolog-session-error) ())

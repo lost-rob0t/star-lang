@@ -27,6 +27,8 @@
    #:nprolog-adapter-error
    #:nprolog-executable-unavailable-error
    #:nprolog-bridge-unavailable-error
+   #:nprolog-batch-error
+   #:nprolog-batch-validate
    #:nprolog-worker-launch-error
    #:nprolog-worker-exited-during-startup-error
    #:nprolog-malformed-startup-data-error

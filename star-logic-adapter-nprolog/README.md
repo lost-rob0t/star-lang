@@ -81,9 +81,22 @@ bridge.
 
 - no `solve`/`solutions`/`exists?`/`assert!`/`retract!`/`explain` operations
 - no portable-value encoding: the wire carries protocol atoms only
-- no batch `-s` transport, no `compile_file/1` accelerator, no `-n` network
-  mode (roadmap: STARLANG-NPL-000)
+- no `compile_file/1` accelerator, no `-n` network mode
+  (roadmap: STARLANG-NPL-000)
 - no tabling, constraints, proofs, cancellation escalation, pooling/reset
+
+## Batch load validation
+
+`nprolog-batch-validate` runs the exact pinned executable with `-s ./<name>`
+in the file's parent directory. Upstream `-s` always exits 0 — even on
+consult failures, syntax errors, and missing files — and a clean consult
+prints nothing at all. Validation is therefore fail-closed on output:
+valid iff exit status 0 and stdout is empty after ANSI stripping; any
+diagnostic, nonzero exit, timeout, or output over the capture bound is
+invalid, with the bounded ANSI-stripped diagnostic in the report. The
+report carries the sha256 of the exact validated bytes. Files without a
+dotted name are refused before launch (upstream consult appends `.pl` to
+dot-free names, silently targeting a different file).
 
 ## Tests
 

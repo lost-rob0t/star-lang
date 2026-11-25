@@ -17,6 +17,7 @@
      (:file "identity")
      (:file "bridge")
      (:file "worker")
-     (:file "adapter"))))
+     (:file "adapter")
+     (:file "batch"))))
   :in-order-to ((test-op (test-op "star-logic-adapter-nprolog-tests"
                                   "star-logic-adapter-nprolog-integration-tests"))))

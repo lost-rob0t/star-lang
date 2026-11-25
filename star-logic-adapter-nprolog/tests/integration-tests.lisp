@@ -3,7 +3,8 @@
   (:import-from :starlogicadapternprolog
                 #:make-nprolog-backend
                 #:nprolog-backend-identity-mismatch-error
-                #:nprolog-package-mismatch-error)
+                #:nprolog-package-mismatch-error
+                #:nprolog-batch-error)
   (:import-from :starlogicprotocol
                 #:logic-backend-descriptor-of
                 #:logic-backend-descriptor-id
@@ -29,8 +30,18 @@
 (defun required-nprolog ()
   (let ((path (uiop:getenv "STARLANG_NPROLOG_EXECUTABLE")))
     (unless (and path (plusp (length path)))
-      (error "STARLANG_NPROLOG_EXECUTABLE is required for real N-Prolog integration tests."))
-    path))
+      (error "STARLANG_NPROLOG_EXECUTABLE is required for real N-Prolog integration tests.")))
+  (uiop:getenv "STARLANG_NPROLOG_EXECUTABLE"))
+
+(defun batch-fixture (name content)
+  (let ((path (uiop:merge-pathnames*
+               (concatenate 'string "starlang-batch-" name)
+               (uiop:ensure-directory-pathname (uiop:temporary-directory)))))
+    (with-open-file (out path :direction :output
+                              :if-exists :supersede
+                              :if-does-not-exist :create)
+      (write-string content out))
+    (namestring path)))
 
 (defun fresh-backend ()
   (make-nprolog-backend :nprolog-executable (required-nprolog)))
@@ -166,6 +177,37 @@
                (open-logic-session backend "integration-replaced"))
              (is (null starlogicadapternprolog::*last-owned-process*)))
         (ignore-errors (delete-file copy))))))
+
+(test batch-load-validation-against-real-engine
+  (let ((backend (fresh-backend))
+        (good (batch-fixture "good.pl" "foo(1).
+foo(2).
+"))
+        (broken (batch-fixture "broken.pl" "foo( :- broken
+"))
+        (dotless (batch-fixture "dotless-noext" "foo(1).")))
+    (unwind-protect
+         (progn
+           (let ((report (starlogicadapternprolog::nprolog-batch-validate
+                          backend good)))
+             (is-true (getf report :valid))
+             (is (null (getf report :diagnostic)))
+             (is (= 0 (getf report :exit-code)))
+             (is (string= (starlogicadapternprolog::%sha256-file good)
+                          (getf report :file-digest))))
+           (let ((report (starlogicadapternprolog::nprolog-batch-validate
+                          backend broken)))
+             (is-false (getf report :valid))
+             (is (search "Syntax error" (getf report :diagnostic)))
+             (is (string= (starlogicadapternprolog::%sha256-file broken)
+                          (getf report :file-digest))))
+           ;; Dotless names would resolve to a different file upstream; the
+           ;; adapter refuses them before any launch.
+           (signals nprolog-batch-error
+             (starlogicadapternprolog::nprolog-batch-validate backend dotless)))
+      (ignore-errors (delete-file good))
+      (ignore-errors (delete-file broken))
+      (ignore-errors (delete-file dotless)))))
 
 (defun run-tests ()
   (run 'starlogicadapternprolog-integration-tests))
