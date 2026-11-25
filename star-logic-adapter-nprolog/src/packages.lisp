@@ -22,14 +22,21 @@
   (:export
    #:+nprolog-adapter-version+
    #:+nprolog-engine-upstream+
+   #:+star-logic-bridge-package-id+
+   #:+star-logic-bridge-protocol+
    #:nprolog-adapter-error
    #:nprolog-executable-unavailable-error
+   #:nprolog-bridge-unavailable-error
    #:nprolog-worker-launch-error
    #:nprolog-worker-exited-during-startup-error
    #:nprolog-malformed-startup-data-error
    #:nprolog-backend-identity-mismatch-error
-   #:nprolog-package-unsupported-error
+   #:nprolog-package-mismatch-error
    #:nprolog-handshake-error
+   #:nprolog-bridge-port-error
+   #:nprolog-bridge-wire-error
+   #:nprolog-bridge-handshake-error
+   #:nprolog-request-too-large-error
    #:nprolog-canary-failure-error
    #:nprolog-shutdown-failure-error
    #:nprolog-backend

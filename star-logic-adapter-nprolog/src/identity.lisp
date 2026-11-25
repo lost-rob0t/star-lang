@@ -1,6 +1,6 @@
 (in-package :starlogicadapternprolog)
 
-(defparameter +nprolog-adapter-version+ "0.1.0")
+(defparameter +nprolog-adapter-version+ "0.2.0")
 
 ;; Disambiguation: another, unrelated "N-Prolog" exists. This adapter targets
 ;; sasagawa888/nprolog only, and records the upstream in descriptor metadata.
@@ -9,6 +9,16 @@
 ;; Observed from npl main.c: `printf("N-Prolog Ver %1.2f\n", VERSION)` for -v,
 ;; and `printf("N-Prolog Ver %1.2f [%dM cells]\n", VERSION, ...)` at REPL start.
 (defparameter +nprolog-version-banner-prefix+ "N-Prolog Ver ")
+
+;; Trusted bridge package identity. The bridge is the only in-engine code this
+;; adapter owns; its bytes are digest-pinned and revalidated before launch.
+(defparameter +star-logic-bridge-package-id+ "star-logic-bridge")
+(defparameter +star-logic-bridge-file-name+ "star-logic-bridge.pl")
+;; prolog_file_name() uses ./-prefixed names verbatim relative to the child's
+;; working directory, ahead of any NPROLOG_HOME/HOME fallback, so the worker
+;; is launched with :directory set to the bridge directory.
+(defparameter +star-logic-bridge-consult-name+ "./star-logic-bridge.pl")
+(defparameter +star-logic-bridge-protocol+ "star-logic-nprolog-bridge-1")
 
 (defun %sha256-file (pathname)
   (let* ((digester (ironclad:make-digest :sha256))
@@ -29,6 +39,13 @@
         (%nprolog-fail condition-type "~A must resolve to an absolute path: ~A"
                        field resolved))
       resolved)))
+
+(defun %bridge-path ()
+  (let ((path (asdf:system-relative-pathname
+               :star-logic-adapter-nprolog
+               (concatenate 'string "prolog/" +star-logic-bridge-file-name+))))
+    (%absolute-existing-file path 'nprolog-bridge-unavailable-error
+                             "Bridge file")))
 
 (defun %collect-process-output (process)
   (let ((stdout (with-output-to-string (out)

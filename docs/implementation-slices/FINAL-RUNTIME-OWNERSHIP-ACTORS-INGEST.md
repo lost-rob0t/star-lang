@@ -124,7 +124,7 @@ exercise `star-logic-protocol`, `star-logic-ir` and `star-logic-adapter-swi`.
 See [the public package contract](../LANGUAGE-SUPPORT.md#installed-common-lispswi-host-package).
 
 The `star-logic-adapter-nprolog` system extends the same logic surface with
-N-Prolog process worker ownership (identity pinning, bounded handshake,
-shutdown/reaping). It adds no engine, scheduler, source tree or consumer
-service; its installed tests exercise the adapter against the Nix-pinned
-`npl` executable.
+N-Prolog process worker ownership (executable and bridge digest pinning,
+bounded handshake, lock-step loopback transport, shutdown/reaping). It adds
+no engine, scheduler, source tree or consumer service; its installed tests
+exercise the adapter against the Nix-pinned `npl` executable.

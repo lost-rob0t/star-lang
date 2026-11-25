@@ -2,12 +2,15 @@
 
 Final Common Lisp ownership for the N-Prolog worker boundary.
 
-This slice implements only worker ownership and process trust for the
-`n-prolog` logic backend kind: exact executable identity, plain-REPL process
-launch, a bounded startup-banner handshake, one canary exchange, health, and
-orderly shutdown/reaping. It deliberately does **not** implement query
-operations, fact mutation, portable value transport, proofs, cancellation
-escalation, or worker pooling/reset.
+This slice implements worker ownership and the trusted socket-bridge
+transport for the `n-prolog` logic backend kind: exact executable and bridge
+identity, plain-REPL process launch with the digest-pinned bridge file, a
+bounded startup-banner handshake, one canary exchange, a lock-step request/
+response wire over a loopback socket, health, and orderly shutdown/reaping.
+It deliberately does **not** implement query operations, fact mutation,
+portable value transport, proofs, cancellation escalation, or worker
+pooling/reset — descriptor semantic profiles and capabilities stay empty
+until later slices prove query semantics.
 
 ## Engine identity and provenance
 
@@ -20,39 +23,66 @@ system shares the name; the upstream is recorded in descriptor metadata
 discovers `npl` through ambient `PATH`. The path is resolved to its exact
 file, the version is obtained by launching that exact executable with `-v`,
 and `backendBuildId` is the SHA-256 digest of the resolved executable bytes.
-Under Nix the exact store executable is also retained in descriptor
-metadata.
+Before every session open, the adapter rechecks path, version pair, and both
+digests (executable and bridge). Any mismatch fails closed before a worker
+is spawned.
 
-Before every session open, the adapter rechecks path, version pair, and
-executable digest. Any mismatch fails closed before a worker is spawned.
+## Trusted bridge package identity
 
-## Process boundary
+The bridge file `prolog/star-logic-bridge.pl` is the only in-engine code
+this adapter owns. Its bytes are SHA-256 digest-pinned at backend
+construction and revalidated before every launch; sessions may pin the
+package explicitly (`star-logic-bridge` + digest) or open with the implicit
+bridge identity, and any other expectation fails closed. The bridge binds a
+loopback port chosen by the adapter (kernel-probed, with one retry for the
+probe-to-bind race) and speaks `star-logic-nprolog-bridge-1`.
+
+## Process and wire boundary
 
 The editable N-Prolog REPL is an ncurses line editor; only `-r` provides the
 plain stdin/stdout REPL loop. Workers therefore launch with exactly
-`("-r")` — no `-c`/`-s` startup files, no ambient configuration. Startup
-opens with the bounded `N-Prolog Ver X.Y [..M cells]` banner line, which
-must match the backend's `-v` version pair exactly. One canary goal
-(`true.`) must be answered with a standalone `yes` verdict before a session
-is open. Observed N-Prolog 5.20 output includes ANSI reset sequences even in
-plain REPL mode; bounded reads strip ANSI escapes before matching.
+`("-r" "-c" "./star-logic-bridge.pl")` in the bridge directory — the
+`./`-prefixed consult name resolves against the child's working directory,
+ahead of any `NPROLOG_HOME`/`HOME` fallback. Startup opens with the bounded
+`N-Prolog Ver X.Y [..M cells]` banner line (matched against the backend's
+`-v` version pair), one canary goal (`true.`), then the adapter drives the
+bridge-start goal and completes the wire handshake (`hello` →
+`star-logic-nprolog-bridge-1`).
 
-Shutdown writes `halt.` and requires exit status 0 within the bounded wait;
-otherwise the worker is killed, reaped, and the shutdown fails.
+Wire contract, verified against upstream `builtin.c`/`superset.c` (npl
+5.20):
+
+- `send_socket/2` writes exactly 256 bytes: payload, one NUL from `strcpy`,
+  then uninitialized stack padding. Frames are NUL-terminated; receivers
+  discard everything after the first NUL, and request payloads are bounded
+  at 255 UTF-8 bytes (an over-long atom would overflow the upstream buffer,
+  so the codec fails closed first).
+- `recv_socket/2` is one raw `read(2)`, so coalesced frames would lose data:
+  the protocol is strict lock-step — one request, one reply, no pipelining.
+- `create_server_socket/2` binds `INADDR_ANY` and blocks in `accept()`, and
+  never reports the bound port; the adapter probes a free loopback port,
+  passes it into the bridge goal, and connects within a bounded deadline.
+  The bind exposure window is the documented cost of this transport until
+  upstream grows a loopback-only or port-reporting socket primitive.
+
+Shutdown closes the bridge with a `quit` frame (which unblocks the engine's
+bridge loop and returns it to the REPL), then writes `halt.` and requires
+exit status 0 within the bounded wait; otherwise the worker is killed,
+reaped, and the shutdown fails.
 
 ## Descriptor honesty
 
-Like the SWI adapter foundation, semantic profiles and capabilities are
-empty: lifecycle/build conformance is not semantic query conformance. The
-backend stays out of `auto` selection until later slices prove actual
-query semantics. The adapter also publishes no trusted package identity:
-`open-logic-session` rejects any `package-id`/`package-digest` expectation.
+Lifecycle/build/transport conformance is not semantic query conformance.
+Semantic profiles and capabilities stay empty: the backend stays out of
+`auto` selection until later slices prove actual query semantics over this
+bridge.
 
 ## Deliberate non-goals (this slice)
 
 - no `solve`/`solutions`/`exists?`/`assert!`/`retract!`/`explain` operations
-- no portable-value encoding or wire protocol (a StarLang-owned line
-  protocol is the next slice, mirroring the MQI slice's trust posture)
+- no portable-value encoding: the wire carries protocol atoms only
+- no batch `-s` transport, no `compile_file/1` accelerator, no `-n` network
+  mode (roadmap: STARLANG-NPL-000)
 - no tabling, constraints, proofs, cancellation escalation, pooling/reset
 
 ## Tests

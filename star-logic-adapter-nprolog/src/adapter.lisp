@@ -6,6 +6,8 @@
   version-banner
   version-pair
   build-id
+  bridge-path
+  bridge-digest
   descriptor
   (sessions '()))
 
@@ -16,28 +18,36 @@
   (state :opening))
 
 (defun make-nprolog-backend (&key nprolog-executable)
-  "Create an N-Prolog backend pinned to one exact executable path.
+  "Create an N-Prolog backend pinned to one exact executable and one exact
+bridge file.
 
-There is deliberately no PATH lookup fallback. BUILD-ID is SHA-256 over the
-resolved executable bytes; under Nix the exact store executable is also
-retained in descriptor metadata."
+There is deliberately no PATH lookup fallback for either. BUILD-ID is
+SHA-256 over the resolved executable bytes; BRIDGE-DIGEST is SHA-256 over
+the shipped bridge file, which is the only in-engine code this adapter owns
+and the package identity its sessions publish. Under Nix the exact store
+executable is also retained in descriptor metadata."
   (multiple-value-bind (executable banner major minor version build-id)
       (%identify-executable nprolog-executable)
-    (let* ((backend
+    (let* ((bridge-path (%bridge-path))
+           (bridge-digest (%sha256-file bridge-path))
+           (backend
              (%make-nprolog-backend
               :executable executable
               :version version
               :version-banner banner
               :version-pair (list major minor)
-              :build-id build-id))
-            (descriptor
-              (make-logic-backend-descriptor
+              :build-id build-id
+              :bridge-path bridge-path
+              :bridge-digest bridge-digest))
+           (descriptor
+             (make-logic-backend-descriptor
                :id +logic-backend-n-prolog+
                :version version
                :build-id build-id
-               ;; Lifecycle/build conformance is not semantic query conformance.
-               ;; Empty profiles/capabilities keep this backend out of :auto
-               ;; until later slices prove those semantics.
+               ;; Lifecycle/build conformance is not semantic query
+               ;; conformance. Empty profiles/capabilities keep this backend
+               ;; out of :auto until query slices prove those semantics; the
+               ;; transport conformance of this slice does not change that.
                :semantic-profiles '()
                :capabilities '()
                :isolation-classes '("process")
@@ -50,35 +60,50 @@ retained in descriptor metadata."
                      :executable executable
                      :version-banner banner
                      :version-pair (list major minor)
-                     :repl-mode "plain"
-                     :launch-argv (copy-list +nprolog-repl-launch-argv+)))))
+                     :package-id +star-logic-bridge-package-id+
+                     :package-digest bridge-digest
+                     :bridge-path bridge-path
+                     :wire-protocol +star-logic-bridge-protocol+
+                     :transport "socket-bridge"
+                     :launch-argv (%nprolog-launch-argv)))))
       (setf (nprolog-backend-descriptor backend) descriptor)
       backend)))
 
 (defmethod logic-backend-descriptor-of ((backend nprolog-backend))
   (nprolog-backend-descriptor backend))
 
-;; This foundation slice publishes no trusted package identity: the plain REPL
-;; boundary has no protocol negotiation yet. Any package expectation fails
-;; closed instead of being silently ignored.
+;; Sessions may pin the bridge package explicitly, or open with the implicit
+;; bridge identity. Anything else fails closed: no silently ignored
+;; expectations.
 (defun %validate-package-expectation (backend package-id package-digest)
-  (declare (ignore backend))
-  (when (or package-id package-digest)
-    (%nprolog-fail 'nprolog-package-unsupported-error
-                   "This slice publishes no trusted N-Prolog package identity; session opens must not carry package expectations."))
-  t)
+  (let ((bridge-digest (nprolog-backend-bridge-digest backend)))
+    (cond
+      ((and (null package-id) (null package-digest)) t)
+      ((and (stringp package-id)
+            (string= package-id +star-logic-bridge-package-id+)
+            (stringp package-digest)
+            (string= package-digest bridge-digest)) t)
+      (t
+       (%nprolog-fail 'nprolog-package-mismatch-error
+                      "Package expectation ~S/~S does not match the pinned ~S bridge digest ~S."
+                      package-id package-digest
+                      +star-logic-bridge-package-id+ bridge-digest)))))
 
 (defun %validate-backend-identity (backend)
-  "Re-identify the exact executable immediately before worker launch."
+  "Re-identify the exact executable and bridge file immediately before
+worker launch."
   (multiple-value-bind (executable banner major minor version build-id)
       (%identify-executable (nprolog-backend-executable backend))
     (declare (ignore banner))
-    (unless (and (string= executable (nprolog-backend-executable backend))
-                 (equal (list major minor) (nprolog-backend-version-pair backend))
-                 (string= version (nprolog-backend-version backend))
-                 (string= build-id (nprolog-backend-build-id backend)))
-      (%nprolog-fail 'nprolog-backend-identity-mismatch-error
-                     "N-Prolog executable identity changed after backend construction.")))
+    (let ((bridge-path (%bridge-path))
+          (bridge-digest (%sha256-file bridge-path)))
+      (unless (and (string= executable (nprolog-backend-executable backend))
+                   (equal (list major minor) (nprolog-backend-version-pair backend))
+                   (string= version (nprolog-backend-version backend))
+                   (string= build-id (nprolog-backend-build-id backend))
+                   (string= bridge-digest (nprolog-backend-bridge-digest backend)))
+        (%nprolog-fail 'nprolog-backend-identity-mismatch-error
+                       "N-Prolog executable or bridge identity changed after backend construction."))))
   t)
 
 (defmethod open-logic-session ((backend nprolog-backend) session-id
@@ -95,8 +120,9 @@ retained in descriptor metadata."
           (setf (nprolog-session-worker session)
                 (%open-nprolog-worker
                  (nprolog-backend-executable backend)
-                 (nprolog-backend-version-pair backend))
-                (nprolog-session-state session) :open)
+                 (nprolog-backend-version-pair backend)
+                 (nprolog-backend-bridge-path backend)))
+          (setf (nprolog-session-state session) :open)
           (push session (nprolog-backend-sessions backend))
           session)
       (nprolog-adapter-error (cause)
@@ -127,10 +153,13 @@ retained in descriptor metadata."
 
 (defun %active-session-health (session)
   (let* ((worker (nprolog-session-worker session))
-         (process (and worker (nprolog-worker-process worker))))
+         (process (and worker (nprolog-worker-process worker)))
+         (stream (and worker (nprolog-worker-stream worker))))
     (list :session-id (nprolog-session-id session)
           :state (nprolog-session-state session)
-          :worker-alive (and process (process-alive-p process)))))
+          :worker-alive (and process (process-alive-p process))
+          :bridge-open (and stream (open-stream-p stream))
+          :bridge-port (and worker (nprolog-worker-port worker)))))
 
 (defmethod logic-backend-health ((backend nprolog-backend))
   (handler-case
@@ -142,7 +171,9 @@ retained in descriptor metadata."
                (identity-ok
                  (and (string= executable (nprolog-backend-executable backend))
                       (string= version (nprolog-backend-version backend))
-                      (string= build-id (nprolog-backend-build-id backend))))
+                      (string= build-id (nprolog-backend-build-id backend))
+                      (string= (%sha256-file (nprolog-backend-bridge-path backend))
+                               (nprolog-backend-bridge-digest backend))))
                (workers-ok
                  (every (lambda (entry) (getf entry :worker-alive)) sessions)))
           (list :status (if (and identity-ok workers-ok) :usable :unusable)
@@ -151,6 +182,7 @@ retained in descriptor metadata."
                 :backend-build-id (nprolog-backend-build-id backend)
                 :adapter-version +nprolog-adapter-version+
                 :executable (nprolog-backend-executable backend)
+                :bridge-digest (nprolog-backend-bridge-digest backend)
                 :isolation "process"
                 :active-sessions (length sessions)
                 :sessions sessions)))

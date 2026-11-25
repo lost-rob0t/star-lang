@@ -8,12 +8,17 @@
     (nprolog-adapter-error starlogicprotocol:logic-session-error) ())
 
 (define-condition nprolog-executable-unavailable-error (nprolog-adapter-error) ())
+(define-condition nprolog-bridge-unavailable-error (nprolog-adapter-error) ())
 (define-condition nprolog-worker-launch-error (nprolog-session-error) ())
 (define-condition nprolog-worker-exited-during-startup-error (nprolog-session-error) ())
 (define-condition nprolog-malformed-startup-data-error (nprolog-session-error) ())
 (define-condition nprolog-backend-identity-mismatch-error (nprolog-session-error) ())
-(define-condition nprolog-package-unsupported-error (nprolog-session-error) ())
+(define-condition nprolog-package-mismatch-error (nprolog-session-error) ())
 (define-condition nprolog-handshake-error (nprolog-session-error) ())
+(define-condition nprolog-bridge-port-error (nprolog-session-error) ())
+(define-condition nprolog-bridge-wire-error (nprolog-session-error) ())
+(define-condition nprolog-bridge-handshake-error (nprolog-session-error) ())
+(define-condition nprolog-request-too-large-error (nprolog-session-error) ())
 (define-condition nprolog-canary-failure-error (nprolog-session-error) ())
 (define-condition nprolog-shutdown-failure-error (nprolog-session-error) ())
 

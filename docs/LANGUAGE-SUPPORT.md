@@ -60,13 +60,14 @@ canonical server persistence. See [the adapter contract](../star-logic-adapter-s
 ## Bounded N-Prolog worker ownership
 
 `star-logic-adapter-nprolog` owns a Common Lisp process worker boundary for the
-`n-prolog` logic backend kind: exact executable identity, plain-REPL worker
-launch, a bounded startup handshake with one canary exchange, health and
-orderly shutdown. It publishes no query operations and no trusted package
-identity; descriptor profiles/capabilities stay empty until later slices prove
-query semantics. This does not claim query conformance, a Kotlin engine
-adapter, a new generated language model, RPC/actor integration or canonical
-server persistence. See [the adapter contract](../star-logic-adapter-nprolog/README.md).
+`n-prolog` logic backend kind: exact executable and bridge identity, plain-REPL
+worker launch with a digest-pinned bridge file, a bounded startup handshake
+with one canary exchange, a lock-step request/response loopback transport, and
+orderly shutdown. The bridge file is the adapter's single trusted package
+identity. It publishes no query operations; descriptor profiles/capabilities
+stay empty until later slices prove query semantics. This does not claim
+query conformance, a Kotlin engine adapter, a new generated language model,
+RPC/actor integration or canonical server persistence. See [the adapter contract](../star-logic-adapter-nprolog/README.md).
 
 
 ## Installed Common Lisp/SWI host package

@@ -2,15 +2,23 @@
 
 (defparameter +max-nprolog-startup-line-chars+ 4096)
 (defparameter +max-nprolog-canary-chars+ 4096)
-
-;; The editable N-Prolog REPL is an ncurses line editor; only -r gives the
-;; plain stdin/stdout REPL loop that a machine boundary can own.
-(defparameter +nprolog-repl-launch-argv+ '("-r"))
+(defparameter +nprolog-bridge-connect-timeout+ 5.0d0)
+(defparameter +nprolog-bridge-connect-attempts+ 2)
 (defparameter +nprolog-canary-goal+ "true.")
 (defparameter +nprolog-halt-goal+ "halt.")
 
+;; The editable N-Prolog REPL is an ncurses line editor; only -r gives the
+;; plain stdin/stdout REPL loop that a machine boundary can own. -c consults
+;; the digest-pinned bridge file (./-prefixed names resolve relative to the
+;; child's working directory, which the adapter pins to the bridge directory).
+(defun %nprolog-launch-argv ()
+  (list "-r" "-c" +star-logic-bridge-consult-name+))
+
 (defstruct (nprolog-worker (:constructor %make-nprolog-worker))
   process
+  socket
+  stream
+  (port nil)
   (state :starting))
 
 (defvar *last-owned-process* nil)
@@ -137,8 +145,67 @@
                      banner expected-pair executable)))
   t)
 
-(defun %open-nprolog-worker (executable expected-pair)
-  (let ((process (ignore-errors (launch-process executable +nprolog-repl-launch-argv+))))
+(defun %connect-bridge (worker port)
+  "Connect to the bridge endpoint, retrying until the deadline.
+
+create_server_socket/2 binds after engine init, so early connection-refused
+errors are normal startup lag, not bind failures; only the deadline decides."
+  (let ((deadline (%monotonic-deadline +nprolog-bridge-connect-timeout+))
+        (process (nprolog-worker-process worker))
+        (last-error nil))
+    (loop
+      (unless (process-alive-p process)
+        (%nprolog-fail-diagnostic
+         'nprolog-worker-exited-during-startup-error
+         (%bounded-diagnostic last-error)
+         "N-Prolog worker exited before its bridge endpoint accepted a connection."))
+      (handler-case
+          (return
+            (usocket:socket-connect "127.0.0.1" port
+                                    :element-type '(unsigned-byte 8)
+                                    :timeout 1))
+        (error (cause)
+          (setf last-error cause)))
+      (when (>= (get-internal-real-time) deadline)
+        (%nprolog-fail-diagnostic
+         'nprolog-bridge-port-error
+         (%bounded-diagnostic last-error)
+         "Could not connect to the N-Prolog bridge endpoint on port ~D." port))
+      (sleep 0.01d0))))
+
+(defun %start-bridge-endpoint (worker)
+  "Open the bridge endpoint: probe a free port, drive the worker into
+create_server_socket/2 with a bridge-start goal, connect, and handshake.
+One retry with a fresh port covers the probe-to-bind race."
+  (loop
+    with attempts-left = +nprolog-bridge-connect-attempts+
+    do
+       (let ((port (%probe-free-loopback-port)))
+         (let ((stdin (process-stdin (nprolog-worker-process worker))))
+           (format stdin "star_logic_bridge_start(~D).~%" port)
+           (finish-output stdin))
+         (handler-case
+             (let* ((socket (%connect-bridge worker port))
+                    (stream (usocket:socket-stream socket)))
+               (%bridge-handshake stream (nprolog-worker-process worker))
+               (setf (nprolog-worker-socket worker) socket
+                     (nprolog-worker-stream worker) stream
+                     (nprolog-worker-port worker) port
+                     (nprolog-worker-state worker) :bridge-ready)
+               (return worker))
+           (nprolog-bridge-port-error (cause)
+             (decf attempts-left)
+             (when (<= attempts-left 0)
+               (error cause))
+             ;; The bind likely lost the probe race; the goal has failed and
+             ;; the worker is back at the REPL, ready for a fresh port.
+             )))))
+
+(defun %open-nprolog-worker (executable expected-pair bridge-file-path)
+  (let ((process (ignore-errors
+                  (launch-process executable (%nprolog-launch-argv)
+                                  :directory (uiop:pathname-directory-pathname
+                                              bridge-file-path)))))
     (unless process
       (%nprolog-fail 'nprolog-worker-launch-error
                      "Could not launch exact N-Prolog executable ~A." executable))
@@ -152,16 +219,36 @@
               (format stdin "~A~%" +nprolog-canary-goal+)
               (finish-output stdin))
             (%await-canary-confirmation process)
-            (setf (nprolog-worker-state worker) :started)
+            (%start-bridge-endpoint worker)
             worker)
         (nprolog-adapter-error (cause)
           (ignore-errors (kill-process process))
           (ignore-errors (dispose-process process))
           (error cause))))))
 
+(defun %close-bridge-endpoint (worker)
+  "Close the bridge from the adapter side and let the engine return to the
+REPL. The wire quit must precede the halt goal so the bridge loop unblocks."
+  (let ((stream (nprolog-worker-stream worker)))
+    (when stream
+      (handler-case
+          (progn
+            (%write-bridge-frame stream "quit")
+            (sleep 0.05d0))
+        (nprolog-adapter-error ()
+          nil)))
+    (let ((socket (nprolog-worker-socket worker)))
+      (when socket
+        (ignore-errors (usocket:socket-close socket))))
+    (setf (nprolog-worker-socket worker) nil
+          (nprolog-worker-stream worker) nil
+          (nprolog-worker-port worker) nil))
+  t)
+
 (defun %orderly-shutdown-worker (worker)
   (let ((process (nprolog-worker-process worker)))
     (setf (nprolog-worker-state worker) :stopping)
+    (%close-bridge-endpoint worker)
     (when (and process (process-alive-p process))
       (let ((stdin (process-stdin process)))
         (format stdin "~A~%" +nprolog-halt-goal+)
