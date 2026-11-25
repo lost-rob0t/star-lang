@@ -19,6 +19,29 @@
         lib = pkgs.lib;
         swipl = pkgs.swi-prolog;
 
+        # N-Prolog (sasagawa888/nprolog) pinned for the n-prolog adapter's real
+        # integration gates. Upstream builds with gcc; ncurses headers are
+        # required at build time (compat/term_stubs.h) even though the npl
+        # binary itself runs the plain REPL.
+        nprolog = pkgs.stdenv.mkDerivation {
+          pname = "nprolog";
+          version = "5.20";
+          src = pkgs.fetchFromGitHub {
+            owner = "sasagawa888";
+            repo = "nprolog";
+            rev = "13d43e0c1b084d736ba15d26f1da085f00224b93";
+            hash = "sha256-8+GWpfmhkIXlUg67kZPb1jp2iHnmnvbShtlokFELWUg=";
+          };
+          buildInputs = [ pkgs.ncurses ];
+          dontConfigure = true;
+          buildPhase = ''
+            make npl
+          '';
+          installPhase = ''
+            install -Dm755 npl $out/bin/npl
+          '';
+        };
+
         # The nixpkgs Common Lisp snapshot predates Sento's current remoting
         # stack. Keep the pinned backend closure in one focused module.
         sentoRemoting = import ./nix/sento-remoting.nix { inherit pkgs; };
@@ -42,6 +65,7 @@
           nativeBuildInputs = [
             sbcl
             swipl
+            nprolog
             (pkgs.python3.withPackages (ps: [ ps.jsonschema ]))
           ];
 
@@ -56,6 +80,7 @@
             # ASDF inheritance marker; do not add a second trailing colon here.
             export CL_SOURCE_REGISTRY="$PWD//"
             export STARLANG_SWI_EXECUTABLE="${swipl}/bin/swipl"
+            export STARLANG_NPROLOG_EXECUTABLE="${nprolog}/bin/npl"
 
             sbcl --non-interactive \
               --eval '(require :asdf)' \
@@ -88,6 +113,7 @@
             mkdir -p "$HOME"
             export CL_SOURCE_REGISTRY="$source_root//"
             export STARLANG_SWI_EXECUTABLE="${swipl}/bin/swipl"
+            export STARLANG_NPROLOG_EXECUTABLE="${nprolog}/bin/npl"
 
             sbcl --non-interactive \
               --eval '(require :asdf)' \
@@ -107,6 +133,7 @@
               --eval '(asdf:test-system :star-logic-ir)' \
               --eval '(asdf:test-system :starlang-compiler)' \
               --eval '(asdf:test-system :starlang-cli)' \
+              --eval '(asdf:test-system :star-logic-adapter-nprolog)' \
               --eval '(asdf:test-system :star-logic-adapter-swi)' \
               --eval '(assert (null (find-package "STAR-LANG.PROTOTYPE")))' \
               --eval '(asdf:test-system :starlang-prototype)' \
@@ -204,6 +231,7 @@
             ${pkgs.coreutils}/bin/mkdir -p "\$HOME"
             export CL_SOURCE_REGISTRY="\$source_root//"
             export STARLANG_SWI_EXECUTABLE="${swipl}/bin/swipl"
+            export STARLANG_NPROLOG_EXECUTABLE="${nprolog}/bin/npl"
             cd "\$test_root"
 
             ${sbcl}/bin/sbcl --non-interactive \
@@ -224,6 +252,7 @@
               --eval '(asdf:test-system :star-logic-ir)' \
               --eval '(asdf:test-system :starlang-compiler)' \
               --eval '(asdf:test-system :starlang-cli)' \
+              --eval '(asdf:test-system :star-logic-adapter-nprolog)' \
               --eval '(asdf:test-system :star-logic-adapter-swi)' \
               --eval '(assert (null (find-package "STAR-LANG.PROTOTYPE")))' \
               --eval '(asdf:test-system :starlang-prototype)' \
@@ -324,6 +353,7 @@
           packages = [
             sbcl
             swipl
+            nprolog
             pkgs.git
             pkgs.python3
           ] ++ lib.optional (pkgs ? roswell) pkgs.roswell;
@@ -331,8 +361,10 @@
           shellHook = ''
             export CL_SOURCE_REGISTRY="$PWD//"
             export STARLANG_SWI_EXECUTABLE="${swipl}/bin/swipl"
+            export STARLANG_NPROLOG_EXECUTABLE="${nprolog}/bin/npl"
             echo "star-lang dev shell: $(sbcl --version)"
             echo "SWI: $($STARLANG_SWI_EXECUTABLE --version)"
+            echo "N-Prolog: $($STARLANG_NPROLOG_EXECUTABLE -v)"
             echo "Build: nix build"
             echo "Run: nix run"
             echo "Test: nix run .#tests"

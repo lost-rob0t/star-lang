@@ -57,6 +57,17 @@ limits and process cleanup. This does not claim general query conformance, a
 Kotlin engine adapter, a new generated language model, RPC/actor integration or
 canonical server persistence. See [the adapter contract](../star-logic-adapter-swi/README.md).
 
+## Bounded N-Prolog worker ownership
+
+`star-logic-adapter-nprolog` owns a Common Lisp process worker boundary for the
+`n-prolog` logic backend kind: exact executable identity, plain-REPL worker
+launch, a bounded startup handshake with one canary exchange, health and
+orderly shutdown. It publishes no query operations and no trusted package
+identity; descriptor profiles/capabilities stay empty until later slices prove
+query semantics. This does not claim query conformance, a Kotlin engine
+adapter, a new generated language model, RPC/actor integration or canonical
+server persistence. See [the adapter contract](../star-logic-adapter-nprolog/README.md).
+
 
 ## Installed Common Lisp/SWI host package
 
